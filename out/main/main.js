@@ -155,7 +155,7 @@ ipcMain.handle("db:search", async (_event, query) => {
       SELECT id, name, synonyms 
       FROM chemicals 
       WHERE name LIKE ? OR synonyms LIKE ?
-      LIMIT 50
+      ORDER BY name COLLATE NOCASE
     `;
     const results = db.exec(sql, [`%${query}%`, `%${query}%`]);
     if (results.length === 0) {

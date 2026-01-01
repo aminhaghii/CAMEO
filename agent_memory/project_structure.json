@@ -1,70 +1,279 @@
 {
-  "project_info": {
-    "name": "CAMEO",
-    "type": "Chemical Safety Platform",
+  "last_updated": "2026-01-01T17:30:00+03:30",
+  "agent_protocol_version": "3.0",
+  "project": {
+    "name": "CAMEO Chemicals",
+    "type": "Flask Backend + React Frontend",
     "description": "Enterprise-grade HSE Dashboard for chemical compatibility analysis",
+    "primary_language": ["Python", "TypeScript"],
     "repository": "git@github.com:behnoodghza-design/CAMEO.git",
-    "last_commit": "ef6df8f - Fix 404 Error - Add Root Route"
+    "last_commit": "ef6df8f - Fix 404 Error - Add Root Route",
+    "branch": "main"
   },
-  "architecture": {
+  "structure": {
     "backend": {
-      "framework": "Flask",
-      "main_file": "backend/app.py",
-      "api_endpoints": [
-        "/api/search",
-        "/api/analyze",
-        "/api/reactivity/stats",
-        "/api/reactive-groups",
-        "/mixer"
-      ],
-      "database": {
-        "type": "SQLite",
-        "files": ["chemicals.db", "user.db"],
-        "location": "backend/data/"
+      "app.py": {
+        "role": "Flask main application",
+        "routes": [
+          {"path": "/", "method": "GET", "handler": "index()"},
+          {"path": "/mixer", "method": "GET", "handler": "mixer_page()"},
+          {"path": "/api/search", "method": "GET", "handler": "search()"},
+          {"path": "/api/chemical/<id>", "method": "GET", "handler": "get_chemical()"},
+          {"path": "/api/analyze", "method": "POST", "handler": "analyze_chemicals()", "safety_critical": true},
+          {"path": "/api/reactivity/stats", "method": "GET", "handler": "get_reactivity_stats()"},
+          {"path": "/api/reactive-groups", "method": "GET", "handler": "get_reactive_groups()"},
+          {"path": "/api/favorites", "method": "GET", "handler": "get_favorites()"},
+          {"path": "/api/favorites", "method": "POST", "handler": "add_favorite()"},
+          {"path": "/api/favorites/<id>", "method": "DELETE", "handler": "remove_favorite()"}
+        ],
+        "dependencies": [
+          "logic/reactivity_engine.py",
+          "logic/constants.py",
+          "data/chemicals.db",
+          "data/user.db"
+        ],
+        "last_modified": "2026-01-01",
+        "change_frequency": "high",
+        "business_criticality": "HIGH"
+      },
+      "logic/reactivity_engine.py": {
+        "role": "⚠️ SAFETY-CRITICAL: Core chemical reactivity analysis engine",
+        "public_classes": ["ReactivityEngine", "MatrixResult", "CriticalPair", "CompatibilityCell"],
+        "key_methods": [
+          "analyze(chemical_ids, include_water_check)",
+          "get_statistics()",
+          "_analyze_pair(group1_id, group2_id)",
+          "_save_audit_log(analysis_data)"
+        ],
+        "safety_critical": true,
+        "dependencies": ["logic/constants.py", "sqlite3"],
+        "consumers": ["app.py"],
+        "last_modified": "2025-12-28",
+        "algorithm": "Cartesian Product + Worst-Case Aggregation",
+        "business_criticality": "CRITICAL"
+      },
+      "logic/constants.py": {
+        "role": "Compatibility enums and mappings",
+        "exports": [
+          "Compatibility enum (C, I-C, I, N)",
+          "HazardCode enum",
+          "COMPATIBILITY_MAP",
+          "CompatibilityInfo dataclass"
+        ],
+        "last_modified": "2025-12-20",
+        "consumers": ["app.py", "logic/reactivity_engine.py"],
+        "business_criticality": "HIGH"
+      },
+      "templates/mixer.html": {
+        "role": "Chemical compatibility interface with Alpine.js interactivity",
+        "template_engine": "Jinja2",
+        "javascript_framework": "Alpine.js",
+        "css_framework": "Tailwind CSS",
+        "extends": "templates/base.html",
+        "api_endpoints_used": ["/api/search", "/api/analyze", "/api/reactivity/stats"],
+        "last_modified": "2026-01-01",
+        "ui_features": [
+          "Chemical search with autocomplete",
+          "Mixing bench with smart tags",
+          "Interactive compatibility matrix",
+          "Modal dialog for hazard details"
+        ],
+        "business_criticality": "HIGH"
+      },
+      "templates/base.html": {
+        "role": "Base template with navigation and styling",
+        "template_engine": "Jinja2",
+        "css_framework": "Tailwind CSS v3.4 (CDN)",
+        "javascript_framework": "Alpine.js v3.x (CDN)",
+        "fonts": ["Inter (Google Fonts)"],
+        "extended_by": ["templates/mixer.html"],
+        "last_modified": "2026-01-01",
+        "business_criticality": "MEDIUM"
+      },
+      "data/": {
+        "chemicals.db": {
+          "type": "SQLite database",
+          "mode": "READ_ONLY",
+          "size_mb": 31.8,
+          "tables": ["chemicals", "reacts", "chemical_reactive_groups", "reactivity_rules", "unnas", "unna_cfr49s"],
+          "row_count": 32000,
+          "access_pattern": "Read-heavy, no writes",
+          "consumers": ["app.py:search()", "logic/reactivity_engine.py:analyze()"],
+          "business_criticality": "CRITICAL"
+        },
+        "user.db": {
+          "type": "SQLite database", 
+          "mode": "READ_WRITE",
+          "size_mb": 0.012,
+          "tables": ["favorites"],
+          "access_pattern": "Low-frequency writes, favorites management",
+          "consumers": ["app.py:favorites routes"],
+          "business_criticality": "LOW"
+        }
       }
     },
-    "frontend": {
-      "framework": "React",
-      "main_file": "src/App.tsx",
-      "ui_framework": "Tailwind CSS + Alpine.js",
-      "build_tool": "Vite"
+    "src": {
+      "App.tsx": {
+        "role": "Main React application entry point",
+        "framework": "React 18.3",
+        "typescript": true,
+        "dependencies": ["services/ChemicalSearchService.ts", "types/index.ts"],
+        "routing": "React Router DOM v7",
+        "last_modified": "2025-12-15",
+        "business_criticality": "HIGH"
+      },
+      "services/": {
+        "ChemicalSearchService.ts": {
+          "role": "Frontend API client for chemical data",
+          "api_endpoints_used": ["/api/search", "/api/chemical/<id>", "/api/favorites"],
+          "methods": ["searchChemicals()", "getChemicalDetails()", "getFavorites()"],
+          "consumers": ["App.tsx", "components/SearchResults.tsx"],
+          "last_modified": "2025-12-15",
+          "business_criticality": "HIGH"
+        }
+      },
+      "types/": {
+        "index.ts": {
+          "role": "Shared TypeScript interfaces and types",
+          "exports": ["Chemical", "ChemicalSummary", "SearchResult", "Favorite"],
+          "consumers": ["App.tsx", "services/ChemicalSearchService.ts"],
+          "last_modified": "2025-12-10",
+          "business_criticality": "MEDIUM"
+        }
+      }
+    },
+    "config_files": {
+      "vite.config.ts": {
+        "role": "Vite build tool configuration",
+        "plugins": ["@vitejs/plugin-react", "vite-plugin-static-copy"],
+        "proxy_target": "http://localhost:5000",
+        "path_aliases": {"@/*": "src/*"},
+        "consumers": ["npm run dev", "npm run build"],
+        "business_criticality": "HIGH"
+      },
+      "package.json": {
+        "role": "NPM project configuration and dependencies",
+        "dependencies_count": 8,
+        "dev_dependencies_count": 8,
+        "scripts": ["dev", "build", "preview", "typecheck"],
+        "business_criticality": "CRITICAL"
+      },
+      "tailwind.config.js": {
+        "role": "Tailwind CSS configuration",
+        "content_paths": ["index.html", "src/**/*.{js,ts,jsx,tsx}", "backend/templates/**/*.html"],
+        "consumers": ["PostCSS build process"],
+        "business_criticality": "MEDIUM"
+      },
+      "tsconfig.json": {
+        "role": "TypeScript compiler configuration",
+        "target": "ES2022",
+        "module": "ESNext",
+        "jsx": "react-jsx",
+        "includes": ["src", "vite.config.ts"],
+        "business_criticality": "HIGH"
+      }
+    }
+  },
+  "agent_memory_system": {
+    "README.md": {
+      "role": "Project context and memory usage guidelines",
+      "last_modified": "2026-01-01"
+    },
+    "api_registry.json": {
+      "role": "Complete Flask endpoint documentation with schemas",
+      "endpoints_documented": 11,
+      "safety_critical_endpoints": 1,
+      "last_modified": "2026-01-01"
+    },
+    "database_schema.json": {
+      "role": "SQLite database structure documentation",
+      "databases_documented": 2,
+      "tables_documented": 13,
+      "last_modified": "2026-01-01"
+    },
+    "dependency_graph.json": {
+      "role": "Bidirectional dependency mapping",
+      "components_mapped": 15,
+      "critical_paths_identified": 2,
+      "last_modified": "2026-01-01"
+    },
+    "technology_stack.json": {
+      "role": "Complete tech stack with versions",
+      "technologies_documented": 25,
+      "last_modified": "2026-01-01"
+    },
+    "history/": {
+      "role": "Daily change tracking",
+      "format": "YYYY-MM-DD.md",
+      "current_entries": 1
     }
   },
   "key_features": {
-    "chemical_search": "Search chemicals by name/synonyms",
-    "compatibility_matrix": "Interactive compatibility analysis",
-    "reactivity_engine": "Worst-case aggregation + hazard detection",
-    "enterprise_ui": "Clean Industrial aesthetic design"
+    "chemical_search": {
+      "description": "Search chemicals by name/synonyms",
+      "implementation": "backend/app.py:search()",
+      "frontend": "templates/mixer.html (Alpine.js)",
+      "database_tables": ["chemicals"]
+    },
+    "compatibility_matrix": {
+      "description": "Interactive compatibility analysis",
+      "implementation": "backend/logic/reactivity_engine.py",
+      "frontend": "templates/mixer.html (compatibility matrix UI)",
+      "database_tables": ["reactivity_rules", "chemical_reactive_groups"],
+      "safety_critical": true
+    },
+    "reactivity_engine": {
+      "description": "Worst-case aggregation + hazard detection",
+      "algorithm": "Cartesian Product analysis",
+      "implementation": "backend/logic/reactivity_engine.py:analyze()",
+      "safety_critical": true
+    },
+    "enterprise_ui": {
+      "description": "Clean Industrial aesthetic design",
+      "implementation": "templates/base.html + mixer.html",
+      "frameworks": ["Tailwind CSS", "Alpine.js"],
+      "features": ["Sticky headers", "Crosshair hover", "Modal dialogs"]
+    }
   },
-  "critical_files": {
-    "backend": [
-      "backend/app.py",
-      "backend/logic/reactivity_engine.py",
-      "backend/logic/constants.py",
-      "backend/templates/mixer.html",
-      "backend/templates/base.html"
-    ],
-    "frontend": [
-      "src/App.tsx",
-      "src/services/ChemicalSearchService.ts",
-      "src/types/index.ts",
-      "vite.config.ts"
-    ],
-    "data": [
-      "backend/data/chemicals.db",
-      "backend/data/user.db"
-    ]
-  },
+  "critical_paths": [
+    {
+      "path": "Chemical Compatibility Analysis",
+      "flow": "mixer.html -> /api/analyze -> ReactivityEngine.analyze() -> Database Query",
+      "safety_critical": true,
+      "components": ["templates/mixer.html", "backend/app.py", "backend/logic/reactivity_engine.py", "backend/data/chemicals.db"]
+    },
+    {
+      "path": "Chemical Search",
+      "flow": "mixer.html -> /api/search -> Database Query -> Results Display",
+      "safety_critical": false,
+      "components": ["templates/mixer.html", "backend/app.py", "backend/data/chemicals.db"]
+    }
+  ],
   "recent_changes": [
     {
       "date": "2026-01-01",
-      "description": "Enterprise UI Overhaul - World-Class HSE Dashboard",
-      "impact": "Complete UI redesign with Tailwind CSS and Alpine.js"
+      "description": "Agent Memory System v3.0 Implementation",
+      "impact": "Complete memory protocol with JSON documentation system",
+      "files_added": 9,
+      "directories_created": 5
+    },
+    {
+      "date": "2026-01-01",
+      "description": "Desktop/Electron Cleanup",
+      "impact": "Removed legacy exe-archive, out/ directories, updated tests",
+      "files_removed": 12
+    },
+    {
+      "date": "2026-01-01",
+      "description": "Enterprise UI Overhaul - World-Class HSE Dashboard", 
+      "impact": "Complete UI redesign with Tailwind CSS and Alpine.js",
+      "templates_modified": ["base.html", "mixer.html"]
     },
     {
       "date": "2026-01-01",
       "description": "Fix 404 Error - Add Root Route",
-      "impact": "Added root route handling"
+      "impact": "Added root route handling for main application access",
+      "routes_added": ["/", "/mixer"]
     }
   ]
 }

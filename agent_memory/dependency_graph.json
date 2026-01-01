@@ -1,0 +1,447 @@
+{
+  "last_updated": "2026-01-01T17:30:00+03:30",
+  "agent_protocol_version": "3.0",
+  "graph": {
+    "backend/app.py": {
+      "type": "flask_application",
+      "role": "Main Flask application server",
+      "python_imports": [
+        "os",
+        "sqlite3", 
+        "logging",
+        "flask.Flask",
+        "flask.jsonify",
+        "flask.request",
+        "flask.render_template",
+        "flask_cors.CORS"
+      ],
+      "internal_imports": [
+        "logic.reactivity_engine.ReactivityEngine",
+        "logic.constants.Compatibility",
+        "logic.constants.COMPATIBILITY_MAP"
+      ],
+      "file_dependencies": [
+        "backend/logic/reactivity_engine.py",
+        "backend/logic/constants.py"
+      ],
+      "data_dependencies": [
+        "backend/data/chemicals.db",
+        "backend/data/user.db"
+      ],
+      "template_dependencies": [
+        "backend/templates/mixer.html",
+        "backend/templates/base.html"
+      ],
+      "provides_endpoints": [
+        "GET /",
+        "GET /mixer", 
+        "GET /api/search",
+        "GET /api/chemical/<id>",
+        "POST /api/analyze",
+        "GET /api/reactivity/stats",
+        "GET /api/reactive-groups",
+        "GET /api/favorites",
+        "POST /api/favorites", 
+        "DELETE /api/favorites/<id>"
+      ],
+      "consumed_by": [
+        "src/services/ChemicalSearchService.ts",
+        "src/services/ReactivityService.ts",
+        "browser clients accessing /mixer route"
+      ],
+      "business_criticality": "HIGH",
+      "safety_critical_endpoints": [
+        "POST /api/analyze"
+      ]
+    },
+    "backend/logic/reactivity_engine.py": {
+      "type": "business_logic",
+      "role": "⚠️ SAFETY-CRITICAL: Core chemical compatibility analysis engine",
+      "safety_critical": true,
+      "python_imports": [
+        "sqlite3",
+        "typing.List",
+        "typing.Tuple", 
+        "typing.Optional",
+        "dataclasses.dataclass",
+        "datetime.datetime",
+        "uuid.uuid4"
+      ],
+      "internal_imports": [
+        "logic.constants.Compatibility",
+        "logic.constants.COMPATIBILITY_MAP",
+        "logic.constants.HazardCode"
+      ],
+      "file_dependencies": [
+        "backend/logic/constants.py"
+      ],
+      "data_dependencies": [
+        "backend/data/chemicals.db"
+      ],
+      "provides_classes": [
+        "ReactivityEngine",
+        "MatrixResult", 
+        "CriticalPair",
+        "CompatibilityCell"
+      ],
+      "provides_methods": [
+        "ReactivityEngine.analyze()",
+        "ReactivityEngine.get_statistics()",
+        "ReactivityEngine._analyze_pair()",
+        "ReactivityEngine._save_audit_log()"
+      ],
+      "used_by": [
+        "backend/app.py"
+      ],
+      "business_criticality": "CRITICAL",
+      "algorithm": "Cartesian Product + Worst-Case Aggregation"
+    },
+    "backend/logic/constants.py": {
+      "type": "constants_module",
+      "role": "Compatibility enums and mappings", 
+      "python_imports": [
+        "enum.Enum",
+        "dataclasses.dataclass"
+      ],
+      "internal_imports": [],
+      "file_dependencies": [],
+      "data_dependencies": [],
+      "provides_enums": [
+        "Compatibility",
+        "HazardCode"
+      ],
+      "provides_constants": [
+        "COMPATIBILITY_MAP",
+        "WATER_GROUP_ID",
+        "AIR_GROUP_ID",
+        "DB_COMPATIBILITY_MAP"
+      ],
+      "provides_dataclasses": [
+        "CompatibilityInfo"
+      ],
+      "used_by": [
+        "backend/app.py",
+        "backend/logic/reactivity_engine.py"
+      ],
+      "business_criticality": "HIGH"
+    },
+    "backend/templates/mixer.html": {
+      "type": "jinja2_template",
+      "role": "Main chemical compatibility interface",
+      "template_dependencies": [
+        "backend/templates/base.html"
+      ],
+      "javascript_dependencies": [
+        "Alpine.js (CDN)",
+        "Tailwind CSS (CDN)"
+      ],
+      "api_calls": [
+        "GET /api/search",
+        "POST /api/analyze",
+        "GET /api/reactivity/stats"
+      ],
+      "used_by_routes": [
+        "backend/app.py:index()",
+        "backend/app.py:mixer_page()"
+      ],
+      "ui_framework": "Alpine.js + Tailwind CSS",
+      "business_criticality": "HIGH"
+    },
+    "backend/templates/base.html": {
+      "type": "jinja2_template",
+      "role": "Base template with navigation and styling",
+      "template_dependencies": [],
+      "css_frameworks": [
+        "Tailwind CSS v3.4 (CDN)",
+        "Inter font (Google Fonts)"
+      ],
+      "javascript_frameworks": [
+        "Alpine.js v3.x (CDN)"
+      ],
+      "extended_by": [
+        "backend/templates/mixer.html"
+      ],
+      "business_criticality": "MEDIUM"
+    },
+    "src/App.tsx": {
+      "type": "react_component",
+      "role": "Main React application entry point",
+      "typescript_imports": [
+        "react.useState",
+        "react.useEffect",
+        "react-router-dom.BrowserRouter",
+        "react-router-dom.Routes",
+        "react-router-dom.Route"
+      ],
+      "internal_imports": [
+        "./services/ChemicalSearchService",
+        "./components/SearchResults",
+        "./components/ChemicalDetail",
+        "./types/index"
+      ],
+      "file_dependencies": [
+        "src/services/ChemicalSearchService.ts",
+        "src/components/SearchResults.tsx",
+        "src/components/ChemicalDetail.tsx",
+        "src/types/index.ts"
+      ],
+      "data_dependencies": [],
+      "api_calls": [],
+      "used_by": [
+        "index.html (Vite entry point)"
+      ],
+      "business_criticality": "HIGH"
+    },
+    "src/services/ChemicalSearchService.ts": {
+      "type": "api_client",
+      "role": "Frontend API client for chemical data",
+      "typescript_imports": [
+        "../types/index"
+      ],
+      "internal_imports": [
+        "src/types/index.ts"
+      ],
+      "file_dependencies": [
+        "src/types/index.ts"
+      ],
+      "data_dependencies": [],
+      "api_calls": [
+        "GET /api/search",
+        "GET /api/chemical/<id>",
+        "GET /api/favorites",
+        "POST /api/favorites",
+        "DELETE /api/favorites/<id>"
+      ],
+      "provides_methods": [
+        "searchChemicals()",
+        "getChemicalDetails()",
+        "getFavorites()",
+        "addFavorite()",
+        "removeFavorite()"
+      ],
+      "used_by": [
+        "src/App.tsx",
+        "src/components/SearchResults.tsx",
+        "src/components/ChemicalDetail.tsx"
+      ],
+      "business_criticality": "HIGH"
+    },
+    "src/types/index.ts": {
+      "type": "typescript_types",
+      "role": "Shared TypeScript interfaces and types",
+      "typescript_imports": [],
+      "internal_imports": [],
+      "file_dependencies": [],
+      "data_dependencies": [],
+      "provides_interfaces": [
+        "Chemical",
+        "ChemicalSummary", 
+        "SearchResult",
+        "Favorite"
+      ],
+      "used_by": [
+        "src/App.tsx",
+        "src/services/ChemicalSearchService.ts",
+        "src/components/*.tsx"
+      ],
+      "business_criticality": "MEDIUM"
+    },
+    "vite.config.ts": {
+      "type": "build_configuration", 
+      "role": "Vite build tool configuration",
+      "typescript_imports": [
+        "vite.defineConfig",
+        "@vitejs/plugin-react",
+        "vite-plugin-static-copy"
+      ],
+      "internal_imports": [],
+      "file_dependencies": [],
+      "data_dependencies": [],
+      "configures": [
+        "React plugin",
+        "Static file copying", 
+        "Development server proxy to Flask backend",
+        "Path aliases (@/* -> src/*)"
+      ],
+      "proxy_target": "http://localhost:5000",
+      "used_by": [
+        "npm run dev",
+        "npm run build",
+        "npm run preview"
+      ],
+      "business_criticality": "HIGH"
+    },
+    "package.json": {
+      "type": "node_manifest",
+      "role": "NPM project configuration and dependencies",
+      "defines_dependencies": [
+        "react ^18.3.1",
+        "react-dom ^18.3.1", 
+        "react-router-dom ^7.0.2",
+        "tailwind-merge ^2.5.2",
+        "zustand ^5.0.0",
+        "clsx ^2.1.1",
+        "lucide-react ^0.460.0"
+      ],
+      "defines_dev_dependencies": [
+        "vite ^5.4.10",
+        "@vitejs/plugin-react ^5.1.2",
+        "typescript ^5.7.2",
+        "tailwindcss ^3.4.17",
+        "autoprefixer ^10.4.20",
+        "postcss ^8.4.49"
+      ],
+      "defines_scripts": [
+        "dev: vite",
+        "build: vite build", 
+        "preview: vite preview",
+        "typecheck: tsc --noEmit"
+      ],
+      "used_by": [
+        "npm install",
+        "npm run dev",
+        "npm run build"
+      ],
+      "business_criticality": "CRITICAL"
+    },
+    "tailwind.config.js": {
+      "type": "css_configuration",
+      "role": "Tailwind CSS configuration",
+      "javascript_imports": [],
+      "internal_imports": [],
+      "file_dependencies": [],
+      "data_dependencies": [],
+      "configures": [
+        "Content paths for CSS purging",
+        "Custom theme extensions",
+        "Plugin integrations"
+      ],
+      "content_paths": [
+        "index.html",
+        "src/**/*.{js,ts,jsx,tsx}",
+        "backend/templates/**/*.html"
+      ],
+      "used_by": [
+        "PostCSS build process",
+        "Vite CSS processing"
+      ],
+      "business_criticality": "MEDIUM"
+    },
+    "postcss.config.js": {
+      "type": "css_processor_config",
+      "role": "PostCSS configuration with Tailwind and Autoprefixer",
+      "javascript_imports": [],
+      "internal_imports": [],
+      "file_dependencies": [],
+      "data_dependencies": [],
+      "configures": [
+        "tailwindcss plugin",
+        "autoprefixer plugin"
+      ],
+      "used_by": [
+        "Vite CSS processing pipeline"
+      ],
+      "business_criticality": "MEDIUM"
+    }
+  },
+  "cross_layer_dependencies": {
+    "frontend_to_backend": [
+      {
+        "from": "src/services/ChemicalSearchService.ts",
+        "to": "backend/app.py:/api/search",
+        "type": "HTTP_API",
+        "method": "GET",
+        "data_contract": "SearchResult interface"
+      },
+      {
+        "from": "src/services/ChemicalSearchService.ts", 
+        "to": "backend/app.py:/api/chemical/<id>",
+        "type": "HTTP_API",
+        "method": "GET",
+        "data_contract": "Chemical interface"
+      },
+      {
+        "from": "backend/templates/mixer.html",
+        "to": "backend/app.py:/api/analyze",
+        "type": "HTTP_API",
+        "method": "POST",
+        "data_contract": "ReactivityAnalysis",
+        "safety_critical": true
+      }
+    ],
+    "backend_internal": [
+      {
+        "from": "backend/app.py",
+        "to": "backend/logic/reactivity_engine.py",
+        "type": "PYTHON_IMPORT",
+        "method": "ReactivityEngine.analyze()",
+        "safety_critical": true
+      },
+      {
+        "from": "backend/logic/reactivity_engine.py",
+        "to": "backend/logic/constants.py", 
+        "type": "PYTHON_IMPORT",
+        "method": "Compatibility enum usage"
+      }
+    ],
+    "template_relationships": [
+      {
+        "from": "backend/templates/mixer.html",
+        "to": "backend/templates/base.html",
+        "type": "JINJA2_EXTENDS",
+        "relationship": "child extends parent"
+      }
+    ],
+    "build_dependencies": [
+      {
+        "from": "vite.config.ts",
+        "to": "src/App.tsx",
+        "type": "BUILD_ENTRY_POINT",
+        "relationship": "builds and serves React app"
+      },
+      {
+        "from": "tailwind.config.js",
+        "to": "backend/templates/**/*.html",
+        "type": "CSS_PROCESSING",
+        "relationship": "processes Tailwind classes in templates"
+      }
+    ]
+  },
+  "critical_paths": [
+    {
+      "path": "User Request -> mixer.html -> /api/analyze -> ReactivityEngine.analyze() -> Database Query",
+      "description": "⚠️ SAFETY-CRITICAL: Chemical compatibility analysis flow",
+      "safety_critical": true,
+      "components": [
+        "backend/templates/mixer.html",
+        "backend/app.py:analyze_chemicals()",
+        "backend/logic/reactivity_engine.py:analyze()",
+        "backend/data/chemicals.db"
+      ]
+    },
+    {
+      "path": "User Search -> /api/search -> Database Query -> Results Display",
+      "description": "Primary chemical search workflow",
+      "safety_critical": false,
+      "components": [
+        "backend/templates/mixer.html",
+        "backend/app.py:search()",
+        "backend/data/chemicals.db"
+      ]
+    }
+  ],
+  "deployment_dependencies": {
+    "runtime_requirements": [
+      "Python 3.9+ (Flask backend)",
+      "Node.js 18+ (build tools)",
+      "SQLite 3.x (database)"
+    ],
+    "build_artifacts": [
+      "dist/ (Vite build output)",
+      "backend/ (Python files)",
+      "backend/data/*.db (databases)"
+    ],
+    "environment_variables": [],
+    "external_services": []
+  }
+}

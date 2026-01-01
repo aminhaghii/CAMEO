@@ -1,0 +1,334 @@
+{
+  "last_updated": "2026-01-01T17:30:00+03:30",
+  "agent_protocol_version": "3.0",
+  "backend": {
+    "runtime": {
+      "python": {
+        "version": "3.9+",
+        "recommended": "3.11",
+        "purpose": "Flask backend runtime",
+        "install_guide": "python --version (check existing version)"
+      }
+    },
+    "framework": {
+      "flask": {
+        "version": "^2.3.0",
+        "purpose": "REST API server and template rendering",
+        "critical": true,
+        "config_files": ["backend/app.py"],
+        "documentation": "https://flask.palletsprojects.com/"
+      },
+      "flask-cors": {
+        "version": "^4.0.0",
+        "purpose": "Cross-Origin Resource Sharing for API endpoints",
+        "critical": true,
+        "reason": "Required for React frontend to access Flask API"
+      }
+    },
+    "database": {
+      "sqlite3": {
+        "version": "3.x",
+        "driver": "built-in (Python standard library)",
+        "databases": [
+          {
+            "name": "chemicals.db",
+            "mode": "read-only",
+            "size": "~32MB",
+            "tables": 12,
+            "purpose": "Chemical safety data and reactivity rules"
+          },
+          {
+            "name": "user.db", 
+            "mode": "read-write",
+            "size": "~12KB",
+            "tables": 1,
+            "purpose": "User favorites and preferences"
+          }
+        ],
+        "performance_notes": "Adequate for current data size, no complex queries"
+      }
+    },
+    "dependencies": {
+      "required": {
+        "os": "built-in",
+        "logging": "built-in", 
+        "sqlite3": "built-in"
+      },
+      "third_party": {
+        "flask": "Web framework",
+        "flask-cors": "CORS handling"
+      }
+    }
+  },
+  "frontend": {
+    "runtime": {
+      "node": {
+        "version": ">=18.0.0",
+        "recommended": "20.x LTS",
+        "purpose": "Build tools and development server",
+        "check_command": "node --version"
+      },
+      "npm": {
+        "version": ">=9.0.0",
+        "purpose": "Package management",
+        "check_command": "npm --version"
+      }
+    },
+    "framework": {
+      "react": {
+        "version": "^18.3.1",
+        "purpose": "UI component framework",
+        "critical": true,
+        "entry_point": "src/App.tsx",
+        "jsx_transform": "react-jsx (automatic runtime)"
+      },
+      "react-dom": {
+        "version": "^18.3.1", 
+        "purpose": "React DOM rendering",
+        "critical": true,
+        "paired_with": "react"
+      },
+      "react-router-dom": {
+        "version": "^7.0.2",
+        "purpose": "Client-side routing",
+        "critical": false,
+        "current_usage": "minimal (single page app currently)"
+      }
+    },
+    "state_management": {
+      "zustand": {
+        "version": "^5.0.0",
+        "purpose": "Lightweight state management",
+        "critical": false,
+        "current_usage": "not yet implemented, reserved for future"
+      }
+    },
+    "ui_libraries": {
+      "lucide-react": {
+        "version": "^0.460.0",
+        "purpose": "Icon components",
+        "critical": false,
+        "usage": "UI icons throughout app"
+      },
+      "clsx": {
+        "version": "^2.1.1",
+        "purpose": "Conditional CSS class concatenation",
+        "critical": false,
+        "paired_with": "tailwind-merge"
+      },
+      "tailwind-merge": {
+        "version": "^2.5.2",
+        "purpose": "Tailwind CSS class merging utility",
+        "critical": false,
+        "usage": "Dynamic class combinations"
+      }
+    },
+    "build_tool": {
+      "vite": {
+        "version": "^5.4.10",
+        "purpose": "Frontend build tool and dev server",
+        "critical": true,
+        "config_file": "vite.config.ts",
+        "features": [
+          "Hot Module Replacement (HMR)",
+          "TypeScript compilation",
+          "React Fast Refresh",
+          "Proxy to Flask backend",
+          "Static file serving"
+        ],
+        "proxy_config": "http://localhost:5000 -> Flask backend"
+      },
+      "@vitejs/plugin-react": {
+        "version": "^5.1.2",
+        "purpose": "React support for Vite",
+        "critical": true,
+        "features": ["JSX transformation", "Fast Refresh"]
+      },
+      "vite-plugin-static-copy": {
+        "version": "^0.17.1",
+        "purpose": "Copy static files during build",
+        "critical": false,
+        "current_usage": "reserved for future assets"
+      }
+    },
+    "styling": {
+      "tailwindcss": {
+        "version": "^3.4.17",
+        "purpose": "Utility-first CSS framework",
+        "critical": true,
+        "config_file": "tailwind.config.js",
+        "features": [
+          "Responsive design utilities",
+          "Component classes",
+          "Custom theme configuration",
+          "Purging unused CSS"
+        ],
+        "content_paths": [
+          "index.html",
+          "src/**/*.{js,ts,jsx,tsx}",
+          "backend/templates/**/*.html"
+        ]
+      },
+      "autoprefixer": {
+        "version": "^10.4.20",
+        "purpose": "Automatic CSS vendor prefixes",
+        "critical": true,
+        "paired_with": "postcss"
+      },
+      "postcss": {
+        "version": "^8.4.49",
+        "purpose": "CSS processing pipeline",
+        "critical": true,
+        "config_file": "postcss.config.js",
+        "plugins": ["tailwindcss", "autoprefixer"]
+      }
+    },
+    "type_system": {
+      "typescript": {
+        "version": "^5.7.2",
+        "purpose": "Static type checking",
+        "critical": true,
+        "config_files": [
+          "tsconfig.json",
+          "tsconfig.web.json", 
+          "tsconfig.node.json"
+        ],
+        "target": "ES2022",
+        "module_resolution": "Bundler"
+      },
+      "@types/node": {
+        "version": "^22.10.1",
+        "purpose": "TypeScript definitions for Node.js",
+        "critical": true
+      },
+      "@types/react": {
+        "version": "^18.3.12",
+        "purpose": "TypeScript definitions for React",
+        "critical": true
+      },
+      "@types/react-dom": {
+        "version": "^18.3.5", 
+        "purpose": "TypeScript definitions for ReactDOM",
+        "critical": true
+      },
+      "tslib": {
+        "version": "^2.8.1",
+        "purpose": "TypeScript runtime helpers",
+        "critical": true
+      }
+    }
+  },
+  "template_engine": {
+    "jinja2": {
+      "version": "built-in with Flask",
+      "purpose": "Server-side template rendering",
+      "critical": true,
+      "templates": [
+        "backend/templates/base.html",
+        "backend/templates/mixer.html"
+      ],
+      "features": [
+        "Template inheritance",
+        "Variable interpolation", 
+        "Control structures",
+        "Custom filters"
+      ]
+    },
+    "alpine_js": {
+      "version": "^3.x (CDN)",
+      "purpose": "Reactive frontend interactions in templates",
+      "critical": true,
+      "usage": "Chemical mixer interface interactivity",
+      "cdn_url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"
+    },
+    "tailwind_css_cdn": {
+      "version": "^3.4 (CDN)",
+      "purpose": "Styling for Jinja2 templates",
+      "critical": true,
+      "usage": "Backend template styling",
+      "cdn_url": "https://cdn.tailwindcss.com"
+    }
+  },
+  "development_tools": {
+    "git": {
+      "version": "2.x+",
+      "purpose": "Version control",
+      "critical": true,
+      "repository": "git@github.com:behnoodghza-design/CAMEO.git",
+      "branch": "main"
+    },
+    "python_environment": {
+      "recommended": "venv or conda",
+      "purpose": "Isolated Python dependencies",
+      "setup": "python -m venv venv && source venv/bin/activate"
+    }
+  },
+  "deployment": {
+    "current_setup": {
+      "backend": {
+        "server": "Flask development server (flask run)",
+        "port": 5000,
+        "debug": true,
+        "auto_reload": true
+      },
+      "frontend": {
+        "build_command": "npm run build",
+        "dev_server": "npm run dev (Vite)",
+        "port": 5173,
+        "proxy": "API calls proxied to localhost:5000"
+      }
+    },
+    "production_recommendations": {
+      "backend": [
+        "Gunicorn WSGI server",
+        "Nginx reverse proxy",
+        "Environment variable configuration"
+      ],
+      "frontend": [
+        "Static file serving via Nginx",
+        "Built assets in dist/ folder",
+        "API base URL configuration"
+      ]
+    }
+  },
+  "compatibility_matrix": {
+    "python": {
+      "3.9": "✅ Supported",
+      "3.10": "✅ Supported", 
+      "3.11": "✅ Recommended",
+      "3.12": "✅ Supported",
+      "3.8": "⚠️ May work but not tested"
+    },
+    "node": {
+      "16.x": "⚠️ Minimum (may have issues)",
+      "18.x": "✅ Supported",
+      "20.x": "✅ Recommended", 
+      "21.x": "✅ Supported"
+    },
+    "browsers": {
+      "chrome": "✅ 90+",
+      "firefox": "✅ 88+",
+      "safari": "✅ 14+",
+      "edge": "✅ 90+",
+      "ie": "❌ Not supported"
+    }
+  },
+  "performance_considerations": {
+    "backend": {
+      "sqlite_performance": "Adequate for <10K chemicals, consider PostgreSQL for larger datasets",
+      "flask_debug": "Disable debug mode in production",
+      "logging_level": "INFO in production, DEBUG in development"
+    },
+    "frontend": {
+      "bundle_size": "Monitor with 'npm run build' - current size acceptable",
+      "tree_shaking": "Vite automatically removes unused code",
+      "code_splitting": "Not implemented yet, consider for larger app"
+    }
+  },
+  "security_considerations": {
+    "cors": "Configured for development, restrict origins in production",
+    "sql_injection": "Using parameterized queries - secure",
+    "xss": "Jinja2 auto-escapes - secure",
+    "dependencies": "Regularly update with 'npm audit' and 'pip-audit'"
+  }
+}

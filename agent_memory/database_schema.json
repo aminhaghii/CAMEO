@@ -1,0 +1,261 @@
+{
+  "last_updated": "2026-01-01T17:30:00+03:30",
+  "agent_protocol_version": "3.0",
+  "databases": {
+    "chemicals.db": {
+      "path": "backend/data/chemicals.db",
+      "mode": "READ_ONLY",
+      "version": "1.0",
+      "description": "Main chemical safety database with reactivity rules",
+      "size_mb": 31.8,
+      "tables": {
+        "chemicals": {
+          "schema_version": "1.0",
+          "description": "Master chemical registry with identification data",
+          "columns": [
+            {"name": "id", "type": "INTEGER", "pk": true, "not_null": true},
+            {"name": "name", "type": "VARCHAR", "indexed": true, "not_null": true},
+            {"name": "synonyms", "type": "TEXT", "indexed": true, "not_null": false},
+            {"name": "formulas", "type": "TEXT", "not_null": false},
+            {"name": "cas_number", "type": "VARCHAR", "not_null": false},
+            {"name": "molecular_weight", "type": "REAL", "not_null": false},
+            {"name": "source", "type": "VARCHAR", "not_null": false}
+          ],
+          "indexes": [
+            {"name": "idx_chemicals_name", "columns": ["name"]},
+            {"name": "idx_chemicals_synonyms", "columns": ["synonyms"]}
+          ],
+          "row_count": 5013,
+          "consumers": [
+            "backend/app.py:search()",
+            "backend/app.py:get_chemical()",
+            "backend/logic/reactivity_engine.py:analyze()"
+          ],
+          "business_context": "Core chemical identification and metadata"
+        },
+        "reacts": {
+          "schema_version": "1.0",
+          "description": "Reactive groups classification system",
+          "columns": [
+            {"name": "id", "type": "INTEGER", "pk": true, "not_null": true},
+            {"name": "name", "type": "VARCHAR", "not_null": true},
+            {"name": "special", "type": "BOOLEAN", "not_null": true},
+            {"name": "description", "type": "TEXT", "not_null": true},
+            {"name": "flammability", "type": "TEXT", "not_null": true},
+            {"name": "reactivity", "type": "TEXT", "not_null": true},
+            {"name": "toxicity", "type": "TEXT", "not_null": true},
+            {"name": "characteristics", "type": "TEXT", "not_null": true},
+            {"name": "examples", "type": "TEXT", "not_null": true}
+          ],
+          "row_count": 80,
+          "consumers": [
+            "backend/logic/reactivity_engine.py",
+            "backend/app.py:get_reactive_groups()"
+          ],
+          "business_context": "CAMEO reactive group definitions (68 standard + special groups)"
+        },
+        "chemical_reactive_groups": {
+          "schema_version": "1.0",
+          "description": "Many-to-many junction table linking chemicals to reactive groups",
+          "columns": [
+            {"name": "chemical_id", "type": "INTEGER", "fk": "chemicals.id", "not_null": true},
+            {"name": "reactive_group_id", "type": "INTEGER", "fk": "reacts.id", "not_null": true}
+          ],
+          "indexes": [
+            {"name": "idx_chem_reactive_groups", "columns": ["chemical_id", "reactive_group_id"]}
+          ],
+          "row_count": 8577,
+          "consumers": [
+            "backend/logic/reactivity_engine.py:analyze()"
+          ],
+          "business_context": "Chemical-to-reactive-group assignments for compatibility analysis"
+        },
+        "reactivity_rules": {
+          "schema_version": "1.0",
+          "description": "⚠️ SAFETY-CRITICAL: Compatibility rules between reactive groups",
+          "safety_critical": true,
+          "columns": [
+            {"name": "group1_id", "type": "INTEGER", "fk": "reacts.id", "not_null": true},
+            {"name": "group2_id", "type": "INTEGER", "fk": "reacts.id", "not_null": true},
+            {"name": "compatibility", "type": "TEXT", "not_null": true},
+            {"name": "hazards", "type": "TEXT", "not_null": false},
+            {"name": "gas_products", "type": "TEXT", "not_null": false}
+          ],
+          "indexes": [
+            {"name": "idx_reactivity_groups", "columns": ["group1_id", "group2_id"]}
+          ],
+          "row_count": 12070,
+          "consumers": [
+            "backend/logic/reactivity_engine.py:analyze()"
+          ],
+          "business_context": "Core compatibility matrix rules (C/I-C/I/N states)",
+          "compatibility_values": ["C", "I-C", "I", "N"]
+        },
+        "chemical_search": {
+          "schema_version": "1.0",
+          "description": "Search optimization table for chemical names and synonyms",
+          "columns": [
+            {"name": "chemical_id", "type": "INTEGER", "fk": "chemicals.id"},
+            {"name": "search_text", "type": "TEXT", "indexed": true}
+          ],
+          "row_count": 6984,
+          "consumers": [
+            "backend/app.py:search() (potential future optimization)"
+          ],
+          "business_context": "Pre-processed search terms for performance"
+        },
+        "unnas": {
+          "schema_version": "1.0",
+          "description": "UN Number assignments for chemicals",
+          "columns": [
+            {"name": "id", "type": "INTEGER", "pk": true},
+            {"name": "faux", "type": "BOOLEAN"},
+            {"name": "active", "type": "BOOLEAN"},
+            {"name": "polimerize", "type": "BOOLEAN"},
+            {"name": "synonyms", "type": "TEXT"},
+            {"name": "materials", "type": "TEXT"}
+          ],
+          "row_count": 2371,
+          "consumers": [],
+          "business_context": "UN transport classification (not used in current reactivity analysis)"
+        },
+        "unna_cfr49s": {
+          "schema_version": "1.0",
+          "description": "CFR 49 hazardous materials regulations",
+          "columns": [
+            {"name": "id", "type": "INTEGER", "pk": true},
+            {"name": "unna_id", "type": "INTEGER"},
+            {"name": "name", "type": "TEXT"},
+            {"name": "unna_type", "type": "VARCHAR"},
+            {"name": "hazard_class", "type": "VARCHAR"},
+            {"name": "labels", "type": "TEXT"},
+            {"name": "notes", "type": "TEXT"},
+            {"name": "provision", "type": "TEXT"},
+            {"name": "packing_group", "type": "VARCHAR"}
+          ],
+          "row_count": 3003,
+          "consumers": [],
+          "business_context": "DOT transportation regulations (reference data)"
+        },
+        "unna_actiondistances": {
+          "schema_version": "1.0",
+          "description": "Emergency response isolation distances",
+          "columns": [
+            {"name": "id", "type": "INTEGER", "pk": true},
+            {"name": "unna_id", "type": "INTEGER"},
+            {"name": "name", "type": "VARCHAR"},
+            {"name": "small_isolate_feet", "type": "VARCHAR"},
+            {"name": "small_protect_day_miles", "type": "VARCHAR"},
+            {"name": "small_protect_night_miles", "type": "VARCHAR"},
+            {"name": "large_isolate_feet", "type": "VARCHAR"},
+            {"name": "large_protect_day_miles", "type": "VARCHAR"},
+            {"name": "large_protect_night_miles", "type": "VARCHAR"}
+          ],
+          "row_count": 537,
+          "consumers": [],
+          "business_context": "Emergency response guidance (not used in reactivity analysis)"
+        },
+        "unna_waterreactions": {
+          "schema_version": "1.0",
+          "description": "Water reaction products for chemicals",
+          "columns": [
+            {"name": "id", "type": "INTEGER", "pk": true},
+            {"name": "unna_id", "type": "INTEGER"},
+            {"name": "gas_name", "type": "VARCHAR"},
+            {"name": "gas_formula", "type": "VARCHAR"}
+          ],
+          "row_count": 98,
+          "consumers": [],
+          "business_context": "Water reactivity data (potential future use)"
+        }
+      },
+      "critical_queries": [
+        {
+          "description": "Chemical search by name/synonym",
+          "sql": "SELECT id, name, synonyms FROM chemicals WHERE name LIKE ? OR synonyms LIKE ?",
+          "used_by": "backend/app.py:search()"
+        },
+        {
+          "description": "Get chemical reactive groups",
+          "sql": "SELECT rg.id, rg.name FROM reacts rg JOIN chemical_reactive_groups crg ON rg.id = crg.reactive_group_id WHERE crg.chemical_id = ?",
+          "used_by": "backend/logic/reactivity_engine.py"
+        },
+        {
+          "description": "Get reactivity rule between groups",
+          "sql": "SELECT compatibility, hazards, gas_products FROM reactivity_rules WHERE (group1_id = ? AND group2_id = ?) OR (group1_id = ? AND group2_id = ?)",
+          "used_by": "backend/logic/reactivity_engine.py"
+        }
+      ]
+    },
+    "user.db": {
+      "path": "backend/data/user.db",
+      "mode": "READ_WRITE",
+      "version": "1.0",
+      "description": "User-specific data storage",
+      "size_mb": 0.012,
+      "tables": {
+        "favorites": {
+          "schema_version": "1.0",
+          "description": "User's favorite chemicals list",
+          "columns": [
+            {"name": "id", "type": "INTEGER", "pk": true, "autoincrement": true},
+            {"name": "chemical_id", "type": "INTEGER", "not_null": true},
+            {"name": "added_at", "type": "DATETIME", "default": "CURRENT_TIMESTAMP"},
+            {"name": "note", "type": "TEXT", "nullable": true}
+          ],
+          "indexes": [
+            {"name": "idx_favorites_chemical", "columns": ["chemical_id"]},
+            {"name": "idx_favorites_added", "columns": ["added_at"]}
+          ],
+          "row_count_typical": "0-50",
+          "consumers": [
+            "backend/app.py:get_favorites()",
+            "backend/app.py:add_favorite()",
+            "backend/app.py:remove_favorite()"
+          ],
+          "business_context": "Personal chemical bookmarking for users"
+        }
+      },
+      "migration_history": [
+        {
+          "version": "1.0",
+          "date": "2025-12-15",
+          "description": "Initial schema: favorites table",
+          "script": "CREATE TABLE favorites (id INTEGER PRIMARY KEY AUTOINCREMENT, chemical_id INTEGER NOT NULL, added_at DATETIME DEFAULT CURRENT_TIMESTAMP, note TEXT)"
+        }
+      ]
+    }
+  },
+  "data_integrity": {
+    "constraints": [
+      {
+        "table": "chemical_reactive_groups",
+        "type": "foreign_key",
+        "description": "chemical_id must exist in chemicals table",
+        "enforced": "application_level"
+      },
+      {
+        "table": "chemical_reactive_groups", 
+        "type": "foreign_key",
+        "description": "reactive_group_id must exist in reacts table",
+        "enforced": "application_level"
+      },
+      {
+        "table": "reactivity_rules",
+        "type": "business_rule",
+        "description": "Compatibility values must be C, I-C, I, or N",
+        "enforced": "application_level"
+      }
+    ],
+    "backup_strategy": "Daily snapshots via git, no real-time backup needed (read-only)",
+    "corruption_detection": "Row count monitoring, basic schema validation"
+  },
+  "performance_considerations": {
+    "search_optimization": "Name and synonyms columns indexed",
+    "reactivity_lookup": "Composite index on (group1_id, group2_id)",
+    "bottlenecks": [
+      "Large reactivity_rules table (12K rows) - acceptable for current scale",
+      "Text search on synonyms - consider FTS if performance issues arise"
+    ]
+  }
+}

@@ -207,30 +207,39 @@
                             <thead>
                                 <tr>
                                     <th class="matrix-header-corner"></th>
-                                    <template x-for="(chem, i) in analysisResult?.chemicals" :key="i">
+                                    <template x-for="(chem, i) in analysisResult?.chemicals" :key="`head-${i}`">
                                         <th class="matrix-header" x-text="chem.name.substring(0, 12) + (chem.name.length > 12 ? '...' : '')"></th>
                                     </template>
                                 </tr>
                             </thead>
                             <tbody>
-                                <template x-for="(row, i) in analysisResult?.matrix" :key="i">
+                                <template x-for="(chemRow, i) in analysisResult?.chemicals" :key="`row-${i}`">
                                     <tr class="matrix-row">
-                                        <td class="matrix-row-header" x-text="analysisResult.chemicals[i].name.substring(0, 12) + (analysisResult.chemicals[i].name.length > 12 ? '...' : '')"></td>
-                                        <template x-for="(cell, j) in row" :key="j">
-                                            <td 
-                                                @click="openModal(cell, i, j)"
-                                                class="matrix-cell cursor-pointer"
+                                        <td class="matrix-row-header" x-text="chemRow.name.substring(0, 12) + (chemRow.name.length > 12 ? '...' : '')"></td>
+                                        <template x-for="(chemCol, j) in analysisResult?.chemicals" :key="`cell-${i}-${j}`">
+                                            <td class="matrix-cell"
+                                                x-show="i >= j"
                                                 :class="{
-                                                    'bg-emerald-100 text-emerald-700 border-emerald-200': cell.compatibility === 'C',
-                                                    'bg-amber-100 text-amber-700 border-amber-200': cell.compatibility === 'I-C',
-                                                    'bg-rose-100 text-rose-700 border-rose-200': cell.compatibility === 'I',
-                                                    'bg-orange-100 text-orange-700 border-orange-200': cell.compatibility === 'N'
+                                                    'bg-slate-100 text-slate-700 font-semibold': i === j,
+                                                    'bg-emerald-100 text-emerald-700 border-emerald-200 cursor-pointer': i > j && analysisResult?.matrix[i][j]?.compatibility === 'C',
+                                                    'bg-amber-100 text-amber-700 border-amber-200 cursor-pointer': i > j && analysisResult?.matrix[i][j]?.compatibility === 'I-C',
+                                                    'bg-rose-100 text-rose-700 border-rose-200 cursor-pointer': i > j && analysisResult?.matrix[i][j]?.compatibility === 'I',
+                                                    'bg-orange-100 text-orange-700 border-orange-200 cursor-pointer': i > j && analysisResult?.matrix[i][j]?.compatibility === 'N',
+                                                    'border-b border-r': true
                                                 }"
+                                                @click="i > j ? openModal(analysisResult?.matrix[i][j], i, j) : null"
                                             >
-                                                <div class="flex items-center justify-center h-full">
-                                                    <span class="text-sm font-bold" x-text="cell.compatibility"></span>
-                                                </div>
-                                                <div class="tooltip" x-text="`${analysisResult.chemicals[i].name} + ${analysisResult.chemicals[j].name}`"></div>
+                                                <template x-if="i === j">
+                                                    <div class="flex items-center justify-center h-full">
+                                                        <span class="text-sm" x-text="chemRow.name.substring(0, 14) + (chemRow.name.length > 14 ? '...' : '')"></span>
+                                                    </div>
+                                                </template>
+                                                <template x-if="i > j">
+                                                    <div class="flex items-center justify-center h-full">
+                                                        <span class="text-sm font-bold" x-text="analysisResult?.matrix[i][j]?.compatibility"></span>
+                                                    </div>
+                                                </template>
+                                                <div class="tooltip" x-show="i > j" x-text="`${chemRow.name} + ${chemCol.name}`"></div>
                                             </td>
                                         </template>
                                     </tr>

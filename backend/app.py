@@ -165,6 +165,11 @@ def remove_favorite(chemical_id):
         print(f"Remove favorite error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/')
+def index():
+    """Render the main page"""
+    return render_template('mixer.html')
+
 @app.route('/mixer')
 def mixer_page():
     """Render the chemical mixer UI"""

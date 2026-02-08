@@ -1,6 +1,8 @@
 import os
+import re
 import sqlite3
 import logging
+import difflib
 from flask import Flask, jsonify, request, render_template
 from flask_cors import CORS
 
@@ -56,36 +58,182 @@ if not os.path.exists(USER_DB_PATH):
 
 @app.route('/api/search', methods=['GET'])
 def search():
-    query = request.args.get('q', '')
-    if not query:
-        return jsonify({'items': [], 'total': 0})
+    """
+    Industrial-grade omni-search endpoint.
+    Searches: Name, CAS, UN, Formula, Synonyms
+    Returns: Ranked results with match context and NFPA safety data.
+    """
+    query = request.args.get('q', '').strip()
+    if not query or len(query) < 2:
+        return jsonify({'items': [], 'total': 0, 'query': query})
 
     try:
         conn = get_chemicals_db_connection()
         cursor = conn.cursor()
-        
+
+        q_upper = query.upper()
+        like_term = f'%{query}%'
+
+        # ── Step 1: Omni-search via LEFT JOINs (union of matches) ──
+        # unna_id is INTEGER, so we CAST it to TEXT for LIKE matching.
+        # We also strip "UN" prefix if user typed e.g. "UN1090".
+        un_query = re.sub(r'^UN\s*', '', query, flags=re.IGNORECASE)
+        un_like = f'%{un_query}%'
+
         sql = """
-            SELECT id, name, synonyms 
-            FROM chemicals 
-            WHERE name LIKE ? OR synonyms LIKE ?
+            SELECT DISTINCT
+                c.id, c.name, c.synonyms, c.formulas,
+                c.nfpa_health, c.nfpa_flam, c.nfpa_react, c.nfpa_special
+            FROM chemicals c
+            LEFT JOIN chemical_cas cc ON c.id = cc.chem_id
+            LEFT JOIN chemical_unna cu ON c.id = cu.chem_id
+            WHERE c.name LIKE ?
+               OR c.synonyms LIKE ?
+               OR c.formulas LIKE ?
+               OR cc.cas_id LIKE ?
+               OR CAST(cu.unna_id AS TEXT) LIKE ?
+            LIMIT 200
         """
-        search_term = f'%{query}%'
-        cursor.execute(sql, (search_term, search_term))
-        rows = cursor.fetchall()
-        
-        items = []
-        for row in rows:
-            items.append({
-                'id': row['id'],
-                'name': row['name'],
-                'synonyms': row['synonyms']
-            })
-            
+        cursor.execute(sql, (like_term, like_term, like_term, like_term, un_like))
+        # Convert to plain dicts immediately (Row objects may not survive conn.close)
+        rows = [dict(r) for r in cursor.fetchall()]
+
+        # ── Step 2: Collect CAS / UN per matched chemical ──
+        chem_ids = list({row['id'] for row in rows})
+        cas_map = {}
+        un_map = {}
+        if chem_ids:
+            ph = ','.join('?' * len(chem_ids))
+            cursor.execute(
+                f"SELECT chem_id, cas_id FROM chemical_cas WHERE chem_id IN ({ph}) ORDER BY sort",
+                chem_ids
+            )
+            for r in cursor.fetchall():
+                cas_map.setdefault(r['chem_id'], []).append(str(r['cas_id']))
+
+            cursor.execute(
+                f"SELECT chem_id, unna_id FROM chemical_unna WHERE chem_id IN ({ph}) ORDER BY sort",
+                chem_ids
+            )
+            for r in cursor.fetchall():
+                un_map.setdefault(r['chem_id'], []).append(str(r['unna_id']))
+
         conn.close()
-        return jsonify({'items': items, 'total': len(items)})
+
+        # ── Step 3: Python-side scoring & match labeling ──
+        scored = []
+        seen_ids = set()
+        un_query_upper = un_query.upper()
+
+        for row in rows:
+            cid = row['id']
+            if cid in seen_ids:
+                continue
+            seen_ids.add(cid)
+
+            name = row['name'] or ''
+            synonyms_raw = row['synonyms'] or ''
+            formula = row['formulas'] or ''
+            cas_list = cas_map.get(cid, [])
+            un_list = un_map.get(cid, [])
+
+            name_upper = name.upper()
+
+            score = 0
+            match_type = 'Name'
+            matched_text = name
+
+            # 1. Exact name match
+            if name_upper == q_upper:
+                score = 1000
+                match_type = 'Name'
+                matched_text = name
+            # 2. Name starts with query
+            elif name_upper.startswith(q_upper):
+                score = 900
+                match_type = 'Name'
+                matched_text = name
+            # 3. CAS match
+            elif any(q_upper in cas.upper() for cas in cas_list):
+                matching_cas = next(cas for cas in cas_list if q_upper in cas.upper())
+                score = 950 if matching_cas.upper() == q_upper else 850
+                match_type = 'CAS'
+                matched_text = matching_cas
+            # 4. Formula match
+            elif formula and q_upper in formula.upper():
+                if formula.upper() == q_upper:
+                    score = 800
+                elif formula.upper().startswith(q_upper):
+                    score = 750
+                else:
+                    score = 700
+                match_type = 'Formula'
+                matched_text = formula
+            # 5. UN/NA match (compare with stripped query)
+            elif any(un_query_upper in un for un in un_list):
+                matching_un = next(un for un in un_list if un_query_upper in un)
+                score = 650
+                match_type = 'UN'
+                matched_text = f'UN{matching_un}'
+            # 6. Name contains (not prefix)
+            elif q_upper in name_upper:
+                score = 600
+                match_type = 'Name'
+                matched_text = name
+            # 7. Synonym match
+            elif q_upper in synonyms_raw.upper():
+                syn_tokens = [s.strip() for s in synonyms_raw.split('|') if s.strip()]
+                best_syn = None
+                best_syn_score = 0
+                for syn in syn_tokens:
+                    syn_upper = syn.upper()
+                    if syn_upper == q_upper:
+                        best_syn, best_syn_score = syn, 550
+                        break
+                    elif syn_upper.startswith(q_upper) and best_syn_score < 500:
+                        best_syn, best_syn_score = syn, 500
+                    elif q_upper in syn_upper and best_syn_score < 450:
+                        best_syn, best_syn_score = syn, 450
+                if best_syn:
+                    score = best_syn_score
+                    match_type = 'Synonym'
+                    matched_text = best_syn
+                else:
+                    score = 400
+                    match_type = 'Synonym'
+                    matched_text = name
+
+            # Tiebreak: shorter names rank higher (more specific)
+            score -= len(name) * 0.01
+
+            scored.append({
+                'id': cid,
+                'name': name,
+                'formula': formula,
+                'cas': cas_list,
+                'un': [f'UN{u}' for u in un_list],
+                'match_type': match_type,
+                'matched_text': matched_text,
+                'nfpa': {
+                    'h': row['nfpa_health'],
+                    'f': row['nfpa_flam'],
+                    'r': row['nfpa_react'],
+                    's': row['nfpa_special']
+                },
+                '_score': score
+            })
+
+        # ── Step 4: Sort by score desc, limit 20 ──
+        scored.sort(key=lambda x: x['_score'], reverse=True)
+        top = scored[:20]
+        for item in top:
+            del item['_score']
+
+        return jsonify({'items': top, 'total': len(top), 'query': query})
+
     except Exception as e:
-        print(f"Search error: {e}")
-        return jsonify({'items': [], 'total': 0, 'error': str(e)}), 500
+        logger.error(f"Search error: {e}", exc_info=True)
+        return jsonify({'items': [], 'total': 0, 'error': str(e), 'query': query}), 500
 
 @app.route('/api/chemical/<int:chemical_id>', methods=['GET'])
 def get_chemical(chemical_id):

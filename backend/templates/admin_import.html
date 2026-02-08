@@ -1,0 +1,335 @@
+{% extends "base.html" %}
+
+{% block title %}Inventory Import - CAMEO Safety Platform{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8" x-data="importApp()">
+
+    <!-- Header -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-slate-900">Inventory Import</h1>
+        <p class="text-slate-500 mt-1">Upload a CSV or Excel file to match chemicals against the CAMEO database.</p>
+    </div>
+
+    <!-- ══════════════ STEP 1: Upload ══════════════ -->
+    <div x-show="step === 'upload'" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+        <div
+            class="border-2 border-dashed rounded-xl p-12 text-center transition-colors cursor-pointer"
+            :class="dragOver ? 'border-blue-500 bg-blue-50' : 'border-slate-300 hover:border-blue-400 hover:bg-slate-50'"
+            @dragover.prevent="dragOver = true"
+            @dragleave.prevent="dragOver = false"
+            @drop.prevent="handleDrop($event)"
+            @click="$refs.fileInput.click()"
+        >
+            <input type="file" x-ref="fileInput" class="hidden" accept=".csv,.xlsx,.xls,.json" @change="handleFileSelect($event)">
+
+            <div class="flex flex-col items-center gap-3">
+                <div class="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center">
+                    <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                    </svg>
+                </div>
+                <p class="text-lg font-semibold text-slate-700">Drop your inventory file here</p>
+                <p class="text-sm text-slate-400">or click to browse &mdash; CSV, XLSX, XLS, JSON</p>
+            </div>
+        </div>
+
+        <!-- Selected file info -->
+        <div x-show="selectedFile" class="mt-6 flex items-center justify-between bg-slate-50 rounded-lg px-5 py-4 border border-slate-200">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                </div>
+                <div>
+                    <p class="font-semibold text-slate-800" x-text="selectedFile?.name"></p>
+                    <p class="text-xs text-slate-400" x-text="formatSize(selectedFile?.size)"></p>
+                </div>
+            </div>
+            <button
+                @click="startUpload()"
+                :disabled="uploading"
+                class="px-6 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+                <span x-show="!uploading">Start Import</span>
+                <span x-show="uploading" class="flex items-center gap-2">
+                    <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                    </svg>
+                    Uploading...
+                </span>
+            </button>
+        </div>
+
+        <div x-show="uploadError" class="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm" x-text="uploadError"></div>
+    </div>
+
+    <!-- ══════════════ STEP 2: Processing ══════════════ -->
+    <div x-show="step === 'processing'" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+        <div class="text-center mb-6">
+            <div class="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-4">
+                <svg class="animate-spin h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                </svg>
+            </div>
+            <h2 class="text-xl font-bold text-slate-900">Processing Inventory</h2>
+            <p class="text-slate-500 mt-1" x-text="statusFilename"></p>
+        </div>
+
+        <!-- Progress bar -->
+        <div class="w-full bg-slate-200 rounded-full h-4 overflow-hidden mb-3">
+            <div class="bg-blue-600 h-full rounded-full transition-all duration-300" :style="'width: ' + progressPct + '%'"></div>
+        </div>
+        <div class="flex justify-between text-sm text-slate-500">
+            <span x-text="'Row ' + statusProcessed + ' / ' + statusTotal"></span>
+            <span x-text="progressPct + '%'"></span>
+        </div>
+    </div>
+
+    <!-- ══════════════ STEP 3: Results ══════════════ -->
+    <div x-show="step === 'results'">
+
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 text-center">
+                <p class="text-3xl font-bold text-slate-900" x-text="summary?.total_rows || 0"></p>
+                <p class="text-sm text-slate-500 mt-1">Total Rows</p>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm border border-emerald-200 p-5 text-center">
+                <p class="text-3xl font-bold text-emerald-600" x-text="summary?.matched || 0"></p>
+                <p class="text-sm text-slate-500 mt-1">Matched</p>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm border border-amber-200 p-5 text-center">
+                <p class="text-3xl font-bold text-amber-600" x-text="summary?.ambiguous || 0"></p>
+                <p class="text-sm text-slate-500 mt-1">Ambiguous</p>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm border border-rose-200 p-5 text-center">
+                <p class="text-3xl font-bold text-rose-600" x-text="summary?.unmatched || 0"></p>
+                <p class="text-sm text-slate-500 mt-1">Unmatched</p>
+            </div>
+        </div>
+
+        <!-- Match Rate Bar -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="font-semibold text-slate-800">Match Rate</h3>
+                <span class="text-lg font-bold" :class="matchRateColor" x-text="matchRatePct + '%'"></span>
+            </div>
+            <div class="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
+                <div class="h-full rounded-full transition-all duration-500" :class="matchRateBarColor" :style="'width: ' + matchRatePct + '%'"></div>
+            </div>
+            <div class="flex gap-6 mt-4 text-sm text-slate-500">
+                <span>Avg Quality: <strong class="text-slate-700" x-text="summary?.avg_quality_score || 0"></strong></span>
+                <span>Avg Confidence: <strong class="text-slate-700" x-text="((summary?.avg_confidence || 0) * 100).toFixed(0) + '%'"></strong></span>
+            </div>
+        </div>
+
+        <!-- Method Breakdown -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6" x-show="summary?.method_breakdown">
+            <h3 class="font-semibold text-slate-800 mb-3">Match Methods</h3>
+            <div class="flex flex-wrap gap-2">
+                <template x-for="(count, method) in summary?.method_breakdown || {}" :key="method">
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium"
+                          :class="{
+                              'bg-emerald-100 text-emerald-700': method === 'exact_cas',
+                              'bg-blue-100 text-blue-700': method === 'exact_name' || method === 'exact_un',
+                              'bg-purple-100 text-purple-700': method === 'synonym' || method === 'formula',
+                              'bg-amber-100 text-amber-700': method === 'fuzzy_name',
+                              'bg-slate-100 text-slate-600': method === 'unmatched',
+                          }">
+                        <span x-text="method.replace('_', ' ')"></span>
+                        <span class="font-bold" x-text="count"></span>
+                    </span>
+                </template>
+            </div>
+        </div>
+
+        <!-- Needs Review Table -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6" x-show="summary?.needs_review?.length > 0">
+            <h3 class="font-semibold text-slate-800 mb-4">Needs Review</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-b border-slate-200 text-left text-slate-500">
+                            <th class="pb-3 pr-4 font-medium">#</th>
+                            <th class="pb-3 pr-4 font-medium">Name</th>
+                            <th class="pb-3 pr-4 font-medium">CAS</th>
+                            <th class="pb-3 pr-4 font-medium">Status</th>
+                            <th class="pb-3 pr-4 font-medium">Method</th>
+                            <th class="pb-3 pr-4 font-medium">Score</th>
+                            <th class="pb-3 font-medium">Issues</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="item in summary?.needs_review || []" :key="item.row_index">
+                            <tr class="border-b border-slate-100 hover:bg-slate-50">
+                                <td class="py-2.5 pr-4 text-slate-400" x-text="item.row_index"></td>
+                                <td class="py-2.5 pr-4 font-medium text-slate-800" x-text="item.name || '(empty)'"></td>
+                                <td class="py-2.5 pr-4 font-mono text-xs text-slate-600" x-text="item.cas || '-'"></td>
+                                <td class="py-2.5 pr-4">
+                                    <span class="px-2 py-0.5 rounded-full text-xs font-semibold"
+                                          :class="{
+                                              'bg-amber-100 text-amber-700': item.match_status === 'ambiguous',
+                                              'bg-rose-100 text-rose-700': item.match_status === 'unmatched',
+                                              'bg-red-100 text-red-700': item.match_status === 'error',
+                                          }"
+                                          x-text="item.match_status">
+                                    </span>
+                                </td>
+                                <td class="py-2.5 pr-4 text-slate-500 text-xs" x-text="item.match_method"></td>
+                                <td class="py-2.5 pr-4 font-semibold" :class="item.quality_score >= 70 ? 'text-emerald-600' : 'text-rose-600'" x-text="item.quality_score"></td>
+                                <td class="py-2.5">
+                                    <template x-for="issue in item.issues || []" :key="issue">
+                                        <span class="inline-block mr-1 mb-1 px-2 py-0.5 bg-red-50 text-red-600 text-xs rounded" x-text="issue"></span>
+                                    </template>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Import Another -->
+        <div class="mt-6 text-center">
+            <button @click="reset()" class="px-6 py-2.5 bg-slate-100 text-slate-700 font-semibold rounded-lg hover:bg-slate-200 transition">
+                Import Another File
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+function importApp() {
+    return {
+        step: 'upload',       // upload | processing | results
+        dragOver: false,
+        selectedFile: null,
+        uploading: false,
+        uploadError: '',
+        batchId: null,
+        pollTimer: null,
+
+        // Status polling
+        statusFilename: '',
+        statusTotal: 0,
+        statusProcessed: 0,
+
+        // Results
+        summary: null,
+
+        get progressPct() {
+            if (!this.statusTotal) return 0;
+            return Math.round((this.statusProcessed / this.statusTotal) * 100);
+        },
+
+        get matchRatePct() {
+            return this.summary ? Math.round(this.summary.match_rate * 100) : 0;
+        },
+
+        get matchRateColor() {
+            const p = this.matchRatePct;
+            if (p >= 80) return 'text-emerald-600';
+            if (p >= 50) return 'text-amber-600';
+            return 'text-rose-600';
+        },
+
+        get matchRateBarColor() {
+            const p = this.matchRatePct;
+            if (p >= 80) return 'bg-emerald-500';
+            if (p >= 50) return 'bg-amber-500';
+            return 'bg-rose-500';
+        },
+
+        formatSize(bytes) {
+            if (!bytes) return '';
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / 1048576).toFixed(1) + ' MB';
+        },
+
+        handleDrop(e) {
+            this.dragOver = false;
+            const files = e.dataTransfer.files;
+            if (files.length > 0) this.selectedFile = files[0];
+        },
+
+        handleFileSelect(e) {
+            const files = e.target.files;
+            if (files.length > 0) this.selectedFile = files[0];
+        },
+
+        async startUpload() {
+            if (!this.selectedFile) return;
+            this.uploading = true;
+            this.uploadError = '';
+
+            const formData = new FormData();
+            formData.append('file', this.selectedFile);
+
+            try {
+                const res = await fetch('/api/inventory/upload', { method: 'POST', body: formData });
+                const data = await res.json();
+
+                if (data.error) {
+                    this.uploadError = data.error;
+                    this.uploading = false;
+                    return;
+                }
+
+                this.batchId = data.batch_id;
+                this.statusFilename = data.filename;
+                this.step = 'processing';
+                this.startPolling();
+            } catch (e) {
+                this.uploadError = 'Upload failed: ' + e.message;
+            } finally {
+                this.uploading = false;
+            }
+        },
+
+        startPolling() {
+            this.pollTimer = setInterval(() => this.pollStatus(), 1500);
+        },
+
+        async pollStatus() {
+            if (!this.batchId) return;
+            try {
+                const res = await fetch(`/api/inventory/status/${this.batchId}`);
+                const data = await res.json();
+
+                this.statusTotal = data.total_rows || 0;
+                this.statusProcessed = data.processed || 0;
+
+                if (data.status === 'completed') {
+                    clearInterval(this.pollTimer);
+                    this.summary = data.summary;
+                    this.step = 'results';
+                } else if (data.status === 'error') {
+                    clearInterval(this.pollTimer);
+                    this.uploadError = data.error_msg || 'Processing failed';
+                    this.step = 'upload';
+                }
+            } catch (e) {
+                console.error('Poll error:', e);
+            }
+        },
+
+        reset() {
+            this.step = 'upload';
+            this.selectedFile = null;
+            this.uploading = false;
+            this.uploadError = '';
+            this.batchId = null;
+            this.summary = null;
+            this.statusTotal = 0;
+            this.statusProcessed = 0;
+            if (this.pollTimer) clearInterval(this.pollTimer);
+        }
+    }
+}
+</script>
+{% endblock %}

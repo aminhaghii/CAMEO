@@ -21,8 +21,16 @@ DATA_DIR = os.path.join(BASE_DIR, 'data')
 CHEMICALS_DB_PATH = os.path.join(DATA_DIR, 'chemicals.db')
 USER_DB_PATH = os.path.join(DATA_DIR, 'user.db')
 
+# Store paths in app config for blueprints
+app.config['CHEMICALS_DB_PATH'] = CHEMICALS_DB_PATH
+app.config['USER_DB_PATH'] = USER_DB_PATH
+
 # Initialize Reactivity Engine
 reactivity_engine = ReactivityEngine(CHEMICALS_DB_PATH)
+
+# Register blueprints
+from routes.inventory import inventory_bp
+app.register_blueprint(inventory_bp)
 
 def get_chemicals_db_connection():
     conn = sqlite3.connect(CHEMICALS_DB_PATH)

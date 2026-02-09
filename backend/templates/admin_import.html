@@ -165,11 +165,54 @@
                             </span>
                         </div>
 
+                        <!-- Conflict warnings -->
+                        <template x-for="cf in item.conflicts || []" :key="cf">
+                            <div class="flex items-start gap-2 mb-2 p-2.5 bg-red-50 border border-red-200 rounded-lg">
+                                <svg class="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+                                <span class="text-xs text-red-700 font-medium" x-text="cf"></span>
+                            </div>
+                        </template>
+
+                        <!-- Field swap alerts -->
+                        <template x-for="fs in item.field_swaps || []" :key="fs">
+                            <div class="flex items-start gap-2 mb-2 p-2.5 bg-orange-50 border border-orange-200 rounded-lg">
+                                <svg class="w-4 h-4 text-orange-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+                                <span class="text-xs text-orange-700 font-medium" x-text="fs"></span>
+                            </div>
+                        </template>
+
                         <!-- Issues -->
                         <div x-show="item.issues?.length" class="mb-3">
-                            <template x-for="issue in item.issues" :key="issue">
+                            <template x-for="issue in (item.issues || []).filter(i => !i.startsWith('CONFLICT:') && !i.startsWith('FIELD_SWAP:'))" :key="issue">
                                 <span class="inline-block mr-1 mb-1 px-2 py-0.5 bg-red-100 text-red-600 text-xs rounded" x-text="issue"></span>
                             </template>
+                        </div>
+
+                        <!-- Signal breakdown (collapsible) -->
+                        <div x-show="item.signals?.length > 0" class="mb-3" x-data="{ showSignals: false }">
+                            <button @click="showSignals = !showSignals" class="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1">
+                                <svg class="w-3 h-3 transition-transform" :class="showSignals ? 'rotate-90' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                                <span x-text="item.signals.length + ' signals detected'"></span>
+                            </button>
+                            <div x-show="showSignals" x-transition class="mt-2 space-y-1">
+                                <template x-for="sig in item.signals" :key="sig.source + sig.chemical_id">
+                                    <div class="flex items-center gap-2 text-xs px-2 py-1.5 rounded"
+                                         :class="sig.weighted > 70 ? 'bg-emerald-50' : sig.weighted > 40 ? 'bg-blue-50' : 'bg-slate-50'">
+                                        <span class="font-mono px-1.5 py-0.5 rounded text-[10px] font-bold"
+                                              :class="{
+                                                  'bg-emerald-200 text-emerald-800': sig.source.startsWith('cas'),
+                                                  'bg-blue-200 text-blue-800': sig.source.startsWith('name'),
+                                                  'bg-purple-200 text-purple-800': sig.source.startsWith('synonym'),
+                                                  'bg-cyan-200 text-cyan-800': sig.source.startsWith('formula'),
+                                                  'bg-amber-200 text-amber-800': sig.source.startsWith('un'),
+                                              }"
+                                              x-text="sig.source"></span>
+                                        <span class="text-slate-600 flex-1" x-text="sig.detail"></span>
+                                        <span class="font-bold" :class="sig.weighted > 70 ? 'text-emerald-700' : sig.weighted > 40 ? 'text-blue-700' : 'text-slate-500'"
+                                              x-text="sig.weighted + '%'"></span>
+                                    </div>
+                                </template>
+                            </div>
                         </div>
 
                         <!-- "Did you mean?" Suggestions (for REVIEW_REQUIRED) -->
@@ -184,25 +227,25 @@
                                         <span class="font-medium text-slate-800" x-text="sug.chemical_name"></span>
                                         <span class="text-xs px-1.5 py-0.5 rounded-full font-bold"
                                               :class="sug.score > 95 ? 'bg-emerald-100 text-emerald-700' : sug.score >= 80 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'"
-                                              x-text="sug.score + '%'"></span>
+                                              x-text="Math.round(sug.score) + '%'"></span>
                                     </button>
                                 </template>
                             </div>
                         </div>
 
-                        <!-- Manual Search (for UNIDENTIFIED) -->
-                        <div x-show="item.match_status === 'UNIDENTIFIED'" class="mt-2">
+                        <!-- Manual Search (for UNIDENTIFIED or REVIEW_REQUIRED) -->
+                        <div x-show="item.match_status === 'UNIDENTIFIED' || item.match_status === 'REVIEW_REQUIRED'" class="mt-2">
                             <p class="text-sm font-medium text-slate-600 mb-2">Search manually:</p>
                             <div class="flex gap-2">
                                 <input type="text"
                                     :id="'search-' + item.row_index"
                                     class="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:border-blue-400 focus:ring-1 focus:ring-blue-400 outline-none"
-                                    placeholder="Type chemical name..."
+                                    placeholder="Type chemical name or CAS..."
                                     @input.debounce.300ms="searchForRow(item, $event.target.value)"
                                 >
                             </div>
                             <!-- Search results -->
-                            <div x-show="item._searchResults?.length > 0" class="mt-2 border border-slate-200 rounded-lg overflow-hidden">
+                            <div x-show="item._searchResults?.length > 0" class="mt-2 border border-slate-200 rounded-lg overflow-hidden max-h-48 overflow-y-auto">
                                 <template x-for="sr in item._searchResults || []" :key="sr.chemical_id">
                                     <button
                                         @click="confirmSuggestion(item, sr)"
@@ -213,8 +256,8 @@
                                     </button>
                                 </template>
                             </div>
-                            <!-- Suggestions as fallback -->
-                            <div x-show="item.suggestions?.length > 0 && !item._searchResults?.length" class="mt-2">
+                            <!-- Suggestions as fallback for UNIDENTIFIED -->
+                            <div x-show="item.match_status === 'UNIDENTIFIED' && item.suggestions?.length > 0 && !item._searchResults?.length" class="mt-2">
                                 <p class="text-xs text-slate-400 mb-1">Closest matches:</p>
                                 <div class="flex flex-wrap gap-2">
                                     <template x-for="sug in item.suggestions || []" :key="sug.chemical_id">
@@ -223,7 +266,7 @@
                                             class="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-sm hover:border-blue-400 hover:bg-blue-50 transition"
                                         >
                                             <span class="font-medium text-slate-800" x-text="sug.chemical_name"></span>
-                                            <span class="text-xs px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 font-bold" x-text="sug.score + '%'"></span>
+                                            <span class="text-xs px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 font-bold" x-text="Math.round(sug.score) + '%'"></span>
                                         </button>
                                     </template>
                                 </div>

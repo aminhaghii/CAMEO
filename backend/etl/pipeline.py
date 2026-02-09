@@ -1,7 +1,8 @@
 """
-pipeline.py — ETL orchestrator (v2).
-Runs: Ingest → Clean → Match (Waterfall) → Report in a background thread.
+pipeline.py — ETL orchestrator (v3).
+Runs: Ingest → Clean → Match (Hybrid Multi-Signal) → Report in a background thread.
 Supports human-in-the-loop confirmation for REVIEW_REQUIRED rows.
+Stores per-row signals, conflicts, and field-swap diagnostics.
 """
 
 import json
@@ -52,7 +53,10 @@ def init_inventory_tables(user_db_path: str):
             confidence   REAL DEFAULT 0,
             quality_score INTEGER DEFAULT 0,
             issues       TEXT,
-            suggestions  TEXT
+            suggestions  TEXT,
+            signals_json TEXT,
+            conflicts_json TEXT,
+            field_swaps_json TEXT
         )
     """)
 
@@ -141,7 +145,7 @@ def get_review_rows(user_db_path: str, batch_id: str) -> list[dict]:
     cursor.execute("""
         SELECT id, row_index, raw_data, cleaned_data, match_status,
                chemical_id, match_method, confidence, quality_score,
-               issues, suggestions
+               issues, suggestions, signals_json, conflicts_json, field_swaps_json
         FROM inventory_staging
         WHERE batch_id = ? AND match_status IN ('REVIEW_REQUIRED', 'UNIDENTIFIED')
         ORDER BY row_index
@@ -154,10 +158,16 @@ def get_review_rows(user_db_path: str, batch_id: str) -> list[dict]:
         raw = {}
         cleaned = {}
         suggestions = []
+        signals = []
+        conflicts = []
+        field_swaps = []
         try:
             raw = json.loads(row['raw_data']) if row['raw_data'] else {}
             cleaned = json.loads(row['cleaned_data']) if row['cleaned_data'] else {}
             suggestions = json.loads(row['suggestions']) if row['suggestions'] else []
+            signals = json.loads(row['signals_json']) if row['signals_json'] else []
+            conflicts = json.loads(row['conflicts_json']) if row['conflicts_json'] else []
+            field_swaps = json.loads(row['field_swaps_json']) if row['field_swaps_json'] else []
         except (json.JSONDecodeError, TypeError):
             pass
 
@@ -173,6 +183,9 @@ def get_review_rows(user_db_path: str, batch_id: str) -> list[dict]:
             'chemical_id': row['chemical_id'],
             'issues': json.loads(row['issues']) if row['issues'] else [],
             'suggestions': suggestions,
+            'signals': signals,
+            'conflicts': conflicts,
+            'field_swaps': field_swaps,
         })
     return result
 
@@ -253,16 +266,25 @@ def _run_pipeline(user_db_path: str, chemicals_db_path: str,
                 if match_status == 'MATCHED' and validated.match_method != 'exact_cas':
                     quality_score = min(quality_score, 70)
 
-            # Serialize suggestions
+            # Serialize v3 diagnostics
             suggestions_json = json.dumps(match_result.get('suggestions', []))
+            signals_json = json.dumps(match_result.get('signals', []))
+            conflicts_json = json.dumps(match_result.get('conflicts', []))
+            field_swaps_json = json.dumps(match_result.get('field_swaps', []))
+
+            # Merge field_swaps and conflicts into issues for visibility
+            for fs in match_result.get('field_swaps', []):
+                issues.append(f"FIELD_SWAP: {fs}")
+            for cf in match_result.get('conflicts', []):
+                issues.append(f"CONFLICT: {cf}")
 
             # Insert staging row
             cursor.execute("""
                 INSERT INTO inventory_staging
                     (batch_id, row_index, raw_data, cleaned_data, match_status,
                      chemical_id, match_method, confidence, quality_score, issues,
-                     suggestions)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     suggestions, signals_json, conflicts_json, field_swaps_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 batch_id,
                 idx + 1,
@@ -275,6 +297,9 @@ def _run_pipeline(user_db_path: str, chemicals_db_path: str,
                 quality_score,
                 json.dumps(issues),
                 suggestions_json,
+                signals_json,
+                conflicts_json,
+                field_swaps_json,
             ))
 
             # Update progress

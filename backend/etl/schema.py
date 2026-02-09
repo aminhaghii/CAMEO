@@ -10,30 +10,45 @@ COLUMN_MAP = {
     'name': [
         'name', 'chemical', 'chemical name', 'chem_name', 'chem name',
         'product', 'product name', 'material', 'substance', 'item',
+        'material name',
+        # Persian/Farsi
+        'نام ماده', 'نام کالا', 'نام', 'ماده شیمیایی', 'نام محصول',
     ],
     'cas': [
         'cas', 'cas_number', 'cas number', 'cas no', 'cas no.',
         'cas#', 'cas_id', 'casrn', 'cas registry', 'cas rn',
+        # Persian/Farsi
+        'کس نامبر', 'کس نمبر', 'شماره کس', 'cas number',
     ],
     'quantity': [
         'quantity', 'qty', 'amount', 'amt', 'count', 'volume', 'mass',
         'weight', 'number', 'num',
+        # Persian/Farsi
+        'مقدار', 'تعداد', 'حجم', 'وزن', 'قیمت',
     ],
     'unit': [
         'unit', 'units', 'uom', 'unit of measure', 'measure',
         'unit_of_measure',
+        # Persian/Farsi
+        'واحد', 'واحد اندازه گیری',
     ],
     'location': [
         'location', 'loc', 'storage', 'zone', 'area', 'building',
         'room', 'cabinet', 'shelf', 'warehouse', 'site',
+        # Persian/Farsi
+        'محل', 'انبار', 'مکان', 'توضیحات', 'توضیحات اضافی',
     ],
     'un_number': [
         'un', 'un_number', 'un number', 'un no', 'un no.', 'un#',
         'unna', 'un/na', 'na number', 'dot number',
+        # Persian/Farsi
+        'un نمبر', 'یو ان کد', 'شماره un', 'un ',
     ],
     'formula': [
         'formula', 'molecular formula', 'chem_formula', 'chemical formula',
         'mol formula',
+        # Persian/Farsi
+        'فرمول شیمیایی', 'فرمول', 'فرمول مولکولی',
     ],
 }
 
@@ -84,6 +99,14 @@ UNIT_NORMALIZATION = {
     'bottles':   ('bottle', 1.0),
     'each':      ('each', 1.0),
     'ea':        ('each', 1.0),
+    # Persian/Farsi units
+    'لیتر':      ('L', 1.0),
+    'کیلو':      ('kg', 1.0),
+    'کیلوگرم':   ('kg', 1.0),
+    'گرم':       ('kg', 0.001),
+    'تن':        ('kg', 1000.0),
+    'سیلندر':    ('cylinder', 1.0),
+    'بشکه':      ('drum', 1.0),
 }
 
 

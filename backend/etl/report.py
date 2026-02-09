@@ -1,6 +1,7 @@
 """
-report.py — Generate quality summary JSON from processed staging rows (ETL v2).
+report.py — Generate quality summary JSON from processed staging rows (ETL v3).
 Statuses: MATCHED, REVIEW_REQUIRED, UNIDENTIFIED
+Includes signals, conflicts, and field-swap diagnostics.
 """
 
 import json
@@ -35,7 +36,7 @@ def generate_summary(db_path: str, batch_id: str) -> dict:
     cursor.execute("""
         SELECT match_status, match_method, quality_score, confidence,
                raw_data, cleaned_data, issues, chemical_id, row_index,
-               suggestions
+               suggestions, signals_json, conflicts_json, field_swaps_json
         FROM inventory_staging
         WHERE batch_id = ?
         ORDER BY row_index
@@ -91,10 +92,16 @@ def generate_summary(db_path: str, batch_id: str) -> dict:
             raw = {}
             cleaned = {}
             suggestions = []
+            signals = []
+            conflicts = []
+            field_swaps = []
             try:
                 raw = json.loads(row['raw_data']) if row['raw_data'] else {}
                 cleaned = json.loads(row['cleaned_data']) if row['cleaned_data'] else {}
                 suggestions = json.loads(row['suggestions']) if row['suggestions'] else []
+                signals = json.loads(row['signals_json']) if row['signals_json'] else []
+                conflicts = json.loads(row['conflicts_json']) if row['conflicts_json'] else []
+                field_swaps = json.loads(row['field_swaps_json']) if row['field_swaps_json'] else []
             except (json.JSONDecodeError, TypeError):
                 pass
 
@@ -110,6 +117,9 @@ def generate_summary(db_path: str, batch_id: str) -> dict:
                 'matched_name': cleaned.get('name', ''),
                 'issues': json.loads(issues_json) if issues_json else [],
                 'suggestions': suggestions,
+                'signals': signals,
+                'conflicts': conflicts,
+                'field_swaps': field_swaps,
             })
 
     # Top issues sorted by frequency

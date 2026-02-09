@@ -1,0 +1,12 @@
+Name,CAS,Quantity,Unit,Location,Formula,UN_Number
+Acetone,67-64-1,10,gal,Zone A,,
+Asetone,,5,L,Zone B,,
+,71-43-2,10,g,Lab 2,,
+Sulfuric Acid,7664-93-9,1,lb,Cabinet 1,,
+67-64-1,Acetone,2,L,Zone C,,
+Benzene,Toluene,100,kg,Zone D,,
+Methanol,67-56-1,50,liters,Zone A,CH4O,
+Unknown Chemical XYZ,000-00-0,1,container,Zone D,,
+Dimethyl ketone,,20,gal,Zone A,,
+Ethanol,64-17-5,5,L,Lab 1,C2H6O,1170
+Sulfuric Acd,7664-93-9,3,L,Cabinet 2,,

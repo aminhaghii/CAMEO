@@ -18,8 +18,15 @@ logger = logging.getLogger(__name__)
 # ── Regex for CAS numbers (e.g. 67-64-1, 7664-93-9) ──
 CAS_REGEX = re.compile(r'\b(\d{2,7}-\d{2}-\d)\b')
 
+# ── Regex for CAS as pure digits (e.g. 7664939 → 7664-93-9) ──
+CAS_DIGITS_REGEX = re.compile(r'\b(\d{5,10})\b')
+
 # ── Values treated as None/NaN ──
 NULL_STRINGS = {'nan', 'none', 'null', 'n/a', 'na', '-', '--', '—', '', 'undefined', 'nil'}
+
+# ── Unicode subscript/superscript → ASCII digit mapping ──
+_SUBSCRIPT_MAP = str.maketrans('₀₁₂₃₄₅₆₇₈₉', '0123456789')
+_SUPERSCRIPT_MAP = str.maketrans('⁰¹²³⁴⁵⁶⁷⁸⁹', '0123456789')
 
 
 # ═══════════════════════════════════════════════════════
@@ -116,14 +123,60 @@ def scan_cas_from_all_columns(row: dict) -> str | None:
     for key, value in row.items():
         if key == 'cas' or not value:
             continue
-        matches = CAS_REGEX.findall(str(value))
+        val_str = str(value)
+        # Try standard CAS format first (XX-XX-X)
+        matches = CAS_REGEX.findall(val_str)
         for candidate in matches:
             is_valid, result = validate_cas(candidate)
             if is_valid:
                 logger.debug(f"CAS found in column '{key}': {result}")
                 return result
+        # Try digit-only CAS (e.g. 7664939)
+        digit_matches = CAS_DIGITS_REGEX.findall(val_str)
+        for digits in digit_matches:
+            reconstructed = reconstruct_cas_from_digits(digits)
+            if reconstructed:
+                logger.debug(f"CAS reconstructed from digits in column '{key}': {digits} → {reconstructed}")
+                return reconstructed
 
     return None
+
+
+def reconstruct_cas_from_digits(digits: str) -> str | None:
+    """
+    Try to reconstruct a CAS number from a pure digit string.
+    CAS format: XXXXXXX-YY-Z (last digit is check, second-to-last 2 digits are group).
+    E.g. 7664939 → 7664-93-9
+    """
+    if not digits.isdigit() or len(digits) < 5 or len(digits) > 10:
+        return None
+    check = digits[-1]
+    group = digits[-3:-1]
+    body = digits[:-3]
+    if not body:
+        return None
+    candidate = f"{body}-{group}-{check}"
+    is_valid, result = validate_cas(candidate)
+    return result if is_valid else None
+
+
+def normalize_formula(raw: str) -> str:
+    """
+    Normalize a chemical formula:
+    - Convert Unicode subscripts/superscripts to ASCII digits (H₂SO₄ → H2SO4)
+    - Fix OCR/typo: digit 0 after a letter → letter O (H202 → H2O2)
+    - Strip whitespace
+    """
+    if not raw:
+        return ''
+    s = raw.translate(_SUBSCRIPT_MAP)
+    s = s.translate(_SUPERSCRIPT_MAP)
+    s = s.strip()
+    # Fix digit-zero used instead of letter-O in formulas:
+    # Pattern: letter followed by digits then 0 then digit → the 0 is likely O
+    # E.g. H202 → H2O2, C2H60 → C2H6O, Na2C03 → Na2CO3
+    s = re.sub(r'(?<=[A-Za-z])(\d*)0(\d)', lambda m: m.group(1) + 'O' + m.group(2), s)
+    return s
 
 
 def normalize_cas_for_comparison(cas: str) -> str:
@@ -212,6 +265,13 @@ def validate_row(row: dict) -> dict:
     cleaned['cas_raw'] = cas_raw
     if cas_raw:
         is_valid, cas_result = validate_cas(cas_raw)
+        if not is_valid:
+            # Try reconstructing from pure digits (e.g. 7664939 → 7664-93-9)
+            reconstructed = reconstruct_cas_from_digits(cas_raw.replace('-', '').replace(' ', ''))
+            if reconstructed:
+                is_valid = True
+                cas_result = reconstructed
+                issues.append(f"CAS reconstructed from digits: {cas_raw} → {reconstructed}")
         cleaned['cas'] = cas_result if is_valid else None
         cleaned['cas_valid'] = is_valid
         if not is_valid:
@@ -261,8 +321,9 @@ def validate_row(row: dict) -> dict:
         cleaned['un_number'] = None
 
     # ── Formula ──
-    formula = (row.get('formula') or '').strip() if row.get('formula') else ''
-    cleaned['formula'] = formula if formula else None
+    formula_raw = (row.get('formula') or '').strip() if row.get('formula') else ''
+    formula = normalize_formula(formula_raw) if formula_raw else None
+    cleaned['formula'] = formula
 
     # Clamp score
     score = max(0, min(100, score))

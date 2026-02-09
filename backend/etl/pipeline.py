@@ -1,6 +1,7 @@
 """
-pipeline.py — ETL orchestrator.
-Runs: Ingest → Clean → Match → Report in a background thread.
+pipeline.py — ETL orchestrator (v2).
+Runs: Ingest → Clean → Match (Waterfall) → Report in a background thread.
+Supports human-in-the-loop confirmation for REVIEW_REQUIRED rows.
 """
 
 import json
@@ -14,6 +15,7 @@ from etl.ingest import read_file
 from etl.clean import validate_row
 from etl.match import ChemicalMatcher
 from etl.report import generate_summary
+from etl.models import MatchResult
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +51,8 @@ def init_inventory_tables(user_db_path: str):
             match_method TEXT,
             confidence   REAL DEFAULT 0,
             quality_score INTEGER DEFAULT 0,
-            issues       TEXT
+            issues       TEXT,
+            suggestions  TEXT
         )
     """)
 
@@ -111,6 +114,69 @@ def get_batch_status(user_db_path: str, batch_id: str) -> dict:
     return result
 
 
+def confirm_row(user_db_path: str, staging_id: int, chemical_id: int, chemical_name: str) -> bool:
+    """
+    Human-in-the-loop: confirm a REVIEW_REQUIRED or UNIDENTIFIED row
+    by manually linking it to a chemical_id.
+    """
+    conn = sqlite3.connect(user_db_path)
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE inventory_staging
+        SET chemical_id = ?, match_status = 'MATCHED',
+            match_method = 'manual_confirm', confidence = 1.0
+        WHERE id = ?
+    """, (chemical_id, staging_id))
+    affected = cursor.rowcount
+    conn.commit()
+    conn.close()
+    return affected > 0
+
+
+def get_review_rows(user_db_path: str, batch_id: str) -> list[dict]:
+    """Get all rows that need human review for a batch."""
+    conn = sqlite3.connect(user_db_path)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT id, row_index, raw_data, cleaned_data, match_status,
+               chemical_id, match_method, confidence, quality_score,
+               issues, suggestions
+        FROM inventory_staging
+        WHERE batch_id = ? AND match_status IN ('REVIEW_REQUIRED', 'UNIDENTIFIED')
+        ORDER BY row_index
+    """, (batch_id,))
+    rows = cursor.fetchall()
+    conn.close()
+
+    result = []
+    for row in rows:
+        raw = {}
+        cleaned = {}
+        suggestions = []
+        try:
+            raw = json.loads(row['raw_data']) if row['raw_data'] else {}
+            cleaned = json.loads(row['cleaned_data']) if row['cleaned_data'] else {}
+            suggestions = json.loads(row['suggestions']) if row['suggestions'] else []
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+        result.append({
+            'staging_id': row['id'],
+            'row_index': row['row_index'],
+            'input_name': raw.get('name', cleaned.get('name', '')),
+            'input_cas': raw.get('cas', ''),
+            'match_status': row['match_status'],
+            'match_method': row['match_method'],
+            'confidence': row['confidence'],
+            'quality_score': row['quality_score'],
+            'chemical_id': row['chemical_id'],
+            'issues': json.loads(row['issues']) if row['issues'] else [],
+            'suggestions': suggestions,
+        })
+    return result
+
+
 def run_async(user_db_path: str, chemicals_db_path: str,
               batch_id: str, filepath: str):
     """Start the pipeline in a background thread."""
@@ -127,7 +193,7 @@ def _run_pipeline(user_db_path: str, chemicals_db_path: str,
                   batch_id: str, filepath: str):
     """
     Main pipeline logic (runs in background thread).
-    Ingest → Clean → Match → Report.
+    Ingest → Clean → Match (Waterfall) → Validate (Pydantic) → Report.
     """
     conn = sqlite3.connect(user_db_path)
     cursor = conn.cursor()
@@ -158,39 +224,57 @@ def _run_pipeline(user_db_path: str, chemicals_db_path: str,
         for idx, (_, row) in enumerate(df.iterrows()):
             row_dict = {k: (str(v) if v else '') for k, v in row.to_dict().items()}
 
-            # Clean
+            # Clean (v2: sanitize + CAS scan)
             clean_result = validate_row(row_dict)
             cleaned = clean_result['cleaned']
             issues = clean_result['issues']
             quality_score = clean_result['quality_score']
 
-            # Match
+            # Match (v2: Waterfall with rapidfuzz)
             match_result = matcher.match(cleaned)
 
-            # Determine final status
-            match_status = match_result['match_status']
+            # ── Anti-Hallucination: Validate with Pydantic ──
+            try:
+                validated = MatchResult(
+                    chemical_id=match_result.get('chemical_id'),
+                    chemical_name=match_result.get('chemical_name'),
+                    match_method=match_result.get('match_method', 'unmatched'),
+                    confidence=match_result.get('confidence', 0.0),
+                    match_status=match_result.get('match_status', 'UNIDENTIFIED'),
+                    suggestions=[],  # Suggestions stored separately
+                )
+            except Exception as ve:
+                logger.warning(f"[Batch {batch_id[:8]}] Row {idx+1} validation error: {ve}")
+                validated = MatchResult()
+
+            # Extra quality penalty for invalid CAS when matched by name
+            match_status = validated.match_status
             if issues and any('Invalid CAS' in i for i in issues):
-                # CAS was provided but invalid — flag even if name matched
-                if match_status == 'matched' and match_result['match_method'] != 'exact_cas':
+                if match_status == 'MATCHED' and validated.match_method != 'exact_cas':
                     quality_score = min(quality_score, 70)
+
+            # Serialize suggestions
+            suggestions_json = json.dumps(match_result.get('suggestions', []))
 
             # Insert staging row
             cursor.execute("""
                 INSERT INTO inventory_staging
                     (batch_id, row_index, raw_data, cleaned_data, match_status,
-                     chemical_id, match_method, confidence, quality_score, issues)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     chemical_id, match_method, confidence, quality_score, issues,
+                     suggestions)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 batch_id,
                 idx + 1,
                 json.dumps(row_dict),
                 json.dumps(cleaned, default=str),
-                match_status,
-                match_result['chemical_id'],
-                match_result['match_method'],
-                match_result['confidence'],
+                validated.match_status,
+                validated.chemical_id,
+                validated.match_method,
+                validated.confidence,
                 quality_score,
                 json.dumps(issues),
+                suggestions_json,
             ))
 
             # Update progress

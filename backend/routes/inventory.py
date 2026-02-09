@@ -1,13 +1,18 @@
 """
-inventory.py — Flask Blueprint for inventory ingestion API.
-Routes: upload, status polling, admin page.
+inventory.py — Flask Blueprint for inventory ingestion API (ETL v2).
+Routes: upload, status polling, review rows, confirm match, search chemicals, admin page.
 """
 
 import os
+import re
+import sqlite3
 import logging
 from flask import Blueprint, request, jsonify, render_template, current_app
 
-from etl.pipeline import init_inventory_tables, create_batch, get_batch_status, run_async
+from etl.pipeline import (
+    init_inventory_tables, create_batch, get_batch_status,
+    run_async, confirm_row, get_review_rows
+)
 
 logger = logging.getLogger(__name__)
 
@@ -75,3 +80,89 @@ def inventory_status(batch_id):
     user_db = current_app.config['USER_DB_PATH']
     status = get_batch_status(user_db, batch_id)
     return jsonify(status)
+
+
+@inventory_bp.route('/api/inventory/review/<batch_id>')
+def review_rows(batch_id):
+    """Get all rows that need human review (REVIEW_REQUIRED + UNIDENTIFIED)."""
+    user_db = current_app.config['USER_DB_PATH']
+    rows = get_review_rows(user_db, batch_id)
+    return jsonify({'rows': rows, 'count': len(rows)})
+
+
+@inventory_bp.route('/api/inventory/confirm', methods=['POST'])
+def confirm_match():
+    """
+    Human-in-the-loop: confirm a row's chemical match.
+    Body: { staging_id: int, chemical_id: int, chemical_name: str }
+    """
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No JSON body'}), 400
+
+    staging_id = data.get('staging_id')
+    chemical_id = data.get('chemical_id')
+    chemical_name = data.get('chemical_name', '')
+
+    if not staging_id or not chemical_id:
+        return jsonify({'error': 'staging_id and chemical_id are required'}), 400
+
+    # Anti-Hallucination: verify chemical_id exists in chemicals.db
+    chemicals_db = current_app.config['CHEMICALS_DB_PATH']
+    conn = sqlite3.connect(chemicals_db)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, name FROM chemicals WHERE id = ?", (chemical_id,))
+    chem = cursor.fetchone()
+    conn.close()
+
+    if not chem:
+        return jsonify({'error': f'chemical_id {chemical_id} does not exist in database'}), 400
+
+    user_db = current_app.config['USER_DB_PATH']
+    success = confirm_row(user_db, staging_id, chemical_id, chem['name'])
+
+    if success:
+        return jsonify({'success': True, 'chemical_name': chem['name']})
+    else:
+        return jsonify({'error': 'Row not found'}), 404
+
+
+@inventory_bp.route('/api/inventory/search_chemicals')
+def search_chemicals_for_linking():
+    """
+    Search chemicals.db for manual linking.
+    Used when a row is UNIDENTIFIED and user wants to manually find a match.
+    Query param: q (search term)
+    """
+    query = request.args.get('q', '').strip()
+    if not query or len(query) < 2:
+        return jsonify({'results': []})
+
+    chemicals_db = current_app.config['CHEMICALS_DB_PATH']
+    conn = sqlite3.connect(chemicals_db)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    like_term = f'%{query}%'
+    cursor.execute("""
+        SELECT DISTINCT c.id, c.name, c.formulas
+        FROM chemicals c
+        LEFT JOIN chemical_cas cc ON c.id = cc.chem_id
+        WHERE c.name LIKE ?
+           OR c.synonyms LIKE ?
+           OR c.formulas LIKE ?
+           OR cc.cas_id LIKE ?
+        LIMIT 20
+    """, (like_term, like_term, like_term, like_term))
+
+    results = []
+    for row in cursor.fetchall():
+        results.append({
+            'chemical_id': row['id'],
+            'chemical_name': row['name'],
+            'formula': row['formulas'] or '',
+        })
+
+    conn.close()
+    return jsonify({'results': results})

@@ -3,7 +3,7 @@
 {% block title %}Inventory Import - CAMEO Safety Platform{% endblock %}
 
 {% block content %}
-<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8" x-data="importApp()">
+<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8" x-data="importApp()">
 
     <!-- Header -->
     <div class="mb-8">
@@ -22,7 +22,6 @@
             @click="$refs.fileInput.click()"
         >
             <input type="file" x-ref="fileInput" class="hidden" accept=".csv,.xlsx,.xls,.json" @change="handleFileSelect($event)">
-
             <div class="flex flex-col items-center gap-3">
                 <div class="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center">
                     <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -34,7 +33,6 @@
             </div>
         </div>
 
-        <!-- Selected file info -->
         <div x-show="selectedFile" class="mt-6 flex items-center justify-between bg-slate-50 rounded-lg px-5 py-4 border border-slate-200">
             <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
@@ -47,22 +45,15 @@
                     <p class="text-xs text-slate-400" x-text="formatSize(selectedFile?.size)"></p>
                 </div>
             </div>
-            <button
-                @click="startUpload()"
-                :disabled="uploading"
-                class="px-6 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-            >
+            <button @click="startUpload()" :disabled="uploading"
+                class="px-6 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition disabled:opacity-50">
                 <span x-show="!uploading">Start Import</span>
                 <span x-show="uploading" class="flex items-center gap-2">
-                    <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                    </svg>
+                    <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
                     Uploading...
                 </span>
             </button>
         </div>
-
         <div x-show="uploadError" class="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm" x-text="uploadError"></div>
     </div>
 
@@ -70,18 +61,13 @@
     <div x-show="step === 'processing'" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
         <div class="text-center mb-6">
             <div class="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-4">
-                <svg class="animate-spin h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                </svg>
+                <svg class="animate-spin h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
             </div>
             <h2 class="text-xl font-bold text-slate-900">Processing Inventory</h2>
             <p class="text-slate-500 mt-1" x-text="statusFilename"></p>
         </div>
-
-        <!-- Progress bar -->
         <div class="w-full bg-slate-200 rounded-full h-4 overflow-hidden mb-3">
-            <div class="bg-blue-600 h-full rounded-full transition-all duration-300" :style="'width: ' + progressPct + '%'"></div>
+            <div class="bg-blue-600 h-full rounded-full transition-all duration-300" :style="'width:' + progressPct + '%'"></div>
         </div>
         <div class="flex justify-between text-sm text-slate-500">
             <span x-text="'Row ' + statusProcessed + ' / ' + statusTotal"></span>
@@ -103,12 +89,12 @@
                 <p class="text-sm text-slate-500 mt-1">Matched</p>
             </div>
             <div class="bg-white rounded-xl shadow-sm border border-amber-200 p-5 text-center">
-                <p class="text-3xl font-bold text-amber-600" x-text="summary?.ambiguous || 0"></p>
-                <p class="text-sm text-slate-500 mt-1">Ambiguous</p>
+                <p class="text-3xl font-bold text-amber-600" x-text="summary?.review_required || 0"></p>
+                <p class="text-sm text-slate-500 mt-1">Review Required</p>
             </div>
             <div class="bg-white rounded-xl shadow-sm border border-rose-200 p-5 text-center">
-                <p class="text-3xl font-bold text-rose-600" x-text="summary?.unmatched || 0"></p>
-                <p class="text-sm text-slate-500 mt-1">Unmatched</p>
+                <p class="text-3xl font-bold text-rose-600" x-text="summary?.unidentified || 0"></p>
+                <p class="text-sm text-slate-500 mt-1">Unidentified</p>
             </div>
         </div>
 
@@ -119,7 +105,7 @@
                 <span class="text-lg font-bold" :class="matchRateColor" x-text="matchRatePct + '%'"></span>
             </div>
             <div class="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
-                <div class="h-full rounded-full transition-all duration-500" :class="matchRateBarColor" :style="'width: ' + matchRatePct + '%'"></div>
+                <div class="h-full rounded-full transition-all duration-500" :class="matchRateBarColor" :style="'width:' + matchRatePct + '%'"></div>
             </div>
             <div class="flex gap-6 mt-4 text-sm text-slate-500">
                 <span>Avg Quality: <strong class="text-slate-700" x-text="summary?.avg_quality_score || 0"></strong></span>
@@ -135,61 +121,122 @@
                     <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium"
                           :class="{
                               'bg-emerald-100 text-emerald-700': method === 'exact_cas',
-                              'bg-blue-100 text-blue-700': method === 'exact_name' || method === 'exact_un',
-                              'bg-purple-100 text-purple-700': method === 'synonym' || method === 'formula',
-                              'bg-amber-100 text-amber-700': method === 'fuzzy_name',
+                              'bg-blue-100 text-blue-700': method.startsWith('exact_'),
+                              'bg-cyan-100 text-cyan-700': method === 'normalized',
+                              'bg-purple-100 text-purple-700': method === 'exact_synonym',
+                              'bg-amber-100 text-amber-700': method.startsWith('fuzzy_'),
                               'bg-slate-100 text-slate-600': method === 'unmatched',
+                              'bg-green-100 text-green-700': method === 'manual_confirm',
                           }">
-                        <span x-text="method.replace('_', ' ')"></span>
+                        <span x-text="method.replace(/_/g, ' ')"></span>
                         <span class="font-bold" x-text="count"></span>
                     </span>
                 </template>
             </div>
         </div>
 
-        <!-- Needs Review Table -->
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6" x-show="summary?.needs_review?.length > 0">
-            <h3 class="font-semibold text-slate-800 mb-4">Needs Review</h3>
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr class="border-b border-slate-200 text-left text-slate-500">
-                            <th class="pb-3 pr-4 font-medium">#</th>
-                            <th class="pb-3 pr-4 font-medium">Name</th>
-                            <th class="pb-3 pr-4 font-medium">CAS</th>
-                            <th class="pb-3 pr-4 font-medium">Status</th>
-                            <th class="pb-3 pr-4 font-medium">Method</th>
-                            <th class="pb-3 pr-4 font-medium">Score</th>
-                            <th class="pb-3 font-medium">Issues</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <template x-for="item in summary?.needs_review || []" :key="item.row_index">
-                            <tr class="border-b border-slate-100 hover:bg-slate-50">
-                                <td class="py-2.5 pr-4 text-slate-400" x-text="item.row_index"></td>
-                                <td class="py-2.5 pr-4 font-medium text-slate-800" x-text="item.name || '(empty)'"></td>
-                                <td class="py-2.5 pr-4 font-mono text-xs text-slate-600" x-text="item.cas || '-'"></td>
-                                <td class="py-2.5 pr-4">
-                                    <span class="px-2 py-0.5 rounded-full text-xs font-semibold"
-                                          :class="{
-                                              'bg-amber-100 text-amber-700': item.match_status === 'ambiguous',
-                                              'bg-rose-100 text-rose-700': item.match_status === 'unmatched',
-                                              'bg-red-100 text-red-700': item.match_status === 'error',
-                                          }"
-                                          x-text="item.match_status">
-                                    </span>
-                                </td>
-                                <td class="py-2.5 pr-4 text-slate-500 text-xs" x-text="item.match_method"></td>
-                                <td class="py-2.5 pr-4 font-semibold" :class="item.quality_score >= 70 ? 'text-emerald-600' : 'text-rose-600'" x-text="item.quality_score"></td>
-                                <td class="py-2.5">
-                                    <template x-for="issue in item.issues || []" :key="issue">
-                                        <span class="inline-block mr-1 mb-1 px-2 py-0.5 bg-red-50 text-red-600 text-xs rounded" x-text="issue"></span>
+        <!-- ══════════════ Needs Review Section ══════════════ -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6" x-show="summary?.needs_review?.length > 0">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="font-semibold text-slate-800">Needs Review</h3>
+                <span class="text-sm text-slate-400" x-text="summary?.needs_review?.length + ' rows'"></span>
+            </div>
+
+            <div class="space-y-4">
+                <template x-for="(item, idx) in summary?.needs_review || []" :key="item.row_index">
+                    <div class="border rounded-lg p-4" :class="{
+                        'border-amber-200 bg-amber-50/50': item.match_status === 'REVIEW_REQUIRED',
+                        'border-rose-200 bg-rose-50/50': item.match_status === 'UNIDENTIFIED',
+                    }">
+                        <!-- Row header -->
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center gap-3">
+                                <span class="text-xs font-mono text-slate-400">Row <span x-text="item.row_index"></span></span>
+                                <span class="font-semibold text-slate-800" x-text="item.input_name || '(empty)'"></span>
+                                <span x-show="item.input_cas" class="font-mono text-xs text-slate-500" x-text="'CAS: ' + item.input_cas"></span>
+                            </div>
+                            <span class="px-2.5 py-1 rounded-full text-xs font-bold"
+                                  :class="{
+                                      'bg-amber-200 text-amber-800': item.match_status === 'REVIEW_REQUIRED',
+                                      'bg-rose-200 text-rose-800': item.match_status === 'UNIDENTIFIED',
+                                      'bg-emerald-200 text-emerald-800': item.match_status === 'MATCHED',
+                                  }"
+                                  x-text="item.match_status === 'REVIEW_REQUIRED' ? 'REVIEW' : item.match_status === 'MATCHED' ? 'CONFIRMED' : 'UNIDENTIFIED'">
+                            </span>
+                        </div>
+
+                        <!-- Issues -->
+                        <div x-show="item.issues?.length" class="mb-3">
+                            <template x-for="issue in item.issues" :key="issue">
+                                <span class="inline-block mr-1 mb-1 px-2 py-0.5 bg-red-100 text-red-600 text-xs rounded" x-text="issue"></span>
+                            </template>
+                        </div>
+
+                        <!-- "Did you mean?" Suggestions (for REVIEW_REQUIRED) -->
+                        <div x-show="item.match_status === 'REVIEW_REQUIRED' && item.suggestions?.length > 0" class="mb-2">
+                            <p class="text-sm font-medium text-slate-600 mb-2">Did you mean?</p>
+                            <div class="flex flex-wrap gap-2">
+                                <template x-for="sug in item.suggestions || []" :key="sug.chemical_id">
+                                    <button
+                                        @click="confirmSuggestion(item, sug)"
+                                        class="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-sm hover:border-blue-400 hover:bg-blue-50 transition"
+                                    >
+                                        <span class="font-medium text-slate-800" x-text="sug.chemical_name"></span>
+                                        <span class="text-xs px-1.5 py-0.5 rounded-full font-bold"
+                                              :class="sug.score > 95 ? 'bg-emerald-100 text-emerald-700' : sug.score >= 80 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'"
+                                              x-text="sug.score + '%'"></span>
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- Manual Search (for UNIDENTIFIED) -->
+                        <div x-show="item.match_status === 'UNIDENTIFIED'" class="mt-2">
+                            <p class="text-sm font-medium text-slate-600 mb-2">Search manually:</p>
+                            <div class="flex gap-2">
+                                <input type="text"
+                                    :id="'search-' + item.row_index"
+                                    class="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:border-blue-400 focus:ring-1 focus:ring-blue-400 outline-none"
+                                    placeholder="Type chemical name..."
+                                    @input.debounce.300ms="searchForRow(item, $event.target.value)"
+                                >
+                            </div>
+                            <!-- Search results -->
+                            <div x-show="item._searchResults?.length > 0" class="mt-2 border border-slate-200 rounded-lg overflow-hidden">
+                                <template x-for="sr in item._searchResults || []" :key="sr.chemical_id">
+                                    <button
+                                        @click="confirmSuggestion(item, sr)"
+                                        class="w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-blue-50 border-b border-slate-100 last:border-0 transition"
+                                    >
+                                        <span class="font-medium text-slate-800" x-text="sr.chemical_name"></span>
+                                        <span class="text-xs text-slate-400" x-text="sr.formula || ''"></span>
+                                    </button>
+                                </template>
+                            </div>
+                            <!-- Suggestions as fallback -->
+                            <div x-show="item.suggestions?.length > 0 && !item._searchResults?.length" class="mt-2">
+                                <p class="text-xs text-slate-400 mb-1">Closest matches:</p>
+                                <div class="flex flex-wrap gap-2">
+                                    <template x-for="sug in item.suggestions || []" :key="sug.chemical_id">
+                                        <button
+                                            @click="confirmSuggestion(item, sug)"
+                                            class="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-sm hover:border-blue-400 hover:bg-blue-50 transition"
+                                        >
+                                            <span class="font-medium text-slate-800" x-text="sug.chemical_name"></span>
+                                            <span class="text-xs px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 font-bold" x-text="sug.score + '%'"></span>
+                                        </button>
                                     </template>
-                                </td>
-                            </tr>
-                        </template>
-                    </tbody>
-                </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Confirmed state -->
+                        <div x-show="item.match_status === 'MATCHED'" class="mt-2 flex items-center gap-2 text-sm text-emerald-700">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            <span>Confirmed: <strong x-text="item._confirmedName || item.matched_name"></strong></span>
+                        </div>
+                    </div>
+                </template>
             </div>
         </div>
 
@@ -205,43 +252,32 @@
 <script>
 function importApp() {
     return {
-        step: 'upload',       // upload | processing | results
+        step: 'upload',
         dragOver: false,
         selectedFile: null,
         uploading: false,
         uploadError: '',
         batchId: null,
         pollTimer: null,
-
-        // Status polling
         statusFilename: '',
         statusTotal: 0,
         statusProcessed: 0,
-
-        // Results
         summary: null,
 
         get progressPct() {
             if (!this.statusTotal) return 0;
             return Math.round((this.statusProcessed / this.statusTotal) * 100);
         },
-
         get matchRatePct() {
             return this.summary ? Math.round(this.summary.match_rate * 100) : 0;
         },
-
         get matchRateColor() {
             const p = this.matchRatePct;
-            if (p >= 80) return 'text-emerald-600';
-            if (p >= 50) return 'text-amber-600';
-            return 'text-rose-600';
+            return p >= 80 ? 'text-emerald-600' : p >= 50 ? 'text-amber-600' : 'text-rose-600';
         },
-
         get matchRateBarColor() {
             const p = this.matchRatePct;
-            if (p >= 80) return 'bg-emerald-500';
-            if (p >= 50) return 'bg-amber-500';
-            return 'bg-rose-500';
+            return p >= 80 ? 'bg-emerald-500' : p >= 50 ? 'bg-amber-500' : 'bg-rose-500';
         },
 
         formatSize(bytes) {
@@ -253,33 +289,22 @@ function importApp() {
 
         handleDrop(e) {
             this.dragOver = false;
-            const files = e.dataTransfer.files;
-            if (files.length > 0) this.selectedFile = files[0];
+            if (e.dataTransfer.files.length > 0) this.selectedFile = e.dataTransfer.files[0];
         },
-
         handleFileSelect(e) {
-            const files = e.target.files;
-            if (files.length > 0) this.selectedFile = files[0];
+            if (e.target.files.length > 0) this.selectedFile = e.target.files[0];
         },
 
         async startUpload() {
             if (!this.selectedFile) return;
             this.uploading = true;
             this.uploadError = '';
-
             const formData = new FormData();
             formData.append('file', this.selectedFile);
-
             try {
                 const res = await fetch('/api/inventory/upload', { method: 'POST', body: formData });
                 const data = await res.json();
-
-                if (data.error) {
-                    this.uploadError = data.error;
-                    this.uploading = false;
-                    return;
-                }
-
+                if (data.error) { this.uploadError = data.error; this.uploading = false; return; }
                 this.batchId = data.batch_id;
                 this.statusFilename = data.filename;
                 this.step = 'processing';
@@ -300,21 +325,72 @@ function importApp() {
             try {
                 const res = await fetch(`/api/inventory/status/${this.batchId}`);
                 const data = await res.json();
-
                 this.statusTotal = data.total_rows || 0;
                 this.statusProcessed = data.processed || 0;
-
                 if (data.status === 'completed') {
                     clearInterval(this.pollTimer);
                     this.summary = data.summary;
+                    // Add reactive properties to review rows
+                    if (this.summary?.needs_review) {
+                        this.summary.needs_review.forEach(r => {
+                            r._searchResults = [];
+                            r._confirmedName = '';
+                        });
+                    }
                     this.step = 'results';
                 } else if (data.status === 'error') {
                     clearInterval(this.pollTimer);
                     this.uploadError = data.error_msg || 'Processing failed';
                     this.step = 'upload';
                 }
+            } catch (e) { console.error('Poll error:', e); }
+        },
+
+        async confirmSuggestion(item, suggestion) {
+            const chemId = suggestion.chemical_id;
+            const chemName = suggestion.chemical_name;
+            try {
+                const res = await fetch('/api/inventory/confirm', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        staging_id: item.row_index,
+                        chemical_id: chemId,
+                        chemical_name: chemName,
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    item.match_status = 'MATCHED';
+                    item._confirmedName = data.chemical_name;
+                    item.matched_chemical_id = chemId;
+                    // Update summary counts
+                    if (this.summary) {
+                        this.summary.matched = (this.summary.matched || 0) + 1;
+                        if (item.match_status === 'REVIEW_REQUIRED') {
+                            this.summary.review_required = Math.max(0, (this.summary.review_required || 0) - 1);
+                        } else {
+                            this.summary.unidentified = Math.max(0, (this.summary.unidentified || 0) - 1);
+                        }
+                        this.summary.match_rate = this.summary.total_rows > 0
+                            ? this.summary.matched / this.summary.total_rows : 0;
+                    }
+                } else {
+                    alert('Confirm failed: ' + (data.error || 'Unknown error'));
+                }
             } catch (e) {
-                console.error('Poll error:', e);
+                alert('Confirm error: ' + e.message);
+            }
+        },
+
+        async searchForRow(item, query) {
+            if (!query || query.length < 2) { item._searchResults = []; return; }
+            try {
+                const res = await fetch(`/api/inventory/search_chemicals?q=${encodeURIComponent(query)}`);
+                const data = await res.json();
+                item._searchResults = data.results || [];
+            } catch (e) {
+                console.error('Search error:', e);
             }
         },
 

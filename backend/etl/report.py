@@ -1,5 +1,6 @@
 """
-report.py — Generate quality summary JSON from processed staging rows.
+report.py — Generate quality summary JSON from processed staging rows (ETL v2).
+Statuses: MATCHED, REVIEW_REQUIRED, UNIDENTIFIED
 """
 
 import json
@@ -17,15 +18,14 @@ def generate_summary(db_path: str, batch_id: str) -> dict:
         {
             'total_rows': int,
             'matched': int,
-            'unmatched': int,
-            'ambiguous': int,
-            'error': int,
-            'match_rate': float,          # 0.0 - 1.0
+            'review_required': int,
+            'unidentified': int,
+            'match_rate': float,
             'avg_quality_score': float,
             'avg_confidence': float,
-            'method_breakdown': { 'exact_cas': N, 'fuzzy_name': N, ... },
-            'top_issues': [ ('Invalid CAS: ...', count), ... ],
-            'needs_review': [ { row summary }, ... ],
+            'method_breakdown': { ... },
+            'top_issues': [ [issue, count], ... ],
+            'needs_review': [ { row with suggestions }, ... ],
         }
     """
     conn = sqlite3.connect(db_path)
@@ -34,7 +34,8 @@ def generate_summary(db_path: str, batch_id: str) -> dict:
 
     cursor.execute("""
         SELECT match_status, match_method, quality_score, confidence,
-               raw_data, cleaned_data, issues, chemical_id, row_index
+               raw_data, cleaned_data, issues, chemical_id, row_index,
+               suggestions
         FROM inventory_staging
         WHERE batch_id = ?
         ORDER BY row_index
@@ -44,15 +45,14 @@ def generate_summary(db_path: str, batch_id: str) -> dict:
 
     total = len(rows)
     if total == 0:
-        return {'total_rows': 0, 'matched': 0, 'unmatched': 0,
-                'ambiguous': 0, 'error': 0, 'match_rate': 0.0,
+        return {'total_rows': 0, 'matched': 0, 'review_required': 0,
+                'unidentified': 0, 'match_rate': 0.0,
                 'avg_quality_score': 0, 'avg_confidence': 0,
                 'method_breakdown': {}, 'top_issues': [], 'needs_review': []}
 
     matched = 0
-    unmatched = 0
-    ambiguous = 0
-    error_count = 0
+    review_required = 0
+    unidentified = 0
     total_score = 0
     total_confidence = 0
     method_counts = {}
@@ -65,14 +65,12 @@ def generate_summary(db_path: str, batch_id: str) -> dict:
         score = row['quality_score'] or 0
         conf = row['confidence'] or 0
 
-        if status == 'matched':
+        if status == 'MATCHED':
             matched += 1
-        elif status == 'ambiguous':
-            ambiguous += 1
-        elif status == 'error':
-            error_count += 1
+        elif status == 'REVIEW_REQUIRED':
+            review_required += 1
         else:
-            unmatched += 1
+            unidentified += 1
 
         total_score += score
         total_confidence += conf
@@ -88,26 +86,30 @@ def generate_summary(db_path: str, batch_id: str) -> dict:
             except (json.JSONDecodeError, TypeError):
                 pass
 
-        # Collect rows that need review
-        if status in ('unmatched', 'ambiguous', 'error') or score < 60:
+        # Collect rows that need review (REVIEW_REQUIRED, UNIDENTIFIED, or low score)
+        if status in ('REVIEW_REQUIRED', 'UNIDENTIFIED') or score < 60:
             raw = {}
             cleaned = {}
+            suggestions = []
             try:
                 raw = json.loads(row['raw_data']) if row['raw_data'] else {}
                 cleaned = json.loads(row['cleaned_data']) if row['cleaned_data'] else {}
+                suggestions = json.loads(row['suggestions']) if row['suggestions'] else []
             except (json.JSONDecodeError, TypeError):
                 pass
 
             needs_review.append({
                 'row_index': row['row_index'],
-                'name': raw.get('name', cleaned.get('name', '?')),
-                'cas': raw.get('cas', ''),
+                'input_name': raw.get('name', cleaned.get('name', '?')),
+                'input_cas': raw.get('cas', ''),
                 'match_status': status,
                 'match_method': method,
                 'confidence': conf,
                 'quality_score': score,
-                'chemical_id': row['chemical_id'],
+                'matched_chemical_id': row['chemical_id'],
+                'matched_name': cleaned.get('name', ''),
                 'issues': json.loads(issues_json) if issues_json else [],
+                'suggestions': suggestions,
             })
 
     # Top issues sorted by frequency
@@ -116,9 +118,8 @@ def generate_summary(db_path: str, batch_id: str) -> dict:
     return {
         'total_rows': total,
         'matched': matched,
-        'unmatched': unmatched,
-        'ambiguous': ambiguous,
-        'error': error_count,
+        'review_required': review_required,
+        'unidentified': unidentified,
         'match_rate': round(matched / total, 3) if total else 0,
         'avg_quality_score': round(total_score / total, 1) if total else 0,
         'avg_confidence': round(total_confidence / total, 3) if total else 0,

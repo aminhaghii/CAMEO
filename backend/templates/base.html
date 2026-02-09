@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}CAMEO Chemical Safety Platform{% endblock %}</title>
+    <title>{% block title %}SAFEWARE Chemical Safety Platform{% endblock %}</title>
     
     <!-- Tailwind CSS v3.4 -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -108,6 +108,23 @@
         .animate-slide-in {
             animation: slideIn 0.2s ease-out;
         }
+
+        .brand-logo {
+            width: clamp(9rem, 12vw, 14rem);
+            height: 4rem;
+            background-image: url("{{ url_for('static', filename='safeware-logo.jpg') }}");
+            background-size: cover;
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+
+        .brand-title {
+            color: #0C2145;
+        }
+
+        .brand-subtitle {
+            color: #4F617F;
+        }
     </style>
     
     {% block extra_head %}{% endblock %}
@@ -118,13 +135,11 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-16">
                 <!-- Logo -->
-                <a href="/admin/import" class="flex items-center space-x-3 group">
-                    <div class="flex items-center justify-center w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg">
-                        <span class="text-white text-xl font-bold">C</span>
-                    </div>
+                <a href="/admin/import" class="flex items-center gap-4 group">
+                    <div class="brand-logo drop-shadow-sm" role="img" aria-label="SAFEWARE Logo"></div>
                     <div>
-                        <h1 class="text-lg font-bold text-slate-900 group-hover:text-blue-600 transition">CAMEO</h1>
-                        <p class="text-xs text-slate-500">Chemical Safety Platform</p>
+                        <h1 class="text-xl font-bold brand-title tracking-wide transition group-hover:opacity-90">SAFEWARE</h1>
+                        <p class="text-sm font-medium brand-subtitle">Chemical Safety Platform</p>
                     </div>
                 </a>
                 
@@ -133,14 +148,8 @@
                     <a href="/mixer" class="text-sm font-medium text-slate-700 hover:text-blue-600 transition">
                         Mixer
                     </a>
-                    <a href="#" class="text-sm font-medium text-slate-700 hover:text-blue-600 transition">
-                        Database
-                    </a>
                     <a href="/admin/import" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition">
                         Import Inventory
-                    </a>
-                    <a href="#" class="px-4 py-2 text-sm font-medium text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition">
-                        🚨 Emergency Guide
                     </a>
                 </nav>
             </div>
@@ -157,7 +166,7 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
             <div class="flex justify-between items-center">
                 <p class="text-sm text-slate-500">
-                    © 2025 CAMEO Chemical Safety Platform. Based on NOAA CAMEO Chemicals Database.
+                    © 2025 SAFEWARE Chemical Safety Platform. Based on NOAA CAMEO Chemicals Database.
                 </p>
                 <p class="text-xs text-slate-400">
                     Version 5.0 | Reactivity Engine Active

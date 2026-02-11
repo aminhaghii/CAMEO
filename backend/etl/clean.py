@@ -224,10 +224,12 @@ def normalize_cas_for_comparison(cas: str) -> str:
 #  Quantity & Unit cleaning
 # ═══════════════════════════════════════════════════════
 
-def clean_quantity(raw_qty: str | None, raw_unit: str | None) -> dict[str, Any]:
+def clean_quantity(raw_qty: str | None, raw_unit: str | None,
+                   unit_column_exists: bool = True) -> dict[str, Any]:
     """
     Parse and normalize quantity + unit.
     Returns dict with normalized values and any issues.
+    Only penalizes missing unit if the unit column actually exists in the file.
     """
     issues = []
     result = {
@@ -253,7 +255,7 @@ def clean_quantity(raw_qty: str | None, raw_unit: str | None) -> dict[str, Any]:
             issues.append(f"Unknown unit: {raw_unit}")
         elif result['quantity'] is not None:
             result['normalized_quantity'] = result['quantity'] * multiplier
-    else:
+    elif unit_column_exists:
         issues.append("Missing unit")
 
     result['issues'] = issues
@@ -264,11 +266,17 @@ def clean_quantity(raw_qty: str | None, raw_unit: str | None) -> dict[str, Any]:
 #  Row-level validation (main entry point)
 # ═══════════════════════════════════════════════════════
 
-def validate_row(row: dict) -> dict:
+def validate_row(row: dict, available_columns: set | None = None) -> dict:
     """
     Validate and clean a single inventory row (ETL v2).
 
     Input row keys (canonical): name, cas, quantity, unit, location, un_number, formula
+
+    Args:
+        row: dict of column_name → value
+        available_columns: set of canonical column names that exist in the file.
+            If provided, missing-field penalties are only applied for columns
+            that actually exist. If None, all penalties apply (backward compat).
 
     Returns:
         {
@@ -281,6 +289,9 @@ def validate_row(row: dict) -> dict:
     # ── Step 0: Sanitize all values ──
     row = sanitize_row(row)
 
+    # Determine which optional columns exist in the file
+    _has_col = lambda c: (available_columns is None) or (c in available_columns)
+
     issues = []
     cleaned = {}
     score = 100  # Start perfect, deduct for issues
@@ -289,9 +300,15 @@ def validate_row(row: dict) -> dict:
     cas_scanned = scan_cas_from_all_columns(row)
     cleaned['cas_scanned'] = cas_scanned
 
-    # ── Name ──
+    # ── Name: smart cleaning (extract parenthesized info, remove stopwords) ──
     name = (row.get('name') or '').strip()
-    cleaned['name'] = name
+    name_extra = _extract_name_extras(name)
+    cleaned['name'] = name_extra['clean_name']
+    # Store extracted purity/notes from parentheses
+    if name_extra.get('purity_hint'):
+        cleaned.setdefault('notes', '')
+        cleaned['notes'] = name_extra['purity_hint']
+    name = name_extra['clean_name']
     if not name:
         issues.append("Missing chemical name")
         score -= 20
@@ -328,7 +345,8 @@ def validate_row(row: dict) -> dict:
     # ── Quantity & Unit ──
     qty_result = clean_quantity(
         row.get('quantity') or '',
-        row.get('unit') or ''
+        row.get('unit') or '',
+        unit_column_exists=_has_col('unit'),
     )
     cleaned['quantity'] = qty_result['quantity']
     cleaned['unit'] = qty_result['unit']
@@ -339,7 +357,7 @@ def validate_row(row: dict) -> dict:
     # ── Location ──
     location = (row.get('location') or '').strip()
     cleaned['location'] = location
-    if not location:
+    if not location and _has_col('location'):
         issues.append("Missing location")
         score -= 5
 
@@ -398,7 +416,7 @@ def validate_row(row: dict) -> dict:
 
     # ── Quality Score: weighted calculation ──
     # Core fields (name, CAS) are worth more than optional fields
-    score = _calculate_quality_score(cleaned, issues)
+    score = _calculate_quality_score(cleaned, issues, available_columns)
 
     # Clamp score
     score = max(0, min(100, score))
@@ -408,6 +426,68 @@ def validate_row(row: dict) -> dict:
         'issues': issues,
         'quality_score': score,
         'cas_scanned': cas_scanned,
+    }
+
+
+# ═══════════════════════════════════════════════════════
+#  Smart Name Cleaning (ETL v4.1)
+# ═══════════════════════════════════════════════════════
+
+# Industrial stopwords to strip from chemical names before matching
+_NAME_STOPWORDS = re.compile(
+    r'\b(USP|BP|EP|JP|NF|ACS|AR|GR|LR|CP|FCC|Ph\.?\s*Eur|'
+    r'Grade|Powder|Micronized|Fine|Granular|Anhydrous|'
+    r'Reagent|Technical|Analytical|Extra\s*Pure|'
+    r'Pharma|Pharmaceutical|Food\s*Grade|Industrial)\b',
+    re.IGNORECASE
+)
+
+# Pattern to extract parenthesized content like (96%), (Usp grade), (Micronized)
+_PAREN_PATTERN = re.compile(r'\(([^)]+)\)')
+
+
+def _extract_name_extras(raw_name: str) -> dict:
+    """
+    Smart chemical name cleaning:
+    1. Extract text inside parentheses into purity_hint / notes
+    2. Remove industrial stopwords from the core name
+    3. Return both the cleaned name (for matching) and original (for display)
+
+    Returns:
+        {
+            'clean_name': str,      # cleaned name for matching
+            'original_name': str,   # original as-is
+            'purity_hint': str,     # extracted purity/grade info (e.g. "96%", "Usp grade")
+        }
+    """
+    if not raw_name or not raw_name.strip():
+        return {'clean_name': '', 'original_name': '', 'purity_hint': ''}
+
+    original = raw_name.strip()
+    # Replace newlines with spaces
+    name = original.replace('\n', ' ').replace('\r', ' ')
+
+    # Extract parenthesized content
+    paren_parts = _PAREN_PATTERN.findall(name)
+    purity_hint = '; '.join(p.strip() for p in paren_parts if p.strip()) if paren_parts else ''
+
+    # Remove parenthesized content from name for matching
+    clean = _PAREN_PATTERN.sub('', name)
+
+    # Remove industrial stopwords
+    clean = _NAME_STOPWORDS.sub('', clean)
+
+    # Collapse whitespace
+    clean = re.sub(r'\s+', ' ', clean).strip()
+
+    # If cleaning removed everything, fall back to original
+    if not clean:
+        clean = re.sub(r'\s+', ' ', name).strip()
+
+    return {
+        'clean_name': clean,
+        'original_name': original,
+        'purity_hint': purity_hint,
     }
 
 
@@ -550,22 +630,23 @@ def _clean_date(raw: str | None) -> dict:
     return result
 
 
-def _calculate_quality_score(cleaned: dict, issues: list) -> int:
+def _calculate_quality_score(cleaned: dict, issues: list,
+                             available_columns: set | None = None) -> int:
     """
     Calculate weighted quality score (0-100).
     Core fields are weighted more heavily than optional fields.
+    Only includes optional fields in the denominator if they exist in the file.
     """
+    _has = lambda c: (available_columns is None) or (c in available_columns)
+
     score = 0
     max_score = 0
 
-    # ── Core fields (high weight) ──
+    # ── Core fields (high weight) — always counted ──
     # Name: 30 points
     max_score += 30
     if cleaned.get('name'):
         score += 30
-        # Bonus for longer, more descriptive names
-        if len(cleaned['name']) > 5:
-            score += 0  # Already at max
 
     # CAS: 25 points
     max_score += 25
@@ -574,40 +655,46 @@ def _calculate_quality_score(cleaned: dict, issues: list) -> int:
     elif cleaned.get('cas'):
         score += 10  # Has CAS but not validated
 
-    # ── Important fields (medium weight) ──
-    # Quantity: 15 points
-    max_score += 15
-    if cleaned.get('quantity') is not None:
-        score += 15
-    elif cleaned.get('normalized_quantity') is not None:
-        score += 10
+    # ── Important fields (medium weight) — only if column exists ──
+    # Quantity
+    if _has('quantity'):
+        max_score += 15
+        if cleaned.get('quantity') is not None:
+            score += 15
+        elif cleaned.get('normalized_quantity') is not None:
+            score += 10
 
-    # Unit: 5 points
-    max_score += 5
-    if cleaned.get('unit') and cleaned['unit'] != 'unknown':
-        score += 5
+    # Unit
+    if _has('unit'):
+        max_score += 5
+        if cleaned.get('unit') and cleaned['unit'] != 'unknown':
+            score += 5
 
-    # ── Optional fields (low weight) ──
-    # Location: 5 points
-    max_score += 5
-    if cleaned.get('location'):
-        score += 5
+    # ── Optional fields (low weight) — only if column exists ──
+    # Location
+    if _has('location'):
+        max_score += 5
+        if cleaned.get('location'):
+            score += 5
 
-    # Supplier: 5 points
-    max_score += 5
-    if cleaned.get('supplier'):
-        score += 5
+    # Supplier
+    if _has('supplier'):
+        max_score += 5
+        if cleaned.get('supplier'):
+            score += 5
 
-    # Formula: 5 points
-    max_score += 5
-    if cleaned.get('formula'):
-        score += 5
+    # Formula
+    if _has('formula'):
+        max_score += 5
+        if cleaned.get('formula'):
+            score += 5
 
     # Other optional fields: 5 points total
-    max_score += 5
-    optional_count = sum(1 for k in ['batch_number', 'purity', 'date', 'product_code']
-                         if cleaned.get(k))
-    score += min(optional_count * 2, 5)
+    optional_keys = [k for k in ['batch_number', 'purity', 'date', 'product_code'] if _has(k)]
+    if optional_keys:
+        max_score += 5
+        optional_count = sum(1 for k in optional_keys if cleaned.get(k))
+        score += min(optional_count * 2, 5)
 
     # ── Issue penalties ──
     critical_issues = sum(1 for i in issues if 'Invalid CAS' in i or 'Missing chemical name' in i)

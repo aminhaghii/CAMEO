@@ -139,11 +139,11 @@ for stype, lang_dict in COLUMN_KEYWORDS.items():
 # ═══════════════════════════════════════════════════════
 
 CAS_REGEX = re.compile(r'^\d{2,7}-\d{2}-\d$')
+# Date regex: ONLY match values with separators (/, -, .)
+# Do NOT match pure digit strings like YYYYMMDD — those are too ambiguous
+# and frequently collide with product codes (e.g. 1121120011)
 DATE_REGEX = re.compile(
-    r'(\d{1,4}[/\-\.]\d{1,2}[/\-\.]\d{1,4})|'
-    r'(\d{4}[/\-]\d{2}[/\-]\d{2})|'
-    r'(\d{1,2}[/\-]\d{1,2}[/\-]\d{2,4})|'
-    r'(\d{4}\d{2}\d{2})'  # YYYYMMDD
+    r'^(\d{1,4}[/\-\.]\d{1,2}[/\-\.]\d{1,4})$'
 )
 CURRENCY_REGEX = re.compile(r'[\$€£¥﷼]|ریال|تومان|IRR|USD|EUR')
 FORMULA_REGEX = re.compile(r'^[A-Z][a-z]?\d*([A-Z][a-z]?\d*)*$')
@@ -167,10 +167,13 @@ def _definitive_check_column(col_name: str, sample_values: list[str]) -> tuple[s
     if cas_matches / total > 0.6:
         return 'cas', 100
 
-    # Date: >60% of values look like dates
-    date_matches = sum(1 for v in non_empty if DATE_REGEX.search(v.strip()))
-    if date_matches / total > 0.6:
-        return 'date', 95
+    # Date: >60% of values look like dates (must have separators like / - .)
+    # Extra guard: if most values are pure long integers, it's a product code, not a date
+    pure_long_ints = sum(1 for v in non_empty if v.strip().isdigit() and len(v.strip()) > 6)
+    if pure_long_ints / total < 0.3:
+        date_matches = sum(1 for v in non_empty if DATE_REGEX.match(v.strip()))
+        if date_matches / total > 0.6:
+            return 'date', 95
 
     # Price: currency symbols present
     currency_matches = sum(1 for v in non_empty if CURRENCY_REGEX.search(v))

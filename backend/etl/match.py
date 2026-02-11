@@ -21,9 +21,9 @@ Anti-Hallucination: NEVER creates new chemicals. Output is always
 a chemical_id that EXISTS in chemicals.db, or None.
 
 Statuses:
-  MATCHED          — fused confidence ≥ 0.85
-  REVIEW_REQUIRED  — fused confidence 0.60–0.85, or conflict detected
-  UNIDENTIFIED     — fused confidence < 0.60
+  MATCHED          — fused confidence ≥ 0.80
+  REVIEW_REQUIRED  — fused confidence 0.50–0.80, or conflict detected
+  UNIDENTIFIED     — fused confidence < 0.50
 """
 
 import re
@@ -35,6 +35,92 @@ from collections import defaultdict
 from rapidfuzz import fuzz, process as rfprocess
 
 logger = logging.getLogger(__name__)
+
+# ═══════════════════════════════════════════════════════
+#  Industrial synonym dictionary (common trade names → DB names)
+#  Applied BEFORE fuzzy matching to resolve common aliases
+# ═══════════════════════════════════════════════════════
+INDUSTRIAL_SYNONYMS = {
+    # Common trade/short names → canonical CAMEO DB names
+    'alcohol': 'ethanol',
+    'ethyl alcohol': 'ethanol',
+    'spirit': 'ethanol',
+    'spirits': 'ethanol',
+    'aspirin': 'acetylsalicylic acid',
+    'vit c': 'ascorbic acid',
+    'vitamin c': 'ascorbic acid',
+    'vit e': 'alpha-tocopherol',
+    'vitamin e': 'alpha-tocopherol',
+    'b-carotene': 'beta-carotene',
+    'β-carotene': 'beta-carotene',
+    'caustic soda': 'sodium hydroxide',
+    'lye': 'sodium hydroxide',
+    'soda ash': 'sodium carbonate',
+    'washing soda': 'sodium carbonate',
+    'baking soda': 'sodium bicarbonate',
+    'muriatic acid': 'hydrochloric acid',
+    'spirits of salt': 'hydrochloric acid',
+    'oil of vitriol': 'sulfuric acid',
+    'sulphuric acid': 'sulfuric acid',
+    'aqua fortis': 'nitric acid',
+    'lime': 'calcium oxide',
+    'quicklime': 'calcium oxide',
+    'slaked lime': 'calcium hydroxide',
+    'chalk': 'calcium carbonate',
+    'table salt': 'sodium chloride',
+    'salt': 'sodium chloride',
+    'epsom salt': 'magnesium sulfate',
+    'epsom salts': 'magnesium sulfate',
+    'glycerine': 'glycerol',
+    'glycerin': 'glycerol',
+    'formalin': 'formaldehyde',
+    'bleach': 'sodium hypochlorite',
+    'peroxide': 'hydrogen peroxide',
+    'acetaldehyde': 'acetaldehyde',
+    'wood alcohol': 'methanol',
+    'methyl alcohol': 'methanol',
+    'rubbing alcohol': 'isopropanol',
+    'isopropyl alcohol': 'isopropanol',
+    'ipa': 'isopropanol',
+    'dmso': 'dimethyl sulfoxide',
+    'dmf': 'dimethylformamide',
+    'thf': 'tetrahydrofuran',
+    'dcm': 'dichloromethane',
+    'chloroform': 'chloroform',
+    'ether': 'diethyl ether',
+    'diethyl ether': 'diethyl ether',
+    'toluol': 'toluene',
+    'xylol': 'xylene',
+    'benzol': 'benzene',
+    'acetic acid': 'acetic acid',
+    'vinegar': 'acetic acid',
+    'citric acid': 'citric acid',
+    'tartaric acid': 'tartaric acid',
+    'stearic acid': 'stearic acid',
+    'palmitic acid': 'palmitic acid',
+    'oleic acid': 'oleic acid',
+    'oxalic acid': 'oxalic acid',
+    'formic acid': 'formic acid',
+    'phosphoric acid': 'phosphoric acid',
+    'boric acid': 'boric acid',
+    'carbolic acid': 'phenol',
+    'phenol': 'phenol',
+    'aniline': 'aniline',
+    'tween 80': 'polysorbate 80',
+    'tween 20': 'polysorbate 20',
+    'span 80': 'sorbitan monooleate',
+    'peg': 'polyethylene glycol',
+    'cmc': 'carboxymethyl cellulose',
+    'hpmc': 'hypromellose',
+    'pvp': 'polyvinylpyrrolidone',
+    'sls': 'sodium lauryl sulfate',
+    'sds': 'sodium dodecyl sulfate',
+    'edta': 'ethylenediaminetetraacetic acid',
+}
+
+# Build reverse lookup: lowercase → canonical
+_SYNONYM_LOOKUP = {k.lower(): v.lower() for k, v in INDUSTRIAL_SYNONYMS.items()}
+
 
 # ═══════════════════════════════════════════════════════
 #  Signal weights — how much each field contributes
@@ -53,9 +139,9 @@ SIGNAL_WEIGHTS = {
     'synonym_fuzzy':    0.65,   # Fuzzy synonym match (scaled by score)
 }
 
-# Thresholds for final status
-THRESHOLD_MATCHED = 0.85
-THRESHOLD_REVIEW  = 0.60
+# Thresholds for final status (tuned for messy industrial data)
+THRESHOLD_MATCHED = 0.80
+THRESHOLD_REVIEW  = 0.50
 
 # CAS regex
 CAS_REGEX = re.compile(r'\b(\d{2,7}-\d{2}-\d)\b')
@@ -524,16 +610,43 @@ class HybridMatcher:
     def _signals_from_name(self, name: str) -> list[Signal]:
         """
         Generate ALL signals from a name string:
-        exact name, exact synonym, normalized, fuzzy name, fuzzy synonym.
+        industrial synonym lookup, exact name, exact synonym, normalized,
+        fuzzy name, fuzzy synonym.
         """
         sigs: list[Signal] = []
         name_upper = name.upper().strip()
         name_norm = _normalize(name)
         name_lower = name.lower().strip()
 
+        # ── Industrial synonym pre-lookup ──
+        # If the input name matches a known trade/common name, resolve it
+        # to the canonical DB name and generate signals from THAT name too.
+        canonical_name = _SYNONYM_LOOKUP.get(name_lower)
+        extra_names = []
+        if canonical_name and canonical_name != name_lower:
+            extra_names.append(canonical_name)
+            # Try exact match on the canonical name
+            canon_upper = canonical_name.upper()
+            hit = self._name_map.get(canon_upper)
+            if hit:
+                sigs.append(Signal(
+                    hit['id'], hit['name'], 'name_synonym', 1.0,
+                    SIGNAL_WEIGHTS['name_synonym'],
+                    f"Industrial synonym: '{name}' → '{hit['name']}'"
+                ))
+            # Also check DB synonyms for the canonical name
+            syn_hits = self._synonym_map.get(canon_upper, [])
+            for sh in syn_hits:
+                if not any(s.chemical_id == sh['id'] for s in sigs):
+                    sigs.append(Signal(
+                        sh['id'], sh['name'], 'name_synonym', 1.0,
+                        SIGNAL_WEIGHTS['name_synonym'],
+                        f"Industrial synonym: '{name}' → '{canonical_name}' → {sh['name']}"
+                    ))
+
         # Exact name
         hit = self._name_map.get(name_upper)
-        if hit:
+        if hit and not any(s.chemical_id == hit['id'] for s in sigs):
             sigs.append(Signal(
                 hit['id'], hit['name'], 'name_exact', 1.0,
                 SIGNAL_WEIGHTS['name_exact'],
@@ -543,11 +656,12 @@ class HybridMatcher:
         # Exact synonym
         syn_hits = self._synonym_map.get(name_upper, [])
         for sh in syn_hits:
-            sigs.append(Signal(
-                sh['id'], sh['name'], 'name_synonym', 1.0,
-                SIGNAL_WEIGHTS['name_synonym'],
-                f"Exact synonym match: '{name}' → {sh['name']}"
-            ))
+            if not any(s.chemical_id == sh['id'] for s in sigs):
+                sigs.append(Signal(
+                    sh['id'], sh['name'], 'name_synonym', 1.0,
+                    SIGNAL_WEIGHTS['name_synonym'],
+                    f"Exact synonym match: '{name}' → {sh['name']}"
+                ))
 
         # Normalized match
         if name_norm:
@@ -559,34 +673,37 @@ class HybridMatcher:
                     f"Normalized match: '{name}' → {hit['name']}"
                 ))
 
-        # Fuzzy name match (top 3)
+        # Fuzzy name match (top 5) — also try canonical name if resolved
         already_found = {s.chemical_id for s in sigs}
+        fuzzy_queries = [name_lower] + [cn for cn in extra_names if cn != name_lower]
         if self._fuzzy_names:
-            results = rfprocess.extract(name_lower, self._fuzzy_names, scorer=fuzz.WRatio, limit=5)
-            for match_low, score, _idx in results:
-                entry = self._fuzzy_name_to_entry.get(match_low)
-                if entry and entry['id'] not in already_found and score >= 70:
-                    sigs.append(Signal(
-                        entry['id'], entry['name'], 'name_fuzzy',
-                        score / 100.0,
-                        SIGNAL_WEIGHTS['name_fuzzy'],
-                        f"Fuzzy name: '{name}' ≈ '{entry['name']}' ({score:.0f}%)"
-                    ))
-                    already_found.add(entry['id'])
+            for fq in fuzzy_queries:
+                results = rfprocess.extract(fq, self._fuzzy_names, scorer=fuzz.WRatio, limit=5)
+                for match_low, score, _idx in results:
+                    entry = self._fuzzy_name_to_entry.get(match_low)
+                    if entry and entry['id'] not in already_found and score >= 70:
+                        sigs.append(Signal(
+                            entry['id'], entry['name'], 'name_fuzzy',
+                            score / 100.0,
+                            SIGNAL_WEIGHTS['name_fuzzy'],
+                            f"Fuzzy name: '{fq}' ≈ '{entry['name']}' ({score:.0f}%)"
+                        ))
+                        already_found.add(entry['id'])
 
-        # Fuzzy synonym match (top 3)
+        # Fuzzy synonym match (top 5) — also try canonical name
         if self._fuzzy_syns:
-            results = rfprocess.extract(name_lower, self._fuzzy_syns, scorer=fuzz.WRatio, limit=5)
-            for match_low, score, _idx in results:
-                entry = self._fuzzy_syn_to_entry.get(match_low)
-                if entry and entry['id'] not in already_found and score >= 70:
-                    sigs.append(Signal(
-                        entry['id'], entry['name'], 'synonym_fuzzy',
-                        score / 100.0,
-                        SIGNAL_WEIGHTS['synonym_fuzzy'],
-                        f"Fuzzy synonym: '{name}' ≈ '{match_low}' → {entry['name']} ({score:.0f}%)"
-                    ))
-                    already_found.add(entry['id'])
+            for fq in fuzzy_queries:
+                results = rfprocess.extract(fq, self._fuzzy_syns, scorer=fuzz.WRatio, limit=5)
+                for match_low, score, _idx in results:
+                    entry = self._fuzzy_syn_to_entry.get(match_low)
+                    if entry and entry['id'] not in already_found and score >= 70:
+                        sigs.append(Signal(
+                            entry['id'], entry['name'], 'synonym_fuzzy',
+                            score / 100.0,
+                            SIGNAL_WEIGHTS['synonym_fuzzy'],
+                            f"Fuzzy synonym: '{fq}' ≈ '{match_low}' → {entry['name']} ({score:.0f}%)"
+                        ))
+                        already_found.add(entry['id'])
 
         return sigs
 

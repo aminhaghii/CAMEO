@@ -357,12 +357,16 @@ def _run_pipeline(user_db_path: str, chemicals_db_path: str,
         logger.info(f"[Batch {batch_id[:8]}] Layer 3+4: Processing {total} rows...")
         matcher = ChemicalMatcher(chemicals_db_path)
 
+        # Determine which canonical columns actually exist in the file
+        # so we don't penalize rows for missing columns that aren't in the data
+        available_columns = set(df.columns)
+
         for idx, (_, row) in enumerate(df.iterrows()):
             try:
                 row_dict = {k: (str(v) if v and str(v).strip() else '') for k, v in row.to_dict().items()}
 
                 # ── Layer 3: Clean ──
-                clean_result = validate_row(row_dict)
+                clean_result = validate_row(row_dict, available_columns=available_columns)
                 cleaned = clean_result['cleaned']
                 issues = clean_result['issues']
                 quality_score = clean_result['quality_score']

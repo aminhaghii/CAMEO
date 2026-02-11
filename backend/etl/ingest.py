@@ -62,9 +62,9 @@ INVENTORY_SHEET_PATTERNS = [
     re.compile(r'product', re.IGNORECASE),
     re.compile(r'موجودی', re.IGNORECASE),
     re.compile(r'مواد', re.IGNORECASE),
+    re.compile(r'ماده', re.IGNORECASE),
     re.compile(r'انبار', re.IGNORECASE),
     re.compile(r'کالا', re.IGNORECASE),
-    re.compile(r'sheet\s*1', re.IGNORECASE),
     re.compile(r'data', re.IGNORECASE),
 ]
 
@@ -85,12 +85,18 @@ def read_file(filepath: str) -> pd.DataFrame:
     result = smart_ingest(filepath)
 
     df = result['raw_dataframe']
+
+    # IMPORTANT: Remove raw_dataframe from metadata before attaching to attrs.
+    # Storing a DataFrame inside df.attrs causes infinite recursion on deepcopy
+    # (pandas deepcopies attrs during operations like dropna/rename/copy).
+    meta_safe = {k: v for k, v in result.items() if k != 'raw_dataframe'}
+
     if df is None or df.empty:
         empty = pd.DataFrame()
-        empty.attrs['ingestion_metadata'] = result
+        empty.attrs['ingestion_metadata'] = meta_safe
         return empty
 
-    df.attrs['ingestion_metadata'] = result
+    df.attrs['ingestion_metadata'] = meta_safe
     return df
 
 
@@ -439,34 +445,38 @@ def _read_excel_smart(filepath: str, ext: str) -> tuple[pd.DataFrame, dict, list
 def _select_best_sheet(xls: pd.ExcelFile, sheet_names: list[str], engine: str) -> dict:
     """
     Select the best sheet from a multi-sheet Excel file.
-    Strategy: name pattern match → most data rows → first sheet.
+    Strategy: count rows per sheet first, then prefer name-pattern match
+    among non-empty sheets, then fall back to most-data sheet.
+    Never selects an empty sheet if a non-empty one exists.
     """
-    # Strategy 1: Name pattern matching
-    for pattern in INVENTORY_SHEET_PATTERNS:
-        for name in sheet_names:
-            if pattern.search(name):
-                return {'name': name, 'method': 'name_pattern'}
-
-    # Strategy 2: Most data rows
-    best_name = sheet_names[0]
-    best_rows = 0
+    # Step 1: Count rows in each sheet (sample first 300 rows)
+    sheet_row_counts = {}
     for name in sheet_names:
         try:
             df = pd.read_excel(xls, sheet_name=name, dtype=str, keep_default_na=False,
-                               header=None, nrows=200, engine=engine)
+                               header=None, nrows=300, engine=engine)
             df = df.dropna(how='all')
-            row_count = len(df)
-            if row_count > best_rows:
-                best_rows = row_count
-                best_name = name
+            # Also drop columns that are all empty
+            df = df.dropna(axis=1, how='all')
+            sheet_row_counts[name] = len(df)
         except Exception:
-            continue
+            sheet_row_counts[name] = 0
 
-    if best_rows > 0:
-        return {'name': best_name, 'method': 'most_data'}
+    # Non-empty sheets only
+    non_empty = [n for n in sheet_names if sheet_row_counts.get(n, 0) > 0]
 
-    # Strategy 3: First sheet (fallback)
-    return {'name': sheet_names[0], 'method': 'first_sheet'}
+    if not non_empty:
+        return {'name': sheet_names[0], 'method': 'first_sheet'}
+
+    # Step 2: Among non-empty sheets, try name pattern matching
+    for pattern in INVENTORY_SHEET_PATTERNS:
+        for name in non_empty:
+            if pattern.search(name):
+                return {'name': name, 'method': 'name_pattern'}
+
+    # Step 3: Most data rows among non-empty sheets
+    best_name = max(non_empty, key=lambda n: sheet_row_counts[n])
+    return {'name': best_name, 'method': 'most_data'}
 
 
 # ═══════════════════════════════════════════════════════

@@ -26,7 +26,8 @@ logger = logging.getLogger(__name__)
 
 
 def init_inventory_tables(user_db_path: str):
-    """Create inventory tables in user.db if they don't exist (Layer 5 included)."""
+    """Create inventory tables in user.db if they don't exist (Layer 5 included).
+    Also migrates existing tables by adding new columns if missing."""
     conn = sqlite3.connect(user_db_path)
     cursor = conn.cursor()
 
@@ -45,6 +46,10 @@ def init_inventory_tables(user_db_path: str):
             column_mapping  TEXT
         )
     """)
+
+    # ── Migration: add v4 columns to existing tables ──
+    _safe_add_column(cursor, 'inventory_batches', 'ingestion_meta', 'TEXT')
+    _safe_add_column(cursor, 'inventory_batches', 'column_mapping', 'TEXT')
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS inventory_staging (
@@ -120,6 +125,19 @@ def init_inventory_tables(user_db_path: str):
     conn.commit()
     conn.close()
     logger.info("Inventory tables initialized in user.db (v4 with Layer 5)")
+
+
+def _safe_add_column(cursor, table: str, column: str, col_type: str):
+    """Add a column to an existing table if it doesn't already exist.
+    SQLite doesn't support IF NOT EXISTS for ALTER TABLE, so we check PRAGMA first."""
+    try:
+        cursor.execute(f"PRAGMA table_info({table})")
+        existing_cols = {row[1] for row in cursor.fetchall()}
+        if column not in existing_cols:
+            cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}")
+            logger.info(f"Migration: added column '{column}' to '{table}'")
+    except Exception as e:
+        logger.warning(f"Migration warning: could not add '{column}' to '{table}': {e}")
 
 
 def create_batch(user_db_path: str, filename: str) -> str:

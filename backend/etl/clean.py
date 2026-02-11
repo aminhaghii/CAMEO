@@ -1,9 +1,20 @@
 """
-clean.py — Advanced data cleaning & validation (ETL v2).
-- UTF-8 encoding fix, invisible char removal, NaN normalization
-- CAS regex scanning from ALL columns (Gold Standard)
-- CAS checksum validation
-- Unit normalization, row-level quality scoring
+clean.py — Layer 3: Smart Data Cleaning & Validation (ETL v4).
+
+Responsibilities:
+  - UTF-8 encoding fix, invisible char removal, NaN normalization
+  - Persian/Arabic numeral conversion (۰-۹ → 0-9)
+  - CAS regex scanning from ALL columns (Gold Standard)
+  - CAS checksum validation
+  - Unit normalization, quantity parsing
+  - Date parsing (Gregorian + Jalali/Shamsi)
+  - Supplier, batch, purity, price cleaning
+  - Row-level quality scoring with weighted factors
+
+Design principles:
+  - Type-specific cleaning per semantic column type
+  - Never crash on bad data — flag issues for review
+  - Quality score reflects data completeness and validity
 """
 
 import re
@@ -22,16 +33,37 @@ CAS_REGEX = re.compile(r'\b(\d{2,7}-\d{2}-\d)\b')
 CAS_DIGITS_REGEX = re.compile(r'\b(\d{5,10})\b')
 
 # ── Values treated as None/NaN ──
-NULL_STRINGS = {'nan', 'none', 'null', 'n/a', 'na', '-', '--', '—', '', 'undefined', 'nil'}
+NULL_STRINGS = {'nan', 'none', 'null', 'n/a', 'na', '-', '--', '—', '', 'undefined', 'nil',
+                'نامشخص', 'ندارد', 'خالی', 'بدون'}
 
 # ── Unicode subscript/superscript → ASCII digit mapping ──
 _SUBSCRIPT_MAP = str.maketrans('₀₁₂₃₄₅₆₇₈₉', '0123456789')
 _SUPERSCRIPT_MAP = str.maketrans('⁰¹²³⁴⁵⁶⁷⁸⁹', '0123456789')
 
+# ── Persian/Arabic numeral → ASCII digit mapping ──
+_PERSIAN_DIGIT_MAP = str.maketrans('۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩', '01234567890123456789')
+
+# ── Date patterns ──
+_DATE_PATTERNS = [
+    # ISO: 2024-01-15
+    re.compile(r'^(\d{4})[/\-\.](\d{1,2})[/\-\.](\d{1,2})$'),
+    # US: 01/15/2024
+    re.compile(r'^(\d{1,2})[/\-\.](\d{1,2})[/\-\.](\d{4})$'),
+    # Compact: 20240115
+    re.compile(r'^(\d{4})(\d{2})(\d{2})$'),
+    # Jalali: 1402/10/25
+    re.compile(r'^(1[34]\d{2})[/\-\.](\d{1,2})[/\-\.](\d{1,2})$'),
+]
+
 
 # ═══════════════════════════════════════════════════════
 #  Pre-processing: clean raw string values
 # ═══════════════════════════════════════════════════════
+
+def convert_persian_digits(s: str) -> str:
+    """Convert Persian/Arabic numerals (۰-۹, ٠-٩) to ASCII digits (0-9)."""
+    return s.translate(_PERSIAN_DIGIT_MAP)
+
 
 def sanitize_string(value: Any) -> str | None:
     """
@@ -39,7 +71,8 @@ def sanitize_string(value: Any) -> str | None:
     1. Convert to string
     2. Fix encoding issues (force UTF-8 safe)
     3. Remove invisible characters (ZWSP, NBSP, tabs, etc.)
-    4. Normalize NaN/None/null to Python None
+    4. Convert Persian/Arabic numerals to ASCII
+    5. Normalize NaN/None/null to Python None
     """
     if value is None:
         return None
@@ -50,12 +83,15 @@ def sanitize_string(value: Any) -> str | None:
     s = s.replace('\ufeff', '')          # BOM
     s = s.replace('\xa0', ' ')           # Non-breaking space → regular space
     s = s.replace('\u200b', '')          # Zero-width space
-    s = s.replace('\u200c', '')          # Zero-width non-joiner
+    s = s.replace('\u200c', '')          # Zero-width non-joiner (keep for Farsi? remove for data)
     s = s.replace('\u200d', '')          # Zero-width joiner
     s = s.replace('\t', ' ')            # Tab → space
 
     # Normalize Unicode (NFC form — compose characters)
     s = unicodedata.normalize('NFC', s)
+
+    # Convert Persian/Arabic numerals to ASCII
+    s = convert_persian_digits(s)
 
     # Strip whitespace
     s = s.strip()
@@ -325,6 +361,45 @@ def validate_row(row: dict) -> dict:
     formula = normalize_formula(formula_raw) if formula_raw else None
     cleaned['formula'] = formula
 
+    # ── Supplier (Layer 3 v4) ──
+    supplier = _clean_supplier(row.get('supplier'))
+    cleaned['supplier'] = supplier
+
+    # ── Batch Number (Layer 3 v4) ──
+    batch = _clean_batch_number(row.get('batch_number'))
+    cleaned['batch_number'] = batch
+
+    # ── Purity (Layer 3 v4) ──
+    purity_result = _clean_purity(row.get('purity'))
+    cleaned['purity'] = purity_result['value']
+    cleaned['purity_unit'] = purity_result['unit']
+    issues.extend(purity_result.get('issues', []))
+
+    # ── Price (Layer 3 v4) ──
+    price_result = _clean_price(row.get('price'))
+    cleaned['price'] = price_result['value']
+    cleaned['price_currency'] = price_result['currency']
+    issues.extend(price_result.get('issues', []))
+
+    # ── Date (Layer 3 v4) ──
+    date_result = _clean_date(row.get('date'))
+    cleaned['date'] = date_result['value']
+    cleaned['date_type'] = date_result.get('type')
+    issues.extend(date_result.get('issues', []))
+
+    # ── Product Code (Layer 3 v4) ──
+    cleaned['product_code'] = (row.get('product_code') or '').strip() or None
+
+    # ── Quality Standard (Layer 3 v4) ──
+    cleaned['quality_standard'] = (row.get('quality_standard') or '').strip() or None
+
+    # ── Notes (Layer 3 v4) ──
+    cleaned['notes'] = (row.get('notes') or '').strip() or None
+
+    # ── Quality Score: weighted calculation ──
+    # Core fields (name, CAS) are worth more than optional fields
+    score = _calculate_quality_score(cleaned, issues)
+
     # Clamp score
     score = max(0, min(100, score))
 
@@ -334,3 +409,216 @@ def validate_row(row: dict) -> dict:
         'quality_score': score,
         'cas_scanned': cas_scanned,
     }
+
+
+# ═══════════════════════════════════════════════════════
+#  Type-specific cleaners (Layer 3 v4)
+# ═══════════════════════════════════════════════════════
+
+def _clean_supplier(raw: str | None) -> str | None:
+    """Clean and normalize supplier name."""
+    if not raw:
+        return None
+    s = sanitize_string(raw)
+    if not s:
+        return None
+    # Normalize common abbreviations (remove trailing dots)
+    s = re.sub(r'\bCo\.(?:\s|$)', 'Co ', s, flags=re.IGNORECASE)
+    s = re.sub(r'\bLtd\.(?:\s|$)', 'Ltd ', s, flags=re.IGNORECASE)
+    s = re.sub(r'\bInc\.(?:\s|$)', 'Inc ', s, flags=re.IGNORECASE)
+    s = re.sub(r'\bCorp\.(?:\s|$)', 'Corp ', s, flags=re.IGNORECASE)
+    # Collapse multiple spaces
+    s = re.sub(r'\s+', ' ', s).strip()
+    return s
+
+
+def _clean_batch_number(raw: str | None) -> str | None:
+    """Clean batch/lot number."""
+    if not raw:
+        return None
+    s = sanitize_string(raw)
+    if not s:
+        return None
+    # Remove common prefixes
+    s = re.sub(r'^(Batch|Lot|B/N|L/N|BN|LN)\s*[:#]?\s*', '', s, flags=re.IGNORECASE)
+    return s.strip() or None
+
+
+def _clean_purity(raw: str | None) -> dict:
+    """Parse purity/concentration value."""
+    result = {'value': None, 'unit': '%', 'issues': []}
+    if not raw:
+        return result
+    s = sanitize_string(raw)
+    if not s:
+        return result
+
+    # Extract numeric value and unit
+    match = re.search(r'([\d.,]+)\s*(%|ppm|ppb|mg/[lL]|g/[lL])?', s)
+    if match:
+        try:
+            val = float(match.group(1).replace(',', ''))
+            unit = match.group(2) or '%'
+            # Sanity check for percentage
+            if unit == '%' and val > 100:
+                result['issues'].append(f"Purity > 100%: {val}")
+            result['value'] = val
+            result['unit'] = unit
+        except ValueError:
+            result['issues'].append(f"Non-numeric purity: {s}")
+    else:
+        # Could be text like "ACS Grade" — store as-is
+        result['value'] = None
+        result['unit'] = None
+
+    return result
+
+
+def _clean_price(raw: str | None) -> dict:
+    """Parse price/cost value with currency detection."""
+    result = {'value': None, 'currency': None, 'issues': []}
+    if not raw:
+        return result
+    s = sanitize_string(raw)
+    if not s:
+        return result
+
+    # Detect currency
+    currency = None
+    if '$' in s or 'USD' in s.upper():
+        currency = 'USD'
+    elif '€' in s or 'EUR' in s.upper():
+        currency = 'EUR'
+    elif '£' in s or 'GBP' in s.upper():
+        currency = 'GBP'
+    elif '﷼' in s or 'ریال' in s or 'IRR' in s.upper():
+        currency = 'IRR'
+    elif 'تومان' in s:
+        currency = 'IRR_TOMAN'
+
+    # Extract numeric value
+    cleaned_num = re.sub(r'[^\d.,]', '', s)
+    if cleaned_num:
+        try:
+            # Handle comma as thousands separator
+            cleaned_num = cleaned_num.replace(',', '')
+            result['value'] = float(cleaned_num)
+            result['currency'] = currency
+        except ValueError:
+            result['issues'].append(f"Non-numeric price: {s}")
+    else:
+        result['issues'].append(f"Could not parse price: {s}")
+
+    return result
+
+
+def _clean_date(raw: str | None) -> dict:
+    """Parse date string (supports Gregorian and Jalali/Shamsi)."""
+    result = {'value': None, 'type': None, 'issues': []}
+    if not raw:
+        return result
+    s = sanitize_string(raw)
+    if not s:
+        return result
+
+    # Try each date pattern
+    for pattern in _DATE_PATTERNS:
+        match = pattern.match(s)
+        if match:
+            groups = match.groups()
+            year = int(groups[0])
+
+            # Detect Jalali (years 1300-1499)
+            if 1300 <= year <= 1499:
+                result['value'] = s
+                result['type'] = 'jalali'
+                return result
+            elif 1900 <= year <= 2100:
+                result['value'] = s
+                result['type'] = 'gregorian'
+                return result
+            elif len(groups[0]) <= 2:
+                # Could be day-first format
+                result['value'] = s
+                result['type'] = 'gregorian'
+                return result
+
+    # If no pattern matched, store raw
+    result['value'] = s
+    result['type'] = 'unknown'
+    result['issues'].append(f"Unrecognized date format: {s}")
+    return result
+
+
+def _calculate_quality_score(cleaned: dict, issues: list) -> int:
+    """
+    Calculate weighted quality score (0-100).
+    Core fields are weighted more heavily than optional fields.
+    """
+    score = 0
+    max_score = 0
+
+    # ── Core fields (high weight) ──
+    # Name: 30 points
+    max_score += 30
+    if cleaned.get('name'):
+        score += 30
+        # Bonus for longer, more descriptive names
+        if len(cleaned['name']) > 5:
+            score += 0  # Already at max
+
+    # CAS: 25 points
+    max_score += 25
+    if cleaned.get('cas_valid'):
+        score += 25
+    elif cleaned.get('cas'):
+        score += 10  # Has CAS but not validated
+
+    # ── Important fields (medium weight) ──
+    # Quantity: 15 points
+    max_score += 15
+    if cleaned.get('quantity') is not None:
+        score += 15
+    elif cleaned.get('normalized_quantity') is not None:
+        score += 10
+
+    # Unit: 5 points
+    max_score += 5
+    if cleaned.get('unit') and cleaned['unit'] != 'unknown':
+        score += 5
+
+    # ── Optional fields (low weight) ──
+    # Location: 5 points
+    max_score += 5
+    if cleaned.get('location'):
+        score += 5
+
+    # Supplier: 5 points
+    max_score += 5
+    if cleaned.get('supplier'):
+        score += 5
+
+    # Formula: 5 points
+    max_score += 5
+    if cleaned.get('formula'):
+        score += 5
+
+    # Other optional fields: 5 points total
+    max_score += 5
+    optional_count = sum(1 for k in ['batch_number', 'purity', 'date', 'product_code']
+                         if cleaned.get(k))
+    score += min(optional_count * 2, 5)
+
+    # ── Issue penalties ──
+    critical_issues = sum(1 for i in issues if 'Invalid CAS' in i or 'Missing chemical name' in i)
+    minor_issues = len(issues) - critical_issues
+    score -= critical_issues * 10
+    score -= minor_issues * 2
+
+    # Normalize to 0-100
+    if max_score > 0:
+        normalized = int((score / max_score) * 100)
+    else:
+        normalized = 0
+
+    return max(0, min(100, normalized))

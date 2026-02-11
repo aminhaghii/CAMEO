@@ -4,3 +4,5 @@ pandas
 openpyxl
 rapidfuzz
 pydantic
+chardet
+xlrd

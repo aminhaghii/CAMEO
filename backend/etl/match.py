@@ -1,17 +1,21 @@
 """
-match.py — Hybrid Multi-Signal Chemical Matching Engine (ETL v3).
+match.py — Hybrid Multi-Signal Chemical Matching Engine (ETL v5).
 
 Architecture:
   Each field (CAS, name, formula, UN, synonym) independently generates
   "signals" — candidate chemical IDs with per-signal confidence scores.
-  A weighted fusion layer combines all signals, detects cross-field
-  conflicts, and picks the best candidate with calibrated confidence.
+  A weighted fusion layer combines all signals, then a **semantic re-scoring**
+  phase classifies tokens (BASE/SALT/FORM/GRADE/CONC/SAFETY/HAZARD) and
+  applies domain-agnostic veto rules to prevent dangerous false positives.
 
 Key features:
   - Independent per-field evaluation (no sequential waterfall — all fields vote)
   - Field-swap detection (CAS in name column, name in CAS column, etc.)
   - Cross-field conflict detection (name says X, CAS says Y → flag)
   - Fuzzy matching on name AND synonyms with WRatio (case-insensitive)
+  - **Semantic token classification** (BASE, SALT, FORM, GRADE, SAFETY, HAZARD)
+  - **Safety veto system** (benign inputs never match hazardous chemicals)
+  - **Token-weighted scoring** (BASE 60%, SALT 25%, FORM 10%, GRADE 5%)
   - Formula matching (exact + normalized)
   - UN number matching
   - Weighted fusion with configurable signal weights
@@ -33,6 +37,12 @@ from typing import Optional
 from collections import defaultdict
 
 from rapidfuzz import fuzz, process as rfprocess
+
+from etl.semantics import (
+    semantic_score, classify_name, extract_base_tokens,
+    has_safety_context, is_plausible_cas, is_likely_product_code,
+    classify_material, is_edible_oil_context,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -116,6 +126,42 @@ INDUSTRIAL_SYNONYMS = {
     'sls': 'sodium lauryl sulfate',
     'sds': 'sodium dodecyl sulfate',
     'edta': 'ethylenediaminetetraacetic acid',
+    # Pharma/food chemicals with CAMEO entries under different names
+    'acetaminophen': '4-hydroxyacetanilide',
+    'paracetamol': '4-hydroxyacetanilide',
+    'cholecalciferol': 'vitamin d3',
+    'vitamin d3': 'vitamin d3',
+    'vitamin d': 'vitamin d3',
+    'codein phosphate': 'codeine phosphate',
+    'codeine': 'codeine',
+    'atropine': 'atropine sulfate',
+    'atropin': 'atropine sulfate',
+    'atropin sulphate': 'atropine sulfate',
+    'atropine sulphate': 'atropine sulfate',
+    # Common chemicals in CAMEO
+    'sodium chloride': 'sodium chloride',
+    'calcium carbonate': 'calcium carbonate',
+    'magnesium oxide': 'magnesium oxide',
+    'magnesium hydroxide': 'magnesium hydroxide',
+    'lactose': 'lactose',
+    'talc': 'talc',
+    'starch': 'starch',
+    'cellulose': 'cellulose',
+    # Vitamins
+    'vitamin a': 'vitamin a',
+    'vitamin b1': 'thiamine',
+    'thiamine': 'thiamine',
+    'vitamin b2': 'riboflavin',
+    'riboflavin': 'riboflavin',
+    'vitamin b6': 'pyridoxine',
+    'pyridoxine': 'pyridoxine',
+    'vitamin b12': 'cyanocobalamin',
+    'biotin': 'biotin',
+    # Essential oils / edible oils (CAMEO has these under specific names)
+    'peppermint oil': 'd,l-menthol',
+    'arachis oil': 'oils, edible: peanut',
+    'peanut oil': 'oils, edible: peanut',
+    'castor oil': 'castor oil',
 }
 
 # Build reverse lookup: lowercase → canonical
@@ -342,6 +388,28 @@ class HybridMatcher:
         un_number = cleaned.get('un_number')
 
         # ═══════════════════════════════════════════════════
+        #  PHASE 0: Pre-match classification
+        #  Detect materials that should be UNIDENTIFIED before
+        #  wasting time on fuzzy matching (flavorings, trade names,
+        #  packaging materials).
+        #  Check BOTH raw name (with parenthesized content) and
+        #  cleaned name, since cleaning strips parens that may
+        #  contain trade names or flavor keywords.
+        # ═══════════════════════════════════════════════════
+
+        name_raw = (cleaned.get('name_raw') or '').strip()
+        for check_name in [name_raw, name]:
+            if check_name:
+                unid_reason, _ = classify_material(check_name)
+                if unid_reason:
+                    return self._build_result(
+                        None, None, 'pre_classify', 0.0, 'UNIDENTIFIED',
+                        [], signals,
+                        [f"PRE_CLASSIFY: {unid_reason}"],
+                        field_swaps
+                    )
+
+        # ═══════════════════════════════════════════════════
         #  PHASE 1: Field-swap detection
         #  Check if fields contain data meant for other fields
         # ═══════════════════════════════════════════════════
@@ -476,6 +544,26 @@ class HybridMatcher:
         # Calibrate confidence against theoretical max
         confidence = min(best_score / theoretical_max, 1.0)
 
+        # Boost: if best match came from a high-quality fuzzy match (≥93%)
+        # where the candidate name is clearly contained in the input name
+        # (input has extra words like grade/form suffixes).
+        # This handles "Calcium Carbonate DC" → "CALCIUM CARBONATE" (95% fuzzy)
+        # Guard: candidate must be ≥60% of input length to avoid "TIN" in "BIOTIN"
+        if best_method in ('name_fuzzy', 'synonym_fuzzy') and confidence < THRESHOLD_MATCHED:
+            best_sig_for_boost = None
+            for sig in signals:
+                if sig.chemical_id == best_id and sig.source == best_method:
+                    if best_sig_for_boost is None or sig.raw_score > best_sig_for_boost.raw_score:
+                        best_sig_for_boost = sig
+            if best_sig_for_boost and best_sig_for_boost.raw_score >= 0.93:
+                inp_norm = _normalize(name) if name else ''
+                cand_norm = _normalize(best_name) if best_name else ''
+                if (inp_norm and cand_norm
+                        and len(cand_norm) >= 5
+                        and len(cand_norm) >= len(inp_norm) * 0.6
+                        and cand_norm in inp_norm):
+                    confidence = min(confidence + 0.12, 0.90)
+
         # Boost: if multiple independent field categories agree on best candidate
         # Also detect "same-family" agreement: different DB IDs but same base chemical
         # e.g. "HYDROGEN PEROXIDE, STABILIZED" vs "HYDROGEN PEROXIDE, AQUEOUS SOLUTION"
@@ -498,6 +586,127 @@ class HybridMatcher:
             # Strong bonus for multi-field agreement (CAS+UN, CAS+formula, etc.)
             bonus = 0.12 * (len(agreeing_categories) - 1)
             confidence = min(confidence + bonus, 1.0)
+
+        # ═══════════════════════════════════════════════
+        #  PHASE 3.5: Semantic re-scoring & safety veto
+        #  Classify tokens in input and candidate names, then apply:
+        #  - Safety veto (benign input must NOT match hazardous candidate)
+        #  - BASE token overlap check (core identity must match)
+        #  - Semantic score blending with fuzzy score
+        # ═══════════════════════════════════════════════
+
+        # Only apply semantic re-scoring for name-based matches
+        # CAS-based matches are already gold standard and don't need semantic checks
+        best_is_cas_match = best_method.startswith('cas')
+
+        if name and not best_is_cas_match:
+            sem = semantic_score(name, best_name)
+
+            if sem['vetoed']:
+                # Safety veto: this candidate is dangerous for this input
+                conflicts.append(f"SAFETY_VETO: {sem['veto_reason']}")
+                logger.info(
+                    f"Safety veto: '{name}' vs '{best_name}' — {sem['veto_reason']}"
+                )
+                # Try to find a non-vetoed candidate
+                vetoed_ids = {best_id}
+                found_safe = False
+                for cid, score in ranked[1:]:
+                    cand_name = candidate_names[cid]
+                    sem2 = semantic_score(name, cand_name)
+                    if not sem2['vetoed']:
+                        best_id = cid
+                        best_name = cand_name
+                        best_score = score
+                        best_method = candidate_methods[cid]
+                        confidence = min(best_score / theoretical_max, 1.0)
+                        sem = sem2
+                        found_safe = True
+                        break
+                    else:
+                        vetoed_ids.add(cid)
+
+                if not found_safe:
+                    # All candidates vetoed — mark as UNIDENTIFIED
+                    return self._build_result(
+                        None, None, 'safety_vetoed', 0.0, 'UNIDENTIFIED',
+                        [], signals, conflicts, field_swaps
+                    )
+
+            # Semantic confidence adjustment
+            # KEY INSIGHT: Most pharma drugs don't exist in CAMEO hazmat DB,
+            # so base_overlap=0 is EXPECTED. Only penalize for SALT-DRIVEN
+            # false positives where salt tokens matched but base is wrong.
+            input_classified = classify_name(name)
+            input_bases = set(extract_base_tokens(input_classified))
+            input_salts = set(t.normalized for t in input_classified
+                              if t.role.value == 'SALT')
+            cand_classified = classify_name(best_name)
+            cand_bases = set(extract_base_tokens(cand_classified))
+            cand_salts = set(t.normalized for t in cand_classified
+                             if t.role.value == 'SALT')
+
+            # Salt-driven false positive: salt tokens overlap but BASE tokens
+            # are completely different. e.g. "Atorvastatin Calcium" → "CALCIUM CYANAMIDE"
+            # EXCEPTION: if fuzzy score is very high (≥95%), the "base mismatch"
+            # is likely just a spelling variation (e.g. "chlorpheniramin" vs
+            # "chlorpheniramine"), not a true chemical mismatch.
+            salt_overlap = bool(input_salts & cand_salts)
+            base_mismatch = (
+                input_bases and cand_bases
+                and not input_bases.intersection(cand_bases)
+            )
+
+            # Check best score for this candidate across ALL signal types
+            # A name_synonym match at 100% means the match is correct even if
+            # base tokens differ slightly (e.g. "codein" vs "codeine")
+            best_score_for_cand = 0
+            for sig in signals:
+                if sig.chemical_id == best_id:
+                    best_score_for_cand = max(best_score_for_cand, sig.raw_score)
+
+            salt_driven_false_positive = (
+                salt_overlap and base_mismatch
+                and best_score_for_cand < 0.95  # High match = spelling variation, not mismatch
+            )
+
+            if salt_driven_false_positive and confidence > 0.50:
+                old_conf = confidence
+                confidence = max(min(confidence * 0.55, 0.65), 0.51)  # Force into REVIEW, not UNIDENTIFIED
+                conflicts.append(
+                    f"SALT_MISMATCH: input base={input_bases}, "
+                    f"candidate base={cand_bases}, shared salt={input_salts & cand_salts} — "
+                    f"confidence reduced {old_conf:.2f} → {confidence:.2f}"
+                )
+            elif sem['score'] >= 0.40:
+                # Semantic match bonus — scaled by quality
+                # High fuzzy score + semantic confirmation = boost to CONFIRMED
+                best_fuzzy_score = 0
+                for sig in signals:
+                    if sig.chemical_id == best_id and sig.source in ('name_fuzzy', 'synonym_fuzzy'):
+                        best_fuzzy_score = max(best_fuzzy_score, sig.raw_score)
+
+                base_overlap = sem.get('base_overlap', 0)
+                if best_fuzzy_score >= 0.93 and base_overlap >= 0.5:
+                    # Very high fuzzy + strong base overlap → big boost
+                    confidence = min(confidence + 0.15, 1.0)
+                elif best_fuzzy_score >= 0.90 and base_overlap > 0:
+                    # High fuzzy + some base overlap → moderate boost
+                    confidence = min(confidence + 0.10, 1.0)
+                elif sem['score'] >= 0.60:
+                    # Strong semantic match — small bonus
+                    confidence = min(confidence + 0.05, 1.0)
+
+            # Re-score candidates with semantic veto (remove vetoed ones)
+            # but DON'T blend scores aggressively — keep fuzzy as primary
+            for cid in list(candidate_scores.keys()):
+                cand_name_check = candidate_names[cid]
+                cand_sem = semantic_score(name, cand_name_check)
+                if cand_sem['vetoed']:
+                    candidate_scores[cid] = 0.0
+
+            # Re-rank with vetoed candidates zeroed out
+            ranked = sorted(candidate_scores.items(), key=lambda x: x[1], reverse=True)
 
         # ═══════════════════════════════════════════════
         #  PHASE 4: Conflict detection
@@ -621,7 +830,17 @@ class HybridMatcher:
         # ── Industrial synonym pre-lookup ──
         # If the input name matches a known trade/common name, resolve it
         # to the canonical DB name and generate signals from THAT name too.
+        # Try exact match first, then progressively shorter prefixes
+        # e.g. "calcium carbonate dc" → try full, then "calcium carbonate"
         canonical_name = _SYNONYM_LOOKUP.get(name_lower)
+        if not canonical_name:
+            # Try removing trailing words (grade/form suffixes like DC, USP, etc.)
+            words = name_lower.split()
+            for i in range(len(words) - 1, 0, -1):
+                prefix = ' '.join(words[:i])
+                canonical_name = _SYNONYM_LOOKUP.get(prefix)
+                if canonical_name:
+                    break
         extra_names = []
         if canonical_name and canonical_name != name_lower:
             extra_names.append(canonical_name)

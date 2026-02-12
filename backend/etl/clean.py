@@ -23,6 +23,7 @@ import unicodedata
 from typing import Any
 
 from etl.schema import normalize_unit
+from etl.semantics import is_likely_product_code, is_plausible_cas
 
 logger = logging.getLogger(__name__)
 
@@ -183,15 +184,28 @@ def reconstruct_cas_from_digits(digits: str) -> str | None:
     Try to reconstruct a CAS number from a pure digit string.
     CAS format: XXXXXXX-YY-Z (last digit is check, second-to-last 2 digits are group).
     E.g. 7664939 → 7664-93-9
+
+    STRICT: Rejects likely product codes (8+ digits with sequential patterns).
     """
     if not digits.isdigit() or len(digits) < 5 or len(digits) > 10:
         return None
+
+    # Reject likely product codes BEFORE attempting reconstruction
+    if is_likely_product_code(digits):
+        logger.debug(f"Rejected CAS reconstruction: '{digits}' looks like a product code")
+        return None
+
     check = digits[-1]
     group = digits[-3:-1]
     body = digits[:-3]
     if not body:
         return None
     candidate = f"{body}-{group}-{check}"
+
+    # Use strict plausibility check (format + length + checksum)
+    if not is_plausible_cas(candidate):
+        return None
+
     is_valid, result = validate_cas(candidate)
     return result if is_valid else None
 
@@ -302,6 +316,7 @@ def validate_row(row: dict, available_columns: set | None = None) -> dict:
 
     # ── Name: smart cleaning (extract parenthesized info, remove stopwords) ──
     name = (row.get('name') or '').strip()
+    cleaned['name_raw'] = name  # Preserve original name for pre-match classification
     name_extra = _extract_name_extras(name)
     cleaned['name'] = name_extra['clean_name']
     # Store extracted purity/notes from parentheses

@@ -1,0 +1,145 @@
+
+================================================================================
+CHEMICAL MATCHING LOGIC - COMPLETE SPECIFICATION FOR CLAUDE OPUS
+================================================================================
+Version: 2.0 Final | Date: February 11, 2026
+Project: CAMEO-Chemical Startup | Repository: github.com/aminhaghii/CAMEO
+
+EXECUTIVE SUMMARY:
+Current system matched 263 materials incorrectly:
+  • 54 CONFIRMED, 210 REVIEW, 0 UNIDENTIFIED
+  • 80% uncertain matches, 0% proper rejections
+  • Dangerous errors: "Gelatin Capsule" → "CHLOROPICRIN" (poison gas!)
+
+Expected behavior after fix:
+  • 106 CONFIRMED (40%), 74 REVIEW (28%), 83 UNIDENTIFIED (32%)
+  • Proper safety vetoes: Flavors NEVER match poisons
+  • Intelligent rejections: Trade names, packaging → UNIDENTIFIED
+
+================================================================================
+1. TOKEN CLASSIFICATION SYSTEM
+================================================================================
+
+Every word has a semantic role. Implement classify_token(word) → TokenType:
+
+BASE (60% weight): Main chemical entity
+  • Examples: "Gluconate", "Atorvastatin", "Acetone"
+  • Rule: If BASE doesn't match → MAX score = 40%
+
+SALT (25% weight): Counter-ion
+  • Examples: "Sodium", "Calcium", "HCl", "Sulfate"
+  • Warning: Do NOT prioritize over BASE!
+
+FORM (10% weight): Physical state
+  • Examples: "Powder", "Pellets", "Micronized"
+  • Extract to metadata, minimal matching impact
+
+GRADE (5% weight): Quality standard
+  • Examples: "USP", "BP", "Food Grade"
+  • Extract to metadata
+
+SAFETY (VETO power): Benign/edible indicators
+  • Examples: "Flavor", "Capsule", "Edible", "Wax"
+  • Rule: NEVER match with HAZARD candidates
+
+HAZARD (VETO power): Dangerous/toxic indicators
+  • Examples: "Explosive", "Arsenic", "Cyanide", "Radioactive"
+  • Rule: NEVER match with SAFETY inputs
+
+CONCENTRATION (0% weight): Numeric values
+  • Examples: "39%", "50mg/ml"
+  • Extract to metadata, ignore in matching
+
+NOISE (0% weight): Product codes
+  • Remove before matching
+  • Do NOT format as fake CAS numbers!
+
+================================================================================
+2. SCORING FORMULA
+================================================================================
+
+Total_Score = (BASE_overlap × 0.60) + (SALT_overlap × 0.25) + 
+              (FORM_overlap × 0.10) + (GRADE_overlap × 0.05)
+
+Thresholds:
+  • Score ≥ 85%  → CONFIRMED
+  • Score 40-84% → REVIEW
+  • Score < 40%  → UNIDENTIFIED
+
+Veto Rules (override score):
+  1. SAFETY input + HAZARD candidate → Score = 0
+  2. BASE overlap = 0 → MAX score = 40%
+  3. Only CONCENTRATION matches → Score = 0
+
+================================================================================
+3. CRITICAL FAILURE PATTERNS TO AVOID
+================================================================================
+
+FAILURE #1: Salt Dominance
+  ❌ "Zinc Gluconate" → "Zinc Chloride" (matched only "Zinc")
+  ✅ Correct: Match BASE ("Gluconate") first, SALT second
+
+FAILURE #2: Flavor → Poison
+  ❌ "Strawberry Flavour" → "CALCIUM ARSENATE"
+  ✅ Correct: Detect "Flavour" → UNIDENTIFIED (no matches)
+
+FAILURE #3: Capsule → Gas Weapon
+  ❌ "Gelatin Capsule" → "CHLOROPICRIN"
+  ✅ Correct: "Capsule" = packaging → UNIDENTIFIED
+
+FAILURE #4: Wax → Explosive
+  ❌ "White Wax" → "PHOSPHORUS, WHITE"
+  ✅ Correct: "Wax" = SAFETY, "Phosphorus" = HAZARD → VETO
+
+FAILURE #5: Concentration Match
+  ❌ "Venlafaxine 39%" → "CALCIUM HYPOCHLORITE >39%"
+  ✅ Correct: Only "39%" matches → Score = 0
+
+FAILURE #6: Fake CAS
+  ❌ Product code "1112420015" → Formatted as "1112420-01-5"
+  ✅ Correct: CAS max 7+2+1 digits, discard long codes
+
+================================================================================
+4. TEST CASES (Validate Implementation)
+================================================================================
+
+Test 1: "Acetone" → CONFIRMED (standard chemical)
+Test 2: "Zinc Gluconate" → NOT "Zinc Chloride" (BASE mismatch)
+Test 3: "Strawberry Flavour" → UNIDENTIFIED (SAFETY token)
+Test 4: "Atorvastatin calcium" → REVIEW (modern drug, not in CAMEO)
+Test 5: "Gelatin Capsule" → UNIDENTIFIED (packaging)
+Test 6: "White Wax" → NOT "PHOSPHORUS WHITE" (SAFETY veto)
+Test 7: "Venlafaxine 39%" → NOT "CALCIUM HYPOCHLORITE" (concentration trap)
+Test 8: "Sodium chloride" → CONFIRMED (simple salt)
+
+================================================================================
+5. DATABASE CONTEXT
+================================================================================
+
+CAMEO Chemicals (NOAA):
+  • ~6,000 entries
+  • Focus: Hazardous industrial chemicals
+
+✅ In CAMEO:
+  • Standard chemicals (Acetone, Ethanol)
+  • Legacy drugs (Aspirin, Codeine, Diazepam)
+  • Simple salts (Sodium Chloride, Calcium Carbonate)
+  • Common solvents, acids, bases
+
+❌ NOT in CAMEO:
+  • Modern drugs (post-1990): Atorvastatin, Empagliflozin
+  • Trade names: Avicel, Coatafilm, EUDRAGIT
+  • Food flavorings: All "Flavor" items
+  • Packaging: Capsules, Sugar Spheres
+
+================================================================================
+END OF SPECIFICATION
+================================================================================
+
+A CSV file 'COMPLETE_MATERIAL_CLASSIFICATION_FOR_OPUS.csv' contains:
+  • All 263 materials
+  • Expected Status for each
+  • Reasoning and Logic for implementation
+  • Warning for edge cases
+
+Implement these rules step-by-step. Success = Zero dangerous false positives!

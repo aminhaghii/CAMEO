@@ -1,0 +1,333 @@
+Total: 263 rows
+CONFIRMED: 70
+REVIEW: 133
+UNIDENTIFIED: 60
+
+=== Category Breakdown by Status ===
+
+CONFIRMED (70):
+  Standard Chemical: 28
+  Polymer/Excipient: 14
+  Vitamin/Nutrient: 12
+  Inorganic Salt/Oxide: 10
+  Oil/Lipid: 6
+
+REVIEW (133):
+  Uncertain: 113
+  Modern Pharmaceutical: 20
+
+UNIDENTIFIED (60):
+  Food Flavoring: 26
+  Trade Name: 21
+  Packaging Material: 11
+  Packaging/Excipient: 2
+
+
+=== ALL UNIDENTIFIED ===
+  Aserola flavouring                                 | Food Flavoring            | SAFETY token detected → VETO any hazardous match
+  Bitter masking Flavor                              | Food Flavoring            | SAFETY token detected → VETO any hazardous match
+  Banana Flavor                                      | Food Flavoring            | SAFETY token detected → VETO any hazardous match
+  Blueberry Flavore                                  | Food Flavoring            | SAFETY token detected → VETO any hazardous match
+  Bubblegum flavour                                  | Food Flavoring            | SAFETY token detected → VETO any hazardous match
+  colloidal silican dioxide(Aerosil 200)             | Trade Name                | Trade name → Search generic name in CAMEO (e.g., Avicel=Microcrystalline Cellulo
+  color                                              | Packaging/Excipient       | Auxiliary material → Not in CAMEO
+  Coatafilm(White0125)                               | Trade Name                | Trade name → Search generic name in CAMEO (e.g., Avicel=Microcrystalline Cellulo
+  Coatafilm(White0122)                               | Trade Name                | Trade name → Search generic name in CAMEO (e.g., Avicel=Microcrystalline Cellulo
+  Coatafilm(Yellow0542)                              | Trade Name                | Trade name → Search generic name in CAMEO (e.g., Avicel=Microcrystalline Cellulo
+  Coatafilm(Yellow0542)                              | Trade Name                | Trade name → Search generic name in CAMEO (e.g., Avicel=Microcrystalline Cellulo
+  Coatafilm(Blue0727)                                | Trade Name                | Trade name → Search generic name in CAMEO (e.g., Avicel=Microcrystalline Cellulo
+  Coatafilm(Orange0418)                              | Trade Name                | Trade name → Search generic name in CAMEO (e.g., Avicel=Microcrystalline Cellulo
+  Coatafilm(pink0328)                                | Trade Name                | Trade name → Search generic name in CAMEO (e.g., Avicel=Microcrystalline Cellulo
+  Coatafilm(pink0329)                                | Trade Name                | Trade name → Search generic name in CAMEO (e.g., Avicel=Microcrystalline Cellulo
+  Coatafilm(pink0335)                                | Trade Name                | Trade name → Search generic name in CAMEO (e.g., Avicel=Microcrystalline Cellulo
+  Coatafilm(pink0336)                                | Trade Name                | Trade name → Search generic name in CAMEO (e.g., Avicel=Microcrystalline Cellulo
+  Coatafilm(Brown)                                   | Trade Name                | Trade name → Search generic name in CAMEO (e.g., Avicel=Microcrystalline Cellulo
+  Coatafilm(Brown)                                   | Trade Name                | Trade name → Search generic name in CAMEO (e.g., Avicel=Microcrystalline Cellulo
+  Cremophor  (polyoxyl 40 hydrogenated castor oil)(R | Trade Name                | Trade name → Search generic name in CAMEO (e.g., Avicel=Microcrystalline Cellulo
+  Citrus Flavore                                     | Food Flavoring            | SAFETY token detected → VETO any hazardous match
+  Caramel(Toffee Flavore)                            | Food Flavoring            | SAFETY token detected → VETO any hazardous match
+  Caramel(Toffee Flavore)                            | Food Flavoring            | SAFETY token detected → VETO any hazardous match
+  Cherry Flavore                                     | Food Flavoring            | SAFETY token detected → VETO any hazardous match
+  Citrus Flavore                                     | Food Flavoring            | SAFETY token detected → VETO any hazardous match
+  Methacrylic acid &Ethyl Acrylate Copolymer Dispers | Trade Name                | Trade name → Search generic name in CAMEO (e.g., Avicel=Microcrystalline Cellulo
+  Fefol                                              | Trade Name                | Trade name → Search generic name in CAMEO (e.g., Avicel=Microcrystalline Cellulo
+  Forest Fruit Flavore                               | Food Flavoring            | SAFETY token detected → VETO any hazardous match
+  Gelatin Capsule                                    | Packaging Material        | Packaging material → Not in CAMEO database
+  Gelatin Capsule                                    | Packaging Material        | Packaging material → Not in CAMEO database
+  Gelatin Capsule                                    | Packaging Material        | Packaging material → Not in CAMEO database
+  Gelatin Capsule                                    | Packaging Material        | Packaging material → Not in CAMEO database
+  Gelatin Capsule                                    | Packaging Material        | Packaging material → Not in CAMEO database
+  Gelatin Capsule                                    | Packaging Material        | Packaging material → Not in CAMEO database
+  Gelatin Capsule                                    | Packaging Material        | Packaging material → Not in CAMEO database
+  Gelatin Capsule                                    | Packaging Material        | Packaging material → Not in CAMEO database
+  Gelatin Capsule                                    | Packaging Material        | Packaging material → Not in CAMEO database
+  Gelatin Capsule                                    | Packaging Material        | Packaging material → Not in CAMEO database
+  Gelatin Capsule                                    | Packaging Material        | Packaging material → Not in CAMEO database
+  Honey Flavore                                      | Food Flavoring            | SAFETY token detected → VETO any hazardous match
+  Lemon Flavor                                       | Food Flavoring            | SAFETY token detected → VETO any hazardous match
+  Melon Flavore                                      | Food Flavoring            | SAFETY token detected → VETO any hazardous match
+  Melon Flavore                                      | Food Flavoring            | SAFETY token detected → VETO any hazardous match
+  Mango pasion fruit  Flavore                        | Food Flavoring            | SAFETY token detected → VETO any hazardous match
+  Microcrystalline cellulose(Avicel)                 | Trade Name                | Trade name → Search generic name in CAMEO (e.g., Avicel=Microcrystalline Cellulo
+  Microcrystalline cellulose(Avicel)                 | Trade Name                | Trade name → Search generic name in CAMEO (e.g., Avicel=Microcrystalline Cellulo
+  Orange juice Flavour                               | Food Flavoring            | SAFETY token detected → VETO any hazardous match
+  Orange juice Flavour                               | Food Flavoring            | SAFETY token detected → VETO any hazardous match
+  Orange juice Flavour                               | Food Flavoring            | SAFETY token detected → VETO any hazardous match
+  Orange juice Flavour                               | Food Flavoring            | SAFETY token detected → VETO any hazardous match
+  Peach Flavore                                      | Food Flavoring            | SAFETY token detected → VETO any hazardous match
+  Raspbery Flavore                                   | Food Flavoring            | SAFETY token detected → VETO any hazardous match
+  colloidal silican dioxide(Aerosil 200)             | Trade Name                | Trade name → Search generic name in CAMEO (e.g., Avicel=Microcrystalline Cellulo
+  Sorbitan stearate(Montane 60)                      | Trade Name                | Trade name → Search generic name in CAMEO (e.g., Avicel=Microcrystalline Cellulo
+  Strawberry Flavour                                 | Food Flavoring            | SAFETY token detected → VETO any hazardous match
+  Strawberry Flavour                                 | Food Flavoring            | SAFETY token detected → VETO any hazardous match
+  Sugar spheres                                      | Packaging/Excipient       | Auxiliary material → Not in CAMEO
+  Sunactive Fe-P80E                                  | Trade Name                | Trade name → Search generic name in CAMEO (e.g., Avicel=Microcrystalline Cellulo
+  Tutti Frutti flavor                                | Food Flavoring            | SAFETY token detected → VETO any hazardous match
+  Vanilla Flavore                                    | Food Flavoring            | SAFETY token detected → VETO any hazardous match
+
+
+=== ALL CONFIRMED ===
+  Alcohol
+(96%)                                      | YES
+  Ammonium chloride                                  | YES
+  Aspirin                                            | YES
+  Acetone                                            | YES
+  Atropin sulphate
+(Usp grade)                       | YES
+  Acetaminophen
+1-DC (95-97%)
+2-Powder               | YES
+  Acetaminophen
+1-DC (95-97%)
+2-Powder               | YES
+  Ascorbic acid(vit c)                               | YES
+  Arachis Oil                                        | YES
+  Biotin(Vit B8)                                     | YES
+  Benzoic acid                                       | YES
+  Caffeine                                           | YES
+  Calcium Citrate
+(1-Moderatly Fine
+2-DC Grade)      | YES
+  Calcium Gluconate                                  | YES
+  Calcium Carbonate
+(Micronized)                     | YES
+  Calcium Carbonate DC                               | YES
+  CarboxyMethylCellulose Sodium
+(3000)               | LIKELY
+  Cetyl Alcohol
+(1-98%
+2-Pastilles)                  | YES
+  Anhydrous Citric Acid                              | YES
+  CrosPovidone
+(Type A(Pharmaceutical Grade))        | LIKELY
+  Monohydrate Citric Acid                            | YES
+  Codein phosphate                                   | YES
+  Cholecalciferol cocentrate(oily form)
+(1MIU/g)     | YES
+  Corn starch                                        | YES
+  Cyanocobalamin(Vit B12)                            | YES
+  Crospovidone                                       | LIKELY
+  Caraway oil                                        | YES
+  Diazepam                                           | YES
+  Dill oil(Code:292223 Dillweed Terpeneless)         | YES
+  Formic acid(98--100%)                              | YES
+  Ferrous sulphate (1-7H2O
+2-Dried)                  | YES
+  Ferric Oxide                                       | YES
+  Folic acid                                         | YES
+  Glycerin                                           | YES
+  Hydroxypropylcellulose                             | LIKELY
+  Isopropyl alcohol                                  | YES
+  Lactose Spry Dried(mesh 100)                       | LIKELY
+  Lactose monohydrate(Mesh 200)                      | LIKELY
+  Heavy Magnesium Oxide                              | YES
+  Light Magnesium oxide                              | YES
+  Menthol                                            | YES
+  Magnesium Hydroxide                                | YES
+  Microcrystalline Cellulose & Carboxymethylcellulos | LIKELY
+  Methyl Cellulose(25 cp)                            | LIKELY
+  Nicotinamide(vit B3)                               | YES
+  Peppermint oil                                     | YES
+  Liquid Paraffin                                    | YES
+  Phenobarbital                                      | YES
+  Polyethylene glycol(400 )                          | LIKELY
+  Polyethylene glycol( 6000)                         | LIKELY
+  Povidone(PVP)
+(K-30
+K-90)                          | LIKELY
+  Povidone(PVP)
+(K-30
+K-90)                          | LIKELY
+  Potassium Iodide                                   | YES
+  Pyridoxine Hcl(Vit B6)                             | YES
+  Pregelatinizid Starch
+(Star Cap 1500(Micronized))  | LIKELY
+  Riboflavin sodium phosphate(Vit B2)                | YES
+  Sodium Starch Glycolate
+(Type A)                   | LIKELY
+  Sodium chloride                                    | YES
+  Sucrose(Sugar)                                     | YES
+  Sodium bicarbonate
+(Fine)                          | YES
+  Purified Talc                                      | YES
+  Thiamine HCl(Vit B1)                               | YES
+  Thiamine Mononitrate                               | YES
+  Titanium dioxide                                   | YES
+  Vitamin A Palmitate((1/7 MIU/G)
+oily form          | YES
+  Vitamin A acetate(325  CWS/A)
+powder form          | YES
+  Vitamin E(Alpha-tocopheryl acetate) liquid
+(DL-A-t | YES
+  Vitamin E(Alpha-tocopheryl acetate) powder
+(Alpha  | YES
+  Zinc oxide                                         | YES
+  Zinc Sulphate( 7 H2O)                              | YES
+
+
+=== ALL REVIEW ===
+  Atorvastatin calcium
+(Microfine)                   | Modern Pharmaceutical     | Modern drug → Not in CAMEO (industrial chemical database)
+  Apixaban                                           | Modern Pharmaceutical     | Modern drug → Not in CAMEO (industrial chemical database)
+  Azithromaycin
+(Didydrate,Fine)                     | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  B-Carotene (10% CWS(Performation Vit A))           | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Bromhexine Hcl
+(Micronized)                        | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Colloidal Bismuth Subcitrate                       | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  ButylHydroxy Benzoate
+(ButylParaben)               | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Butylted Hydroxyanisole                            | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Buthylated HydroxyToluene                          | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Calcium Glubionate
+(micronized)                    | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Dibasic calcium phosphate dihydrate
+(DC Grade/
+Mic | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Dibasic calcium phosphate Anhydrous                | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Calcium Lactobionate
+(Usp Grade)                   | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Chlorpheniramin Maleate                            | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Chlorpromazine HCl                                 | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Chloroquin Phosphate                               | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Cyproheptadine Hcl                                 | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Ciprofloxacine Hcl
+(Fine)                          | Modern Pharmaceutical     | Modern drug → Not in CAMEO (industrial chemical database)
+  Clobazam                                           | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Clonazpam(Usp Grade)                               | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Cholecalciferol cocentrate(Powder form)            | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Croscarmellose Sodium                              | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Cetirizine Hcl                                     | Modern Pharmaceutical     | Modern drug → Not in CAMEO (industrial chemical database)
+  Clarithromycin                                     | Modern Pharmaceutical     | Modern drug → Not in CAMEO (industrial chemical database)
+  Citalopram Hydrobromide                            | Modern Pharmaceutical     | Modern drug → Not in CAMEO (industrial chemical database)
+  Dapoxetine Hcl                                     | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Dexpanthenol                                       | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Dicyclomine Hcl(Usp Grade)                         | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Diphenoxylate Hcl                                  | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Diphenhydramine Hcl(Bp Grade)                      | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Dibutyl phthalate                                  | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Disodium Edetate(Dihydrate)                        | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Dextrose                                           | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Dibasic sodium phosphate
+(Disodium Hydrogen phosph | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Dextromethorphan Hydrobromide                      | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Desloratadine                                      | Modern Pharmaceutical     | Modern drug → Not in CAMEO (industrial chemical database)
+  Duloxetine pellets 17%                             | Modern Pharmaceutical     | Modern drug → Not in CAMEO (industrial chemical database)
+  Dalfampiridine                                     | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Empagliflozin                                      | Modern Pharmaceutical     | Modern drug → Not in CAMEO (industrial chemical database)
+  Erythromaycin EthylSuccinate                       | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Fampridine                                         | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Fexofenadine HCl                                   | Modern Pharmaceutical     | Modern drug → Not in CAMEO (industrial chemical database)
+  Ferric Ammonium Citrate                            | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  D-Fructose                                         | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Ferric Ammonium Citrate                            | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Ferrous fumarate                                   | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Ferrous Gluconate                                  | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Fenofibrate IR pellets 66.23%                      | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Griseofluvin                                       | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Liquid Glucose                                     | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Guaifensine                                        | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Glucasamine HCl                                    | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Gemifloxacin Mesylate                              | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Hydroxyzine Hcl                                    | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Honey                                              | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Hypromellose(6 mPa.s)                              | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Hypromellose phthalate(HP 55)                      | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Hyoscine Butyl Bromide                             | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Hydroxychlorquine sulfate                          | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Hydrocortisone Acetate                             | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Ibuprofen micronized                               | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Isoniazide                                         | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Ketotifen Fumarate                                 | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Lidocain                                           | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Levofloxacine(Hemihydrate)                         | Modern Pharmaceutical     | Modern drug → Not in CAMEO (industrial chemical database)
+  Lysine Hcl                                         | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Lactulose Solution(Not Less 70%)                   | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Malic Acid                                         | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Maltodextrin                                       | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Mannitol(200 SD)                                   | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Magnesium Stearate                                 | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Magnesium Gluconate                                | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Mebeverine HCl Sustained Release Pellets 76%       | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Methyl paraben                                     | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Metformin Hcl
+(Micronized)                         | Modern Pharmaceutical     | Modern drug → Not in CAMEO (industrial chemical database)
+  Metronidazole
+(Micronized)                         | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Metoclopramide Hcl                                 | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Nystatin                                           | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Nipaset Sodium                                     | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Omperazol pellet 8.5%                              | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Ofloxacin                                          | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Ondansetron HCl                                    | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Pantoprazole Sodium                                | Modern Pharmaceutical     | Modern drug → Not in CAMEO (industrial chemical database)
+  Perphenazine                                       | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Phenylephrine Hcl                                  | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Pregabalin                                         | Modern Pharmaceutical     | Modern drug → Not in CAMEO (industrial chemical database)
+  Polysorbate(60,80)                                 | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Ptassium Sorbate                                   | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Potassium citrate                                  | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Propyl paraben                                     | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Pseudoephedrine HCL                                | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Propylene Glycol                                   | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Ranitidin Hcl                                      | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Rabeprazole sodium                                 | Modern Pharmaceutical     | Modern drug → Not in CAMEO (industrial chemical database)
+  Red Ponceau 4R                                     | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Rivaroxaban                                        | Modern Pharmaceutical     | Modern drug → Not in CAMEO (industrial chemical database)
+  Rosuvastatin calcium                               | Modern Pharmaceutical     | Modern drug → Not in CAMEO (industrial chemical database)
+  Sevelamer DC Granules 75%                          | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Sildenafile                                        | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Sitagliptin phosphate                              | Modern Pharmaceutical     | Modern drug → Not in CAMEO (industrial chemical database)
+  Sodium Benzoate                                    | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Sodium citrate(Dihydrate)                          | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Sodium lauryl Sulphate                             | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Sodium Metabisulphite                              | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Monobasic Sodium Phosphate                         | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Sodium Carbonate(Anhydrous)                        | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Sorbic Acid                                        | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Saccharin  Sodium                                  | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Liquid Sorbitol   ( Non-crystallising)70%          | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Sodium Stearyl fumarat                             | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Sodium Sulfite                                     | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Spirolina                                          | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Sulfamethoxazole                                   | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Sumatriptan Succinate                              | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Sucralose                                          | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Stearic acid  95%                                  | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Simethicone  30%                                   | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Salbutamol sulfate                                 | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Thioridazine                                       | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Ticagrelor                                         | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Triethyl Citrate                                   | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Trolamine                                          | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Trimethoprim                                       | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Theophyline Anhydrous                              | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Tamsulosin HCl 0/16%                               | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Venlafaxine HCl pellet 39%                         | Modern Pharmaceutical     | Modern drug → Not in CAMEO (industrial chemical database)
+  Venlafaxine HCl pellet 33%                         | Modern Pharmaceutical     | Modern drug → Not in CAMEO (industrial chemical database)
+  Vanilla                                            | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  white  Wax                                         | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Wool fat                                           | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Xanthan gum                                        | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Zinc Citrate                                       | Uncertain                 | Complex formulation → Check BASE compound in CAMEO
+  Zinc Gluconate                                     | Uncertain                 | Complex formulation → Check BASE compound in CAMEO

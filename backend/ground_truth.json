@@ -1,0 +1,2632 @@
+[
+  {
+    "row": 1,
+    "material": "Alcohol\n(96%)",
+    "status": "CONFIRMED",
+    "category": "Standard Chemical",
+    "in_cameo": "YES",
+    "reasoning": "Common solvent",
+    "logic": "BASE match: Ethanol → Known entry in CAMEO (CAS 64-17-5)",
+    "warning": null
+  },
+  {
+    "row": 2,
+    "material": "Ammonium chloride",
+    "status": "CONFIRMED",
+    "category": "Standard Chemical",
+    "in_cameo": "YES",
+    "reasoning": "Simple salt",
+    "logic": "BASE match: Ammonium Chloride → Known entry in CAMEO (CAS 12125-02-9)",
+    "warning": null
+  },
+  {
+    "row": 3,
+    "material": "Aspirin",
+    "status": "CONFIRMED",
+    "category": "Standard Chemical",
+    "in_cameo": "YES",
+    "reasoning": "Classic drug (1899)",
+    "logic": "BASE match: Aspirin → Known entry in CAMEO (CAS 50-78-2)",
+    "warning": null
+  },
+  {
+    "row": 4,
+    "material": "Acetone",
+    "status": "CONFIRMED",
+    "category": "Standard Chemical",
+    "in_cameo": "YES",
+    "reasoning": "Standard solvent",
+    "logic": "BASE match: Acetone → Known entry in CAMEO (CAS 67-64-1)",
+    "warning": null
+  },
+  {
+    "row": 5,
+    "material": "Atropin sulphate\n(Usp grade)",
+    "status": "CONFIRMED",
+    "category": "Standard Chemical",
+    "in_cameo": "YES",
+    "reasoning": "Classic alkaloid (1831)",
+    "logic": "BASE match: Atropine → Known entry in CAMEO (CAS 51-55-8)",
+    "warning": null
+  },
+  {
+    "row": 6,
+    "material": "Acetaminophen\n1-DC (95-97%)\n2-Powder",
+    "status": "CONFIRMED",
+    "category": "Standard Chemical",
+    "in_cameo": "YES",
+    "reasoning": "Common OTC drug",
+    "logic": "BASE match: Acetaminophen → Known entry in CAMEO (CAS 103-90-2)",
+    "warning": null
+  },
+  {
+    "row": 7,
+    "material": "Acetaminophen\n1-DC (95-97%)\n2-Powder",
+    "status": "CONFIRMED",
+    "category": "Standard Chemical",
+    "in_cameo": "YES",
+    "reasoning": "Common OTC drug",
+    "logic": "BASE match: Acetaminophen → Known entry in CAMEO (CAS 103-90-2)",
+    "warning": null
+  },
+  {
+    "row": 8,
+    "material": "Atorvastatin calcium\n(Microfine)",
+    "status": "REVIEW",
+    "category": "Modern Pharmaceutical",
+    "in_cameo": "UNLIKELY",
+    "reasoning": "Statin drug (approved 1996)",
+    "logic": "Modern drug → Not in CAMEO (industrial chemical database)",
+    "warning": null
+  },
+  {
+    "row": 9,
+    "material": "Ascorbic acid(vit c)",
+    "status": "CONFIRMED",
+    "category": "Standard Chemical",
+    "in_cameo": "YES",
+    "reasoning": "Vitamin C",
+    "logic": "BASE match: Ascorbic Acid → Known entry in CAMEO (CAS 50-81-7)",
+    "warning": null
+  },
+  {
+    "row": 10,
+    "material": "Aserola flavouring",
+    "status": "UNIDENTIFIED",
+    "category": "Food Flavoring",
+    "in_cameo": "NO",
+    "reasoning": "Food flavoring agent - not a hazardous chemical",
+    "logic": "SAFETY token detected → VETO any hazardous match",
+    "warning": null
+  },
+  {
+    "row": 11,
+    "material": "Apixaban",
+    "status": "REVIEW",
+    "category": "Modern Pharmaceutical",
+    "in_cameo": "UNLIKELY",
+    "reasoning": "Anticoagulant (approved 2012)",
+    "logic": "Modern drug → Not in CAMEO (industrial chemical database)",
+    "warning": null
+  },
+  {
+    "row": 12,
+    "material": "Arachis Oil",
+    "status": "CONFIRMED",
+    "category": "Oil/Lipid",
+    "in_cameo": "YES",
+    "reasoning": "Natural or mineral oil",
+    "logic": "Oil compound → Check CAMEO for specific type",
+    "warning": "SAFETY VETO: Do NOT match edible oils with fuel oils or explosives"
+  },
+  {
+    "row": 13,
+    "material": "Azithromaycin\n(Didydrate,Fine)",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 14,
+    "material": "B-Carotene (10% CWS(Performation Vit A))",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 15,
+    "material": "Biotin(Vit B8)",
+    "status": "CONFIRMED",
+    "category": "Vitamin/Nutrient",
+    "in_cameo": "YES",
+    "reasoning": "Essential nutrient compound",
+    "logic": "Vitamin → Standard biological compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 16,
+    "material": "Benzoic acid",
+    "status": "CONFIRMED",
+    "category": "Standard Chemical",
+    "in_cameo": "YES",
+    "reasoning": "Common preservative",
+    "logic": "BASE match: Benzoic Acid → Known entry in CAMEO (CAS 65-85-0)",
+    "warning": null
+  },
+  {
+    "row": 17,
+    "material": "Bromhexine Hcl\n(Micronized)",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 18,
+    "material": "Colloidal Bismuth Subcitrate",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 19,
+    "material": "Bitter masking Flavor",
+    "status": "UNIDENTIFIED",
+    "category": "Food Flavoring",
+    "in_cameo": "NO",
+    "reasoning": "Food flavoring agent - not a hazardous chemical",
+    "logic": "SAFETY token detected → VETO any hazardous match",
+    "warning": null
+  },
+  {
+    "row": 20,
+    "material": "Banana Flavor",
+    "status": "UNIDENTIFIED",
+    "category": "Food Flavoring",
+    "in_cameo": "NO",
+    "reasoning": "Food flavoring agent - not a hazardous chemical",
+    "logic": "SAFETY token detected → VETO any hazardous match",
+    "warning": null
+  },
+  {
+    "row": 21,
+    "material": "Blueberry Flavore",
+    "status": "UNIDENTIFIED",
+    "category": "Food Flavoring",
+    "in_cameo": "NO",
+    "reasoning": "Food flavoring agent - not a hazardous chemical",
+    "logic": "SAFETY token detected → VETO any hazardous match",
+    "warning": null
+  },
+  {
+    "row": 22,
+    "material": "Bubblegum flavour",
+    "status": "UNIDENTIFIED",
+    "category": "Food Flavoring",
+    "in_cameo": "NO",
+    "reasoning": "Food flavoring agent - not a hazardous chemical",
+    "logic": "SAFETY token detected → VETO any hazardous match",
+    "warning": null
+  },
+  {
+    "row": 23,
+    "material": "ButylHydroxy Benzoate\n(ButylParaben)",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 24,
+    "material": "Butylted Hydroxyanisole",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 25,
+    "material": "Buthylated HydroxyToluene",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 26,
+    "material": "Caffeine",
+    "status": "CONFIRMED",
+    "category": "Standard Chemical",
+    "in_cameo": "YES",
+    "reasoning": "Common stimulant",
+    "logic": "BASE match: Caffeine → Known entry in CAMEO (CAS 58-08-2)",
+    "warning": null
+  },
+  {
+    "row": 27,
+    "material": "Calcium Glubionate\n(micronized)",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 28,
+    "material": "Dibasic calcium phosphate dihydrate\n(DC Grade/\nMicronizad)",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 29,
+    "material": "Dibasic calcium phosphate Anhydrous",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 30,
+    "material": "Calcium Citrate\n(1-Moderatly Fine\n2-DC Grade)",
+    "status": "CONFIRMED",
+    "category": "Inorganic Salt/Oxide",
+    "in_cameo": "YES",
+    "reasoning": "Common inorganic compound",
+    "logic": "Simple salt → Standard entry in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 31,
+    "material": "Calcium Lactobionate\n(Usp Grade)",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 32,
+    "material": "Calcium Gluconate",
+    "status": "CONFIRMED",
+    "category": "Inorganic Salt/Oxide",
+    "in_cameo": "YES",
+    "reasoning": "Common inorganic compound",
+    "logic": "Simple salt → Standard entry in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 33,
+    "material": "Calcium Carbonate\n(Micronized)",
+    "status": "CONFIRMED",
+    "category": "Inorganic Salt/Oxide",
+    "in_cameo": "YES",
+    "reasoning": "Common inorganic compound",
+    "logic": "Simple salt → Standard entry in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 34,
+    "material": "Calcium Carbonate DC",
+    "status": "CONFIRMED",
+    "category": "Inorganic Salt/Oxide",
+    "in_cameo": "YES",
+    "reasoning": "Common inorganic compound",
+    "logic": "Simple salt → Standard entry in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 35,
+    "material": "CarboxyMethylCellulose Sodium\n(3000)",
+    "status": "CONFIRMED",
+    "category": "Polymer/Excipient",
+    "in_cameo": "LIKELY",
+    "reasoning": "Common pharmaceutical excipient",
+    "logic": "Standard excipient → May exist in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 36,
+    "material": "Cetyl Alcohol\n(1-98%\n2-Pastilles)",
+    "status": "CONFIRMED",
+    "category": "Standard Chemical",
+    "in_cameo": "YES",
+    "reasoning": "Common solvent",
+    "logic": "BASE match: Ethanol → Known entry in CAMEO (CAS 64-17-5)",
+    "warning": null
+  },
+  {
+    "row": 37,
+    "material": "Chlorpheniramin Maleate",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 38,
+    "material": "Chlorpromazine HCl",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 39,
+    "material": "Chloroquin Phosphate",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 40,
+    "material": "colloidal silican dioxide(Aerosil 200)",
+    "status": "UNIDENTIFIED",
+    "category": "Trade Name",
+    "in_cameo": "NO",
+    "reasoning": "Proprietary brand name (Aerosil)",
+    "logic": "Trade name → Search generic name in CAMEO (e.g., Avicel=Microcrystalline Cellulose)",
+    "warning": null
+  },
+  {
+    "row": 41,
+    "material": "color",
+    "status": "UNIDENTIFIED",
+    "category": "Packaging/Excipient",
+    "in_cameo": "NO",
+    "reasoning": "Non-chemical component",
+    "logic": "Auxiliary material → Not in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 42,
+    "material": "Cyproheptadine Hcl",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 43,
+    "material": "Ciprofloxacine Hcl\n(Fine)",
+    "status": "REVIEW",
+    "category": "Modern Pharmaceutical",
+    "in_cameo": "UNLIKELY",
+    "reasoning": "Quinolone antibiotic (approved 1987)",
+    "logic": "Modern drug → Not in CAMEO (industrial chemical database)",
+    "warning": null
+  },
+  {
+    "row": 44,
+    "material": "Anhydrous Citric Acid",
+    "status": "CONFIRMED",
+    "category": "Standard Chemical",
+    "in_cameo": "YES",
+    "reasoning": "Food acid",
+    "logic": "BASE match: Citric Acid → Known entry in CAMEO (CAS 77-92-9)",
+    "warning": null
+  },
+  {
+    "row": 45,
+    "material": "CrosPovidone\n(Type A(Pharmaceutical Grade))",
+    "status": "CONFIRMED",
+    "category": "Polymer/Excipient",
+    "in_cameo": "LIKELY",
+    "reasoning": "Common pharmaceutical excipient",
+    "logic": "Standard excipient → May exist in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 46,
+    "material": "Monohydrate Citric Acid",
+    "status": "CONFIRMED",
+    "category": "Standard Chemical",
+    "in_cameo": "YES",
+    "reasoning": "Food acid",
+    "logic": "BASE match: Citric Acid → Known entry in CAMEO (CAS 77-92-9)",
+    "warning": null
+  },
+  {
+    "row": 47,
+    "material": "Clobazam",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 48,
+    "material": "Clonazpam(Usp Grade)",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 49,
+    "material": "Coatafilm(White0125)",
+    "status": "UNIDENTIFIED",
+    "category": "Trade Name",
+    "in_cameo": "NO",
+    "reasoning": "Proprietary brand name (Coatafilm)",
+    "logic": "Trade name → Search generic name in CAMEO (e.g., Avicel=Microcrystalline Cellulose)",
+    "warning": null
+  },
+  {
+    "row": 50,
+    "material": "Coatafilm(White0122)",
+    "status": "UNIDENTIFIED",
+    "category": "Trade Name",
+    "in_cameo": "NO",
+    "reasoning": "Proprietary brand name (Coatafilm)",
+    "logic": "Trade name → Search generic name in CAMEO (e.g., Avicel=Microcrystalline Cellulose)",
+    "warning": null
+  },
+  {
+    "row": 51,
+    "material": "Coatafilm(Yellow0542)",
+    "status": "UNIDENTIFIED",
+    "category": "Trade Name",
+    "in_cameo": "NO",
+    "reasoning": "Proprietary brand name (Coatafilm)",
+    "logic": "Trade name → Search generic name in CAMEO (e.g., Avicel=Microcrystalline Cellulose)",
+    "warning": null
+  },
+  {
+    "row": 52,
+    "material": "Coatafilm(Yellow0542)",
+    "status": "UNIDENTIFIED",
+    "category": "Trade Name",
+    "in_cameo": "NO",
+    "reasoning": "Proprietary brand name (Coatafilm)",
+    "logic": "Trade name → Search generic name in CAMEO (e.g., Avicel=Microcrystalline Cellulose)",
+    "warning": null
+  },
+  {
+    "row": 53,
+    "material": "Coatafilm(Blue0727)",
+    "status": "UNIDENTIFIED",
+    "category": "Trade Name",
+    "in_cameo": "NO",
+    "reasoning": "Proprietary brand name (Coatafilm)",
+    "logic": "Trade name → Search generic name in CAMEO (e.g., Avicel=Microcrystalline Cellulose)",
+    "warning": null
+  },
+  {
+    "row": 54,
+    "material": "Coatafilm(Orange0418)",
+    "status": "UNIDENTIFIED",
+    "category": "Trade Name",
+    "in_cameo": "NO",
+    "reasoning": "Proprietary brand name (Coatafilm)",
+    "logic": "Trade name → Search generic name in CAMEO (e.g., Avicel=Microcrystalline Cellulose)",
+    "warning": null
+  },
+  {
+    "row": 55,
+    "material": "Coatafilm(pink0328)",
+    "status": "UNIDENTIFIED",
+    "category": "Trade Name",
+    "in_cameo": "NO",
+    "reasoning": "Proprietary brand name (Coatafilm)",
+    "logic": "Trade name → Search generic name in CAMEO (e.g., Avicel=Microcrystalline Cellulose)",
+    "warning": null
+  },
+  {
+    "row": 56,
+    "material": "Coatafilm(pink0329)",
+    "status": "UNIDENTIFIED",
+    "category": "Trade Name",
+    "in_cameo": "NO",
+    "reasoning": "Proprietary brand name (Coatafilm)",
+    "logic": "Trade name → Search generic name in CAMEO (e.g., Avicel=Microcrystalline Cellulose)",
+    "warning": null
+  },
+  {
+    "row": 57,
+    "material": "Coatafilm(pink0335)",
+    "status": "UNIDENTIFIED",
+    "category": "Trade Name",
+    "in_cameo": "NO",
+    "reasoning": "Proprietary brand name (Coatafilm)",
+    "logic": "Trade name → Search generic name in CAMEO (e.g., Avicel=Microcrystalline Cellulose)",
+    "warning": null
+  },
+  {
+    "row": 58,
+    "material": "Coatafilm(pink0336)",
+    "status": "UNIDENTIFIED",
+    "category": "Trade Name",
+    "in_cameo": "NO",
+    "reasoning": "Proprietary brand name (Coatafilm)",
+    "logic": "Trade name → Search generic name in CAMEO (e.g., Avicel=Microcrystalline Cellulose)",
+    "warning": null
+  },
+  {
+    "row": 59,
+    "material": "Coatafilm(Brown)",
+    "status": "UNIDENTIFIED",
+    "category": "Trade Name",
+    "in_cameo": "NO",
+    "reasoning": "Proprietary brand name (Coatafilm)",
+    "logic": "Trade name → Search generic name in CAMEO (e.g., Avicel=Microcrystalline Cellulose)",
+    "warning": null
+  },
+  {
+    "row": 60,
+    "material": "Coatafilm(Brown)",
+    "status": "UNIDENTIFIED",
+    "category": "Trade Name",
+    "in_cameo": "NO",
+    "reasoning": "Proprietary brand name (Coatafilm)",
+    "logic": "Trade name → Search generic name in CAMEO (e.g., Avicel=Microcrystalline Cellulose)",
+    "warning": null
+  },
+  {
+    "row": 61,
+    "material": "Codein phosphate",
+    "status": "CONFIRMED",
+    "category": "Standard Chemical",
+    "in_cameo": "YES",
+    "reasoning": "Classic opioid",
+    "logic": "BASE match: Codeine → Known entry in CAMEO (CAS 76-57-3)",
+    "warning": null
+  },
+  {
+    "row": 62,
+    "material": "Cholecalciferol cocentrate(Powder form)",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 63,
+    "material": "Cholecalciferol cocentrate(oily form)\n(1MIU/g)",
+    "status": "CONFIRMED",
+    "category": "Oil/Lipid",
+    "in_cameo": "YES",
+    "reasoning": "Natural or mineral oil",
+    "logic": "Oil compound → Check CAMEO for specific type",
+    "warning": "SAFETY VETO: Do NOT match edible oils with fuel oils or explosives"
+  },
+  {
+    "row": 64,
+    "material": "Corn starch",
+    "status": "CONFIRMED",
+    "category": "Standard Chemical",
+    "in_cameo": "YES",
+    "reasoning": "Natural polymer",
+    "logic": "BASE match: Corn Starch → Known entry in CAMEO (CAS 9005-25-8)",
+    "warning": null
+  },
+  {
+    "row": 65,
+    "material": "Cremophor  (polyoxyl 40 hydrogenated castor oil)(RH 40)",
+    "status": "UNIDENTIFIED",
+    "category": "Trade Name",
+    "in_cameo": "NO",
+    "reasoning": "Proprietary brand name (Cremophor)",
+    "logic": "Trade name → Search generic name in CAMEO (e.g., Avicel=Microcrystalline Cellulose)",
+    "warning": null
+  },
+  {
+    "row": 66,
+    "material": "Croscarmellose Sodium",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 67,
+    "material": "Cyanocobalamin(Vit B12)",
+    "status": "CONFIRMED",
+    "category": "Vitamin/Nutrient",
+    "in_cameo": "YES",
+    "reasoning": "Essential nutrient compound",
+    "logic": "Vitamin → Standard biological compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 68,
+    "material": "Cetirizine Hcl",
+    "status": "REVIEW",
+    "category": "Modern Pharmaceutical",
+    "in_cameo": "UNLIKELY",
+    "reasoning": "Antihistamine (approved 1987)",
+    "logic": "Modern drug → Not in CAMEO (industrial chemical database)",
+    "warning": null
+  },
+  {
+    "row": 69,
+    "material": "Clarithromycin",
+    "status": "REVIEW",
+    "category": "Modern Pharmaceutical",
+    "in_cameo": "UNLIKELY",
+    "reasoning": "Macrolide antibiotic (approved 1991)",
+    "logic": "Modern drug → Not in CAMEO (industrial chemical database)",
+    "warning": null
+  },
+  {
+    "row": 70,
+    "material": "Citrus Flavore",
+    "status": "UNIDENTIFIED",
+    "category": "Food Flavoring",
+    "in_cameo": "NO",
+    "reasoning": "Food flavoring agent - not a hazardous chemical",
+    "logic": "SAFETY token detected → VETO any hazardous match",
+    "warning": null
+  },
+  {
+    "row": 71,
+    "material": "Caramel(Toffee Flavore)",
+    "status": "UNIDENTIFIED",
+    "category": "Food Flavoring",
+    "in_cameo": "NO",
+    "reasoning": "Food flavoring agent - not a hazardous chemical",
+    "logic": "SAFETY token detected → VETO any hazardous match",
+    "warning": null
+  },
+  {
+    "row": 72,
+    "material": "Caramel(Toffee Flavore)",
+    "status": "UNIDENTIFIED",
+    "category": "Food Flavoring",
+    "in_cameo": "NO",
+    "reasoning": "Food flavoring agent - not a hazardous chemical",
+    "logic": "SAFETY token detected → VETO any hazardous match",
+    "warning": null
+  },
+  {
+    "row": 73,
+    "material": "Cherry Flavore",
+    "status": "UNIDENTIFIED",
+    "category": "Food Flavoring",
+    "in_cameo": "NO",
+    "reasoning": "Food flavoring agent - not a hazardous chemical",
+    "logic": "SAFETY token detected → VETO any hazardous match",
+    "warning": null
+  },
+  {
+    "row": 74,
+    "material": "Citalopram Hydrobromide",
+    "status": "REVIEW",
+    "category": "Modern Pharmaceutical",
+    "in_cameo": "UNLIKELY",
+    "reasoning": "SSRI antidepressant (approved 1998)",
+    "logic": "Modern drug → Not in CAMEO (industrial chemical database)",
+    "warning": null
+  },
+  {
+    "row": 75,
+    "material": "Citrus Flavore",
+    "status": "UNIDENTIFIED",
+    "category": "Food Flavoring",
+    "in_cameo": "NO",
+    "reasoning": "Food flavoring agent - not a hazardous chemical",
+    "logic": "SAFETY token detected → VETO any hazardous match",
+    "warning": null
+  },
+  {
+    "row": 76,
+    "material": "Crospovidone",
+    "status": "CONFIRMED",
+    "category": "Polymer/Excipient",
+    "in_cameo": "LIKELY",
+    "reasoning": "Common pharmaceutical excipient",
+    "logic": "Standard excipient → May exist in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 77,
+    "material": "Caraway oil",
+    "status": "CONFIRMED",
+    "category": "Oil/Lipid",
+    "in_cameo": "YES",
+    "reasoning": "Natural or mineral oil",
+    "logic": "Oil compound → Check CAMEO for specific type",
+    "warning": "SAFETY VETO: Do NOT match edible oils with fuel oils or explosives"
+  },
+  {
+    "row": 78,
+    "material": "Dapoxetine Hcl",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 79,
+    "material": "Dexpanthenol",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 80,
+    "material": "Dicyclomine Hcl(Usp Grade)",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 81,
+    "material": "Diphenoxylate Hcl",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 82,
+    "material": "Diphenhydramine Hcl(Bp Grade)",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 83,
+    "material": "Diazepam",
+    "status": "CONFIRMED",
+    "category": "Standard Chemical",
+    "in_cameo": "YES",
+    "reasoning": "Classic anxiolytic (1963)",
+    "logic": "BASE match: Diazepam → Known entry in CAMEO (CAS 439-14-5)",
+    "warning": null
+  },
+  {
+    "row": 84,
+    "material": "Dibutyl phthalate",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 85,
+    "material": "Disodium Edetate(Dihydrate)",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 86,
+    "material": "Dextrose",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 87,
+    "material": "Dibasic sodium phosphate\n(Disodium Hydrogen phosphate)",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 88,
+    "material": "Dextromethorphan Hydrobromide",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 89,
+    "material": "Desloratadine",
+    "status": "REVIEW",
+    "category": "Modern Pharmaceutical",
+    "in_cameo": "UNLIKELY",
+    "reasoning": "Antihistamine (approved 2001)",
+    "logic": "Modern drug → Not in CAMEO (industrial chemical database)",
+    "warning": null
+  },
+  {
+    "row": 90,
+    "material": "Dill oil(Code:292223 Dillweed Terpeneless)",
+    "status": "CONFIRMED",
+    "category": "Oil/Lipid",
+    "in_cameo": "YES",
+    "reasoning": "Natural or mineral oil",
+    "logic": "Oil compound → Check CAMEO for specific type",
+    "warning": "SAFETY VETO: Do NOT match edible oils with fuel oils or explosives"
+  },
+  {
+    "row": 91,
+    "material": "Duloxetine pellets 17%",
+    "status": "REVIEW",
+    "category": "Modern Pharmaceutical",
+    "in_cameo": "UNLIKELY",
+    "reasoning": "SNRI antidepressant (approved 2004)",
+    "logic": "Modern drug → Not in CAMEO (industrial chemical database)",
+    "warning": null
+  },
+  {
+    "row": 92,
+    "material": "Dalfampiridine",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 93,
+    "material": "Empagliflozin",
+    "status": "REVIEW",
+    "category": "Modern Pharmaceutical",
+    "in_cameo": "UNLIKELY",
+    "reasoning": "SGLT2 inhibitor (approved 2014)",
+    "logic": "Modern drug → Not in CAMEO (industrial chemical database)",
+    "warning": null
+  },
+  {
+    "row": 94,
+    "material": "Erythromaycin EthylSuccinate",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 95,
+    "material": "Methacrylic acid &Ethyl Acrylate Copolymer Dispersion   (EUDRAGIT)",
+    "status": "UNIDENTIFIED",
+    "category": "Trade Name",
+    "in_cameo": "NO",
+    "reasoning": "Proprietary brand name (Eudragit)",
+    "logic": "Trade name → Search generic name in CAMEO (e.g., Avicel=Microcrystalline Cellulose)",
+    "warning": null
+  },
+  {
+    "row": 96,
+    "material": "Fampridine",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 97,
+    "material": "Fexofenadine HCl",
+    "status": "REVIEW",
+    "category": "Modern Pharmaceutical",
+    "in_cameo": "UNLIKELY",
+    "reasoning": "Antihistamine (approved 1996)",
+    "logic": "Modern drug → Not in CAMEO (industrial chemical database)",
+    "warning": null
+  },
+  {
+    "row": 98,
+    "material": "Ferric Ammonium Citrate",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 99,
+    "material": "D-Fructose",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 100,
+    "material": "Formic acid(98--100%)",
+    "status": "CONFIRMED",
+    "category": "Standard Chemical",
+    "in_cameo": "YES",
+    "reasoning": "Industrial acid",
+    "logic": "BASE match: Formic Acid → Known entry in CAMEO (CAS 64-18-6)",
+    "warning": null
+  },
+  {
+    "row": 101,
+    "material": "Ferrous sulphate (1-7H2O\n2-Dried)",
+    "status": "CONFIRMED",
+    "category": "Inorganic Salt/Oxide",
+    "in_cameo": "YES",
+    "reasoning": "Common inorganic compound",
+    "logic": "Simple salt → Standard entry in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 102,
+    "material": "Ferric Oxide",
+    "status": "CONFIRMED",
+    "category": "Standard Chemical",
+    "in_cameo": "YES",
+    "reasoning": "Iron oxide",
+    "logic": "BASE match: Ferric Oxide → Known entry in CAMEO (CAS 1309-37-1)",
+    "warning": null
+  },
+  {
+    "row": 103,
+    "material": "Fefol",
+    "status": "UNIDENTIFIED",
+    "category": "Trade Name",
+    "in_cameo": "NO",
+    "reasoning": "Proprietary brand name (Fefol)",
+    "logic": "Trade name → Search generic name in CAMEO (e.g., Avicel=Microcrystalline Cellulose)",
+    "warning": null
+  },
+  {
+    "row": 104,
+    "material": "Ferric Ammonium Citrate",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 105,
+    "material": "Folic acid",
+    "status": "CONFIRMED",
+    "category": "Vitamin/Nutrient",
+    "in_cameo": "YES",
+    "reasoning": "Essential nutrient compound",
+    "logic": "Vitamin → Standard biological compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 106,
+    "material": "Ferrous fumarate",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 107,
+    "material": "Ferrous Gluconate",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 108,
+    "material": "Forest Fruit Flavore",
+    "status": "UNIDENTIFIED",
+    "category": "Food Flavoring",
+    "in_cameo": "NO",
+    "reasoning": "Food flavoring agent - not a hazardous chemical",
+    "logic": "SAFETY token detected → VETO any hazardous match",
+    "warning": null
+  },
+  {
+    "row": 109,
+    "material": "Fenofibrate IR pellets 66.23%",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 110,
+    "material": "Glycerin",
+    "status": "CONFIRMED",
+    "category": "Standard Chemical",
+    "in_cameo": "YES",
+    "reasoning": "Common solvent",
+    "logic": "BASE match: Glycerin → Known entry in CAMEO (CAS 56-81-5)",
+    "warning": null
+  },
+  {
+    "row": 111,
+    "material": "Griseofluvin",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 112,
+    "material": "Liquid Glucose",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 113,
+    "material": "Guaifensine",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 114,
+    "material": "Gelatin Capsule",
+    "status": "UNIDENTIFIED",
+    "category": "Packaging Material",
+    "in_cameo": "NO",
+    "reasoning": "Empty pharmaceutical capsule - not a chemical substance",
+    "logic": "Packaging material → Not in CAMEO database",
+    "warning": null
+  },
+  {
+    "row": 115,
+    "material": "Gelatin Capsule",
+    "status": "UNIDENTIFIED",
+    "category": "Packaging Material",
+    "in_cameo": "NO",
+    "reasoning": "Empty pharmaceutical capsule - not a chemical substance",
+    "logic": "Packaging material → Not in CAMEO database",
+    "warning": null
+  },
+  {
+    "row": 116,
+    "material": "Gelatin Capsule",
+    "status": "UNIDENTIFIED",
+    "category": "Packaging Material",
+    "in_cameo": "NO",
+    "reasoning": "Empty pharmaceutical capsule - not a chemical substance",
+    "logic": "Packaging material → Not in CAMEO database",
+    "warning": null
+  },
+  {
+    "row": 117,
+    "material": "Gelatin Capsule",
+    "status": "UNIDENTIFIED",
+    "category": "Packaging Material",
+    "in_cameo": "NO",
+    "reasoning": "Empty pharmaceutical capsule - not a chemical substance",
+    "logic": "Packaging material → Not in CAMEO database",
+    "warning": null
+  },
+  {
+    "row": 118,
+    "material": "Gelatin Capsule",
+    "status": "UNIDENTIFIED",
+    "category": "Packaging Material",
+    "in_cameo": "NO",
+    "reasoning": "Empty pharmaceutical capsule - not a chemical substance",
+    "logic": "Packaging material → Not in CAMEO database",
+    "warning": null
+  },
+  {
+    "row": 119,
+    "material": "Gelatin Capsule",
+    "status": "UNIDENTIFIED",
+    "category": "Packaging Material",
+    "in_cameo": "NO",
+    "reasoning": "Empty pharmaceutical capsule - not a chemical substance",
+    "logic": "Packaging material → Not in CAMEO database",
+    "warning": null
+  },
+  {
+    "row": 120,
+    "material": "Gelatin Capsule",
+    "status": "UNIDENTIFIED",
+    "category": "Packaging Material",
+    "in_cameo": "NO",
+    "reasoning": "Empty pharmaceutical capsule - not a chemical substance",
+    "logic": "Packaging material → Not in CAMEO database",
+    "warning": null
+  },
+  {
+    "row": 121,
+    "material": "Gelatin Capsule",
+    "status": "UNIDENTIFIED",
+    "category": "Packaging Material",
+    "in_cameo": "NO",
+    "reasoning": "Empty pharmaceutical capsule - not a chemical substance",
+    "logic": "Packaging material → Not in CAMEO database",
+    "warning": null
+  },
+  {
+    "row": 122,
+    "material": "Gelatin Capsule",
+    "status": "UNIDENTIFIED",
+    "category": "Packaging Material",
+    "in_cameo": "NO",
+    "reasoning": "Empty pharmaceutical capsule - not a chemical substance",
+    "logic": "Packaging material → Not in CAMEO database",
+    "warning": null
+  },
+  {
+    "row": 123,
+    "material": "Gelatin Capsule",
+    "status": "UNIDENTIFIED",
+    "category": "Packaging Material",
+    "in_cameo": "NO",
+    "reasoning": "Empty pharmaceutical capsule - not a chemical substance",
+    "logic": "Packaging material → Not in CAMEO database",
+    "warning": null
+  },
+  {
+    "row": 124,
+    "material": "Gelatin Capsule",
+    "status": "UNIDENTIFIED",
+    "category": "Packaging Material",
+    "in_cameo": "NO",
+    "reasoning": "Empty pharmaceutical capsule - not a chemical substance",
+    "logic": "Packaging material → Not in CAMEO database",
+    "warning": null
+  },
+  {
+    "row": 125,
+    "material": "Glucasamine HCl",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 126,
+    "material": "Gemifloxacin Mesylate",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 127,
+    "material": "Hydroxyzine Hcl",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 128,
+    "material": "Honey",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 129,
+    "material": "Honey Flavore",
+    "status": "UNIDENTIFIED",
+    "category": "Food Flavoring",
+    "in_cameo": "NO",
+    "reasoning": "Food flavoring agent - not a hazardous chemical",
+    "logic": "SAFETY token detected → VETO any hazardous match",
+    "warning": null
+  },
+  {
+    "row": 130,
+    "material": "Hydroxypropylcellulose",
+    "status": "CONFIRMED",
+    "category": "Polymer/Excipient",
+    "in_cameo": "LIKELY",
+    "reasoning": "Common pharmaceutical excipient",
+    "logic": "Standard excipient → May exist in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 131,
+    "material": "Hypromellose(6 mPa.s)",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 132,
+    "material": "Hypromellose phthalate(HP 55)",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 133,
+    "material": "Hyoscine Butyl Bromide",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 134,
+    "material": "Hydroxychlorquine sulfate",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 135,
+    "material": "Hydrocortisone Acetate",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 136,
+    "material": "Ibuprofen micronized",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 137,
+    "material": "Isopropyl alcohol",
+    "status": "CONFIRMED",
+    "category": "Standard Chemical",
+    "in_cameo": "YES",
+    "reasoning": "Common solvent",
+    "logic": "BASE match: Ethanol → Known entry in CAMEO (CAS 64-17-5)",
+    "warning": null
+  },
+  {
+    "row": 138,
+    "material": "Isoniazide",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 139,
+    "material": "Ketotifen Fumarate",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 140,
+    "material": "Lactose Spry Dried(mesh 100)",
+    "status": "CONFIRMED",
+    "category": "Polymer/Excipient",
+    "in_cameo": "LIKELY",
+    "reasoning": "Common pharmaceutical excipient",
+    "logic": "Standard excipient → May exist in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 141,
+    "material": "Lactose monohydrate(Mesh 200)",
+    "status": "CONFIRMED",
+    "category": "Polymer/Excipient",
+    "in_cameo": "LIKELY",
+    "reasoning": "Common pharmaceutical excipient",
+    "logic": "Standard excipient → May exist in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 142,
+    "material": "Lemon Flavor",
+    "status": "UNIDENTIFIED",
+    "category": "Food Flavoring",
+    "in_cameo": "NO",
+    "reasoning": "Food flavoring agent - not a hazardous chemical",
+    "logic": "SAFETY token detected → VETO any hazardous match",
+    "warning": null
+  },
+  {
+    "row": 143,
+    "material": "Lidocain",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 144,
+    "material": "Levofloxacine(Hemihydrate)",
+    "status": "REVIEW",
+    "category": "Modern Pharmaceutical",
+    "in_cameo": "UNLIKELY",
+    "reasoning": "Quinolone antibiotic (approved 1996)",
+    "logic": "Modern drug → Not in CAMEO (industrial chemical database)",
+    "warning": null
+  },
+  {
+    "row": 145,
+    "material": "Lysine Hcl",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 146,
+    "material": "Lactulose Solution(Not Less 70%)",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 147,
+    "material": "Malic Acid",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 148,
+    "material": "Maltodextrin",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 149,
+    "material": "Heavy Magnesium Oxide",
+    "status": "CONFIRMED",
+    "category": "Inorganic Salt/Oxide",
+    "in_cameo": "YES",
+    "reasoning": "Common inorganic compound",
+    "logic": "Simple salt → Standard entry in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 150,
+    "material": "Light Magnesium oxide",
+    "status": "CONFIRMED",
+    "category": "Inorganic Salt/Oxide",
+    "in_cameo": "YES",
+    "reasoning": "Common inorganic compound",
+    "logic": "Simple salt → Standard entry in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 151,
+    "material": "Mannitol(200 SD)",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 152,
+    "material": "Melon Flavore",
+    "status": "UNIDENTIFIED",
+    "category": "Food Flavoring",
+    "in_cameo": "NO",
+    "reasoning": "Food flavoring agent - not a hazardous chemical",
+    "logic": "SAFETY token detected → VETO any hazardous match",
+    "warning": null
+  },
+  {
+    "row": 153,
+    "material": "Melon Flavore",
+    "status": "UNIDENTIFIED",
+    "category": "Food Flavoring",
+    "in_cameo": "NO",
+    "reasoning": "Food flavoring agent - not a hazardous chemical",
+    "logic": "SAFETY token detected → VETO any hazardous match",
+    "warning": null
+  },
+  {
+    "row": 154,
+    "material": "Mango pasion fruit  Flavore",
+    "status": "UNIDENTIFIED",
+    "category": "Food Flavoring",
+    "in_cameo": "NO",
+    "reasoning": "Food flavoring agent - not a hazardous chemical",
+    "logic": "SAFETY token detected → VETO any hazardous match",
+    "warning": null
+  },
+  {
+    "row": 155,
+    "material": "Menthol",
+    "status": "CONFIRMED",
+    "category": "Standard Chemical",
+    "in_cameo": "YES",
+    "reasoning": "Natural compound",
+    "logic": "BASE match: Menthol → Known entry in CAMEO (CAS 89-78-1)",
+    "warning": null
+  },
+  {
+    "row": 156,
+    "material": "Magnesium Stearate",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 157,
+    "material": "Magnesium Hydroxide",
+    "status": "CONFIRMED",
+    "category": "Inorganic Salt/Oxide",
+    "in_cameo": "YES",
+    "reasoning": "Common inorganic compound",
+    "logic": "Simple salt → Standard entry in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 158,
+    "material": "Magnesium Gluconate",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 159,
+    "material": "Mebeverine HCl Sustained Release Pellets 76%",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 160,
+    "material": "Methyl paraben",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 161,
+    "material": "Metformin Hcl\n(Micronized)",
+    "status": "REVIEW",
+    "category": "Modern Pharmaceutical",
+    "in_cameo": "UNLIKELY",
+    "reasoning": "Antidiabetic (approved 1957)",
+    "logic": "Modern drug → Not in CAMEO (industrial chemical database)",
+    "warning": null
+  },
+  {
+    "row": 162,
+    "material": "Metronidazole\n(Micronized)",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 163,
+    "material": "Microcrystalline cellulose(Avicel)",
+    "status": "UNIDENTIFIED",
+    "category": "Trade Name",
+    "in_cameo": "NO",
+    "reasoning": "Proprietary brand name (Avicel)",
+    "logic": "Trade name → Search generic name in CAMEO (e.g., Avicel=Microcrystalline Cellulose)",
+    "warning": null
+  },
+  {
+    "row": 164,
+    "material": "Microcrystalline cellulose(Avicel)",
+    "status": "UNIDENTIFIED",
+    "category": "Trade Name",
+    "in_cameo": "NO",
+    "reasoning": "Proprietary brand name (Avicel)",
+    "logic": "Trade name → Search generic name in CAMEO (e.g., Avicel=Microcrystalline Cellulose)",
+    "warning": null
+  },
+  {
+    "row": 165,
+    "material": "Microcrystalline Cellulose & Carboxymethylcellulose Sodium",
+    "status": "CONFIRMED",
+    "category": "Polymer/Excipient",
+    "in_cameo": "LIKELY",
+    "reasoning": "Common pharmaceutical excipient",
+    "logic": "Standard excipient → May exist in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 166,
+    "material": "Metoclopramide Hcl",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 167,
+    "material": "Methyl Cellulose(25 cp)",
+    "status": "CONFIRMED",
+    "category": "Polymer/Excipient",
+    "in_cameo": "LIKELY",
+    "reasoning": "Common pharmaceutical excipient",
+    "logic": "Standard excipient → May exist in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 168,
+    "material": "Nicotinamide(vit B3)",
+    "status": "CONFIRMED",
+    "category": "Vitamin/Nutrient",
+    "in_cameo": "YES",
+    "reasoning": "Essential nutrient compound",
+    "logic": "Vitamin → Standard biological compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 169,
+    "material": "Nystatin",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 170,
+    "material": "Nipaset Sodium",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 171,
+    "material": "Orange juice Flavour",
+    "status": "UNIDENTIFIED",
+    "category": "Food Flavoring",
+    "in_cameo": "NO",
+    "reasoning": "Food flavoring agent - not a hazardous chemical",
+    "logic": "SAFETY token detected → VETO any hazardous match",
+    "warning": null
+  },
+  {
+    "row": 172,
+    "material": "Orange juice Flavour",
+    "status": "UNIDENTIFIED",
+    "category": "Food Flavoring",
+    "in_cameo": "NO",
+    "reasoning": "Food flavoring agent - not a hazardous chemical",
+    "logic": "SAFETY token detected → VETO any hazardous match",
+    "warning": null
+  },
+  {
+    "row": 173,
+    "material": "Orange juice Flavour",
+    "status": "UNIDENTIFIED",
+    "category": "Food Flavoring",
+    "in_cameo": "NO",
+    "reasoning": "Food flavoring agent - not a hazardous chemical",
+    "logic": "SAFETY token detected → VETO any hazardous match",
+    "warning": null
+  },
+  {
+    "row": 174,
+    "material": "Orange juice Flavour",
+    "status": "UNIDENTIFIED",
+    "category": "Food Flavoring",
+    "in_cameo": "NO",
+    "reasoning": "Food flavoring agent - not a hazardous chemical",
+    "logic": "SAFETY token detected → VETO any hazardous match",
+    "warning": null
+  },
+  {
+    "row": 175,
+    "material": "Omperazol pellet 8.5%",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 176,
+    "material": "Ofloxacin",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 177,
+    "material": "Ondansetron HCl",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 178,
+    "material": "Pantoprazole Sodium",
+    "status": "REVIEW",
+    "category": "Modern Pharmaceutical",
+    "in_cameo": "UNLIKELY",
+    "reasoning": "PPI drug (approved 1994)",
+    "logic": "Modern drug → Not in CAMEO (industrial chemical database)",
+    "warning": null
+  },
+  {
+    "row": 179,
+    "material": "Peach Flavore",
+    "status": "UNIDENTIFIED",
+    "category": "Food Flavoring",
+    "in_cameo": "NO",
+    "reasoning": "Food flavoring agent - not a hazardous chemical",
+    "logic": "SAFETY token detected → VETO any hazardous match",
+    "warning": null
+  },
+  {
+    "row": 180,
+    "material": "Peppermint oil",
+    "status": "CONFIRMED",
+    "category": "Oil/Lipid",
+    "in_cameo": "YES",
+    "reasoning": "Natural or mineral oil",
+    "logic": "Oil compound → Check CAMEO for specific type",
+    "warning": "SAFETY VETO: Do NOT match edible oils with fuel oils or explosives"
+  },
+  {
+    "row": 181,
+    "material": "Liquid Paraffin",
+    "status": "CONFIRMED",
+    "category": "Oil/Lipid",
+    "in_cameo": "YES",
+    "reasoning": "Natural or mineral oil",
+    "logic": "Oil compound → Check CAMEO for specific type",
+    "warning": "SAFETY VETO: Do NOT match edible oils with fuel oils or explosives"
+  },
+  {
+    "row": 182,
+    "material": "Perphenazine",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 183,
+    "material": "Phenylephrine Hcl",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 184,
+    "material": "Pregabalin",
+    "status": "REVIEW",
+    "category": "Modern Pharmaceutical",
+    "in_cameo": "UNLIKELY",
+    "reasoning": "Anticonvulsant (approved 2004)",
+    "logic": "Modern drug → Not in CAMEO (industrial chemical database)",
+    "warning": null
+  },
+  {
+    "row": 185,
+    "material": "Phenobarbital",
+    "status": "CONFIRMED",
+    "category": "Standard Chemical",
+    "in_cameo": "YES",
+    "reasoning": "Classic sedative (1912)",
+    "logic": "BASE match: Phenobarbital → Known entry in CAMEO (CAS 50-06-6)",
+    "warning": null
+  },
+  {
+    "row": 186,
+    "material": "Polyethylene glycol(400 )",
+    "status": "CONFIRMED",
+    "category": "Polymer/Excipient",
+    "in_cameo": "LIKELY",
+    "reasoning": "Common pharmaceutical excipient",
+    "logic": "Standard excipient → May exist in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 187,
+    "material": "Polyethylene glycol( 6000)",
+    "status": "CONFIRMED",
+    "category": "Polymer/Excipient",
+    "in_cameo": "LIKELY",
+    "reasoning": "Common pharmaceutical excipient",
+    "logic": "Standard excipient → May exist in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 188,
+    "material": "Polysorbate(60,80)",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 189,
+    "material": "Povidone(PVP)\n(K-30\nK-90)",
+    "status": "CONFIRMED",
+    "category": "Polymer/Excipient",
+    "in_cameo": "LIKELY",
+    "reasoning": "Common pharmaceutical excipient",
+    "logic": "Standard excipient → May exist in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 190,
+    "material": "Povidone(PVP)\n(K-30\nK-90)",
+    "status": "CONFIRMED",
+    "category": "Polymer/Excipient",
+    "in_cameo": "LIKELY",
+    "reasoning": "Common pharmaceutical excipient",
+    "logic": "Standard excipient → May exist in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 191,
+    "material": "Ptassium Sorbate",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 192,
+    "material": "Potassium Iodide",
+    "status": "CONFIRMED",
+    "category": "Inorganic Salt/Oxide",
+    "in_cameo": "YES",
+    "reasoning": "Common inorganic compound",
+    "logic": "Simple salt → Standard entry in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 193,
+    "material": "Potassium citrate",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 194,
+    "material": "Propyl paraben",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 195,
+    "material": "Pseudoephedrine HCL",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 196,
+    "material": "Pyridoxine Hcl(Vit B6)",
+    "status": "CONFIRMED",
+    "category": "Vitamin/Nutrient",
+    "in_cameo": "YES",
+    "reasoning": "Essential nutrient compound",
+    "logic": "Vitamin → Standard biological compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 197,
+    "material": "Propylene Glycol",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 198,
+    "material": "Pregelatinizid Starch\n(Star Cap 1500(Micronized))",
+    "status": "CONFIRMED",
+    "category": "Polymer/Excipient",
+    "in_cameo": "LIKELY",
+    "reasoning": "Common pharmaceutical excipient",
+    "logic": "Standard excipient → May exist in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 199,
+    "material": "Ranitidin Hcl",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 200,
+    "material": "Raspbery Flavore",
+    "status": "UNIDENTIFIED",
+    "category": "Food Flavoring",
+    "in_cameo": "NO",
+    "reasoning": "Food flavoring agent - not a hazardous chemical",
+    "logic": "SAFETY token detected → VETO any hazardous match",
+    "warning": null
+  },
+  {
+    "row": 201,
+    "material": "Rabeprazole sodium",
+    "status": "REVIEW",
+    "category": "Modern Pharmaceutical",
+    "in_cameo": "UNLIKELY",
+    "reasoning": "PPI drug (approved 1998)",
+    "logic": "Modern drug → Not in CAMEO (industrial chemical database)",
+    "warning": null
+  },
+  {
+    "row": 202,
+    "material": "Red Ponceau 4R",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 203,
+    "material": "Rivaroxaban",
+    "status": "REVIEW",
+    "category": "Modern Pharmaceutical",
+    "in_cameo": "UNLIKELY",
+    "reasoning": "Anticoagulant (approved 2008)",
+    "logic": "Modern drug → Not in CAMEO (industrial chemical database)",
+    "warning": null
+  },
+  {
+    "row": 204,
+    "material": "Riboflavin sodium phosphate(Vit B2)",
+    "status": "CONFIRMED",
+    "category": "Vitamin/Nutrient",
+    "in_cameo": "YES",
+    "reasoning": "Essential nutrient compound",
+    "logic": "Vitamin → Standard biological compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 205,
+    "material": "Rosuvastatin calcium",
+    "status": "REVIEW",
+    "category": "Modern Pharmaceutical",
+    "in_cameo": "UNLIKELY",
+    "reasoning": "Statin drug (approved 2003)",
+    "logic": "Modern drug → Not in CAMEO (industrial chemical database)",
+    "warning": null
+  },
+  {
+    "row": 206,
+    "material": "Sevelamer DC Granules 75%",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 207,
+    "material": "Sildenafile",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 208,
+    "material": "Sitagliptin phosphate",
+    "status": "REVIEW",
+    "category": "Modern Pharmaceutical",
+    "in_cameo": "UNLIKELY",
+    "reasoning": "DPP-4 inhibitor (approved 2006)",
+    "logic": "Modern drug → Not in CAMEO (industrial chemical database)",
+    "warning": null
+  },
+  {
+    "row": 209,
+    "material": "colloidal silican dioxide(Aerosil 200)",
+    "status": "UNIDENTIFIED",
+    "category": "Trade Name",
+    "in_cameo": "NO",
+    "reasoning": "Proprietary brand name (Aerosil)",
+    "logic": "Trade name → Search generic name in CAMEO (e.g., Avicel=Microcrystalline Cellulose)",
+    "warning": null
+  },
+  {
+    "row": 210,
+    "material": "Sodium Benzoate",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 211,
+    "material": "Sodium citrate(Dihydrate)",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 212,
+    "material": "Sodium lauryl Sulphate",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 213,
+    "material": "Sodium Metabisulphite",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 214,
+    "material": "Monobasic Sodium Phosphate",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 215,
+    "material": "Sodium Carbonate(Anhydrous)",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 216,
+    "material": "Sorbic Acid",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 217,
+    "material": "Saccharin  Sodium",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 218,
+    "material": "Sodium Starch Glycolate\n(Type A)",
+    "status": "CONFIRMED",
+    "category": "Polymer/Excipient",
+    "in_cameo": "LIKELY",
+    "reasoning": "Common pharmaceutical excipient",
+    "logic": "Standard excipient → May exist in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 219,
+    "material": "Sodium chloride",
+    "status": "CONFIRMED",
+    "category": "Standard Chemical",
+    "in_cameo": "YES",
+    "reasoning": "Table salt",
+    "logic": "BASE match: Sodium Chloride → Known entry in CAMEO (CAS 7647-14-5)",
+    "warning": null
+  },
+  {
+    "row": 220,
+    "material": "Sorbitan stearate(Montane 60)",
+    "status": "UNIDENTIFIED",
+    "category": "Trade Name",
+    "in_cameo": "NO",
+    "reasoning": "Proprietary brand name (Montane)",
+    "logic": "Trade name → Search generic name in CAMEO (e.g., Avicel=Microcrystalline Cellulose)",
+    "warning": null
+  },
+  {
+    "row": 221,
+    "material": "Liquid Sorbitol   ( Non-crystallising)70%",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 222,
+    "material": "Sodium Stearyl fumarat",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 223,
+    "material": "Sodium Sulfite",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 224,
+    "material": "Spirolina",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 225,
+    "material": "Strawberry Flavour",
+    "status": "UNIDENTIFIED",
+    "category": "Food Flavoring",
+    "in_cameo": "NO",
+    "reasoning": "Food flavoring agent - not a hazardous chemical",
+    "logic": "SAFETY token detected → VETO any hazardous match",
+    "warning": null
+  },
+  {
+    "row": 226,
+    "material": "Strawberry Flavour",
+    "status": "UNIDENTIFIED",
+    "category": "Food Flavoring",
+    "in_cameo": "NO",
+    "reasoning": "Food flavoring agent - not a hazardous chemical",
+    "logic": "SAFETY token detected → VETO any hazardous match",
+    "warning": null
+  },
+  {
+    "row": 227,
+    "material": "Sugar spheres",
+    "status": "UNIDENTIFIED",
+    "category": "Packaging/Excipient",
+    "in_cameo": "NO",
+    "reasoning": "Non-chemical component",
+    "logic": "Auxiliary material → Not in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 228,
+    "material": "Sucrose(Sugar)",
+    "status": "CONFIRMED",
+    "category": "Standard Chemical",
+    "in_cameo": "YES",
+    "reasoning": "Table sugar",
+    "logic": "BASE match: Sucrose → Known entry in CAMEO (CAS 57-50-1)",
+    "warning": null
+  },
+  {
+    "row": 229,
+    "material": "Sulfamethoxazole",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 230,
+    "material": "Sumatriptan Succinate",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 231,
+    "material": "Sunactive Fe-P80E",
+    "status": "UNIDENTIFIED",
+    "category": "Trade Name",
+    "in_cameo": "NO",
+    "reasoning": "Proprietary brand name (Sunactive)",
+    "logic": "Trade name → Search generic name in CAMEO (e.g., Avicel=Microcrystalline Cellulose)",
+    "warning": null
+  },
+  {
+    "row": 232,
+    "material": "Sucralose",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 233,
+    "material": "Stearic acid  95%",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 234,
+    "material": "Sodium bicarbonate\n(Fine)",
+    "status": "CONFIRMED",
+    "category": "Standard Chemical",
+    "in_cameo": "YES",
+    "reasoning": "Baking soda",
+    "logic": "BASE match: Sodium Bicarbonate → Known entry in CAMEO (CAS 144-55-8)",
+    "warning": null
+  },
+  {
+    "row": 235,
+    "material": "Simethicone  30%",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 236,
+    "material": "Salbutamol sulfate",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 237,
+    "material": "Purified Talc",
+    "status": "CONFIRMED",
+    "category": "Standard Chemical",
+    "in_cameo": "YES",
+    "reasoning": "Natural mineral",
+    "logic": "BASE match: Talc → Known entry in CAMEO (CAS 14807-96-6)",
+    "warning": null
+  },
+  {
+    "row": 238,
+    "material": "Thiamine HCl(Vit B1)",
+    "status": "CONFIRMED",
+    "category": "Vitamin/Nutrient",
+    "in_cameo": "YES",
+    "reasoning": "Essential nutrient compound",
+    "logic": "Vitamin → Standard biological compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 239,
+    "material": "Thiamine Mononitrate",
+    "status": "CONFIRMED",
+    "category": "Vitamin/Nutrient",
+    "in_cameo": "YES",
+    "reasoning": "Essential nutrient compound",
+    "logic": "Vitamin → Standard biological compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 240,
+    "material": "Tutti Frutti flavor",
+    "status": "UNIDENTIFIED",
+    "category": "Food Flavoring",
+    "in_cameo": "NO",
+    "reasoning": "Food flavoring agent - not a hazardous chemical",
+    "logic": "SAFETY token detected → VETO any hazardous match",
+    "warning": null
+  },
+  {
+    "row": 241,
+    "material": "Thioridazine",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 242,
+    "material": "Titanium dioxide",
+    "status": "CONFIRMED",
+    "category": "Standard Chemical",
+    "in_cameo": "YES",
+    "reasoning": "White pigment",
+    "logic": "BASE match: Titanium Dioxide → Known entry in CAMEO (CAS 13463-67-7)",
+    "warning": null
+  },
+  {
+    "row": 243,
+    "material": "Ticagrelor",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 244,
+    "material": "Triethyl Citrate",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 245,
+    "material": "Trolamine",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 246,
+    "material": "Trimethoprim",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 247,
+    "material": "Theophyline Anhydrous",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 248,
+    "material": "Tamsulosin HCl 0/16%",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 249,
+    "material": "Venlafaxine HCl pellet 39%",
+    "status": "REVIEW",
+    "category": "Modern Pharmaceutical",
+    "in_cameo": "UNLIKELY",
+    "reasoning": "SNRI antidepressant (approved 1993)",
+    "logic": "Modern drug → Not in CAMEO (industrial chemical database)",
+    "warning": null
+  },
+  {
+    "row": 250,
+    "material": "Venlafaxine HCl pellet 33%",
+    "status": "REVIEW",
+    "category": "Modern Pharmaceutical",
+    "in_cameo": "UNLIKELY",
+    "reasoning": "SNRI antidepressant (approved 1993)",
+    "logic": "Modern drug → Not in CAMEO (industrial chemical database)",
+    "warning": null
+  },
+  {
+    "row": 251,
+    "material": "Vanilla",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 252,
+    "material": "Vanilla Flavore",
+    "status": "UNIDENTIFIED",
+    "category": "Food Flavoring",
+    "in_cameo": "NO",
+    "reasoning": "Food flavoring agent - not a hazardous chemical",
+    "logic": "SAFETY token detected → VETO any hazardous match",
+    "warning": null
+  },
+  {
+    "row": 253,
+    "material": "Vitamin A Palmitate((1/7 MIU/G)\noily form",
+    "status": "CONFIRMED",
+    "category": "Vitamin/Nutrient",
+    "in_cameo": "YES",
+    "reasoning": "Essential nutrient compound",
+    "logic": "Vitamin → Standard biological compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 254,
+    "material": "Vitamin A acetate(325  CWS/A)\npowder form",
+    "status": "CONFIRMED",
+    "category": "Vitamin/Nutrient",
+    "in_cameo": "YES",
+    "reasoning": "Essential nutrient compound",
+    "logic": "Vitamin → Standard biological compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 255,
+    "material": "Vitamin E(Alpha-tocopheryl acetate) liquid\n(DL-A-tocopheryl acetate )",
+    "status": "CONFIRMED",
+    "category": "Vitamin/Nutrient",
+    "in_cameo": "YES",
+    "reasoning": "Essential nutrient compound",
+    "logic": "Vitamin → Standard biological compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 256,
+    "material": "Vitamin E(Alpha-tocopheryl acetate) powder\n(Alpha tocopheryl Acetate Concentrate(powder form)) 50% cws/s",
+    "status": "CONFIRMED",
+    "category": "Vitamin/Nutrient",
+    "in_cameo": "YES",
+    "reasoning": "Essential nutrient compound",
+    "logic": "Vitamin → Standard biological compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 257,
+    "material": "white  Wax",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 258,
+    "material": "Wool fat",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 259,
+    "material": "Xanthan gum",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 260,
+    "material": "Zinc oxide",
+    "status": "CONFIRMED",
+    "category": "Standard Chemical",
+    "in_cameo": "YES",
+    "reasoning": "Common oxide",
+    "logic": "BASE match: Zinc Oxide → Known entry in CAMEO (CAS 1314-13-2)",
+    "warning": null
+  },
+  {
+    "row": 261,
+    "material": "Zinc Citrate",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 262,
+    "material": "Zinc Gluconate",
+    "status": "REVIEW",
+    "category": "Uncertain",
+    "in_cameo": "UNKNOWN",
+    "reasoning": "Requires manual verification",
+    "logic": "Complex formulation → Check BASE compound in CAMEO",
+    "warning": null
+  },
+  {
+    "row": 263,
+    "material": "Zinc Sulphate( 7 H2O)",
+    "status": "CONFIRMED",
+    "category": "Inorganic Salt/Oxide",
+    "in_cameo": "YES",
+    "reasoning": "Common inorganic compound",
+    "logic": "Simple salt → Standard entry in CAMEO",
+    "warning": null
+  }
+]

@@ -392,6 +392,10 @@ def _run_pipeline(user_db_path: str, chemicals_db_path: str,
                 issues = clean_result['issues']
                 quality_score = clean_result['quality_score']
 
+                # Phase 1.8: Store original name state before matching
+                original_name = cleaned.get('name', '').strip()
+                original_name_empty = not bool(original_name)
+
                 # ── Layer 4: Match ──
                 match_result = matcher.match(cleaned)
 
@@ -409,11 +413,38 @@ def _run_pipeline(user_db_path: str, chemicals_db_path: str,
                     logger.warning(f"[Batch {batch_id[:8]}] Row {idx+1} validation error: {ve}")
                     validated = MatchResult()
 
+                # Phase 1.8: Auto-fill missing names
+                if original_name_empty and validated.match_status == 'MATCHED' and validated.chemical_name:
+                    # Name was empty but we matched successfully → auto-fill from DB
+                    cleaned['name'] = validated.chemical_name
+                    
+                    # Remove "Missing chemical name" error if present
+                    issues = [i for i in issues if 'Missing chemical name' not in i]
+                    
+                    # Add warning instead
+                    match_method_display = match_result.get('match_method', 'unknown')
+                    if match_method_display.startswith('cas'):
+                        auto_fill_source = 'CAS'
+                    elif match_method_display.startswith('un'):
+                        auto_fill_source = 'UN number'
+                    elif match_method_display.startswith('formula'):
+                        auto_fill_source = 'formula'
+                    else:
+                        auto_fill_source = match_method_display
+                    
+                    warning_msg = f"Name missing in source file, auto-filled from {auto_fill_source} match: '{validated.chemical_name}'"
+                    issues.append(warning_msg)
+                    logger.info(f"[Batch {batch_id[:8]}] Row {idx+1}: {warning_msg}")
+
                 # Extra quality penalty for invalid CAS when matched by name
                 match_status = validated.match_status
                 if issues and any('Invalid CAS' in i for i in issues):
                     if match_status == 'MATCHED' and validated.match_method != 'exact_cas':
                         quality_score = min(quality_score, 70)
+                
+                # Phase 1.8: Slight quality bonus for successful auto-fill (shows good data elsewhere)
+                if original_name_empty and match_status == 'MATCHED':
+                    quality_score = min(quality_score + 5, 100)
 
                 # Serialize diagnostics
                 suggestions_json = json.dumps(match_result.get('suggestions', []))

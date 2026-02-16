@@ -805,9 +805,12 @@ class HybridMatcher:
         else:
             status = 'UNIDENTIFIED'
 
+        # Phase 1.8: Check if name was empty (auto-fill flag)
+        auto_filled = not bool(name and name.strip())
+        
         return self._build_result(
             best_id, best_name, best_method, confidence, status,
-            suggestions, signals, conflicts, field_swaps
+            suggestions, signals, conflicts, field_swaps, auto_filled
         )
 
     # ═══════════════════════════════════════════════════════
@@ -1068,7 +1071,7 @@ class HybridMatcher:
 
     @staticmethod
     def _build_result(chemical_id, chemical_name, method, confidence, status,
-                      suggestions, signals, conflicts, field_swaps) -> dict:
+                      suggestions, signals, conflicts, field_swaps, auto_filled=False) -> dict:
         return {
             'chemical_id': chemical_id,
             'chemical_name': chemical_name,
@@ -1079,6 +1082,7 @@ class HybridMatcher:
             'signals': [s.to_dict() for s in signals],
             'conflicts': conflicts,
             'field_swaps': field_swaps,
+            'auto_filled': auto_filled,
         }
 
 

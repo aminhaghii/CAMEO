@@ -468,6 +468,28 @@ class HybridMatcher:
             signals.extend(self._signals_from_un(un_number))
 
         # ═══════════════════════════════════════════════════
+        #  PHASE 2.5: Early exit for CAS exact match (BUG #4)
+        #  CAS is gold standard - if we have valid CAS match, trust it 100%
+        # ═══════════════════════════════════════════════════
+
+        # Check for CAS exact match with high confidence
+        cas_exact_signals = [s for s in signals if s.source == 'cas_exact' and s.weighted_score >= 0.95]
+        if cas_exact_signals:
+            # Return immediately with CONFIRMED status
+            best_cas_sig = max(cas_exact_signals, key=lambda s: s.weighted_score)
+            return self._build_result(
+                best_cas_sig.chemical_id,
+                best_cas_sig.chemical_name,
+                'cas_exact',
+                1.0,
+                'MATCHED',
+                [],
+                signals,
+                conflicts,
+                field_swaps
+            )
+
+        # ═══════════════════════════════════════════════════
         #  PHASE 3: Weighted fusion
         # ═══════════════════════════════════════════════════
 
@@ -793,11 +815,55 @@ class HybridMatcher:
     # ═══════════════════════════════════════════════════════
 
     def _signals_from_cas(self, cas: str, source: str) -> list[Signal]:
-        """Generate signals from a CAS number. Prefer base chemicals over mixtures."""
-        stripped = re.sub(r'[\s\-]', '', cas)
-        hits = self._cas_map.get(stripped, [])
+        """
+        Generate signals from a CAS number with aggressive normalization.
+        
+        Handles:
+        - Extra whitespace
+        - Missing leading zeros
+        - Format variations (123456 vs 12-34-56 vs 12-345-6)
+        - Multiple dash positions if not found
+        """
+        # Step 1: Aggressive cleaning - strip ALL non-numeric and non-dash chars
+        cleaned = re.sub(r'[^\d\-]', '', cas.strip())
+        
+        # Step 2: Try multiple formats in order of specificity
+        candidates_to_try = []
+        
+        # Format 1: Original format (if has dashes)
+        if '-' in cleaned:
+            candidates_to_try.append(cleaned)
+        
+        # Format 2: Remove dashes for lookup
+        no_dashes = cleaned.replace('-', '')
+        candidates_to_try.append(no_dashes)
+        
+        # Format 3-6: Try different dash positions if not found
+        # XX-XX-X (2-2 split)
+        if len(no_dashes) >= 5:
+            candidates_to_try.append(f"{no_dashes[:-3]}-{no_dashes[-3:-1]}-{no_dashes[-1]}")
+        # XXX-XX-X (3-2 split)
+        if len(no_dashes) >= 6:
+            candidates_to_try.append(f"{no_dashes[:-3]}-{no_dashes[-3:-1]}-{no_dashes[-1]}")
+        # XXXX-XX-X (4-2 split)
+        if len(no_dashes) >= 7:
+            candidates_to_try.append(f"{no_dashes[:-3]}-{no_dashes[-3:-1]}-{no_dashes[-1]}")
+        # XXXXX-XX-X (5-2 split)
+        if len(no_dashes) >= 8:
+            candidates_to_try.append(f"{no_dashes[:-3]}-{no_dashes[-3:-1]}-{no_dashes[-1]}")
+        
+        # Step 3: Try each candidate
+        hits = []
+        for candidate in candidates_to_try:
+            hits = self._cas_map.get(candidate, [])
+            if hits:
+                logger.debug(f"CAS lookup: '{cas}' → '{candidate}' → {len(hits)} hits")
+                break
+        
         if not hits:
+            logger.warning(f"CAS not found in database: {cas}")
             return []
+        
         # Sort: prefer shorter names (base chemicals) over long mixture names
         sorted_hits = sorted(hits, key=lambda h: len(h['name']))
         sigs = []
@@ -818,20 +884,24 @@ class HybridMatcher:
 
     def _signals_from_name(self, name: str) -> list[Signal]:
         """
-        Generate ALL signals from a name string:
-        industrial synonym lookup, exact name, exact synonym, normalized,
-        fuzzy name, fuzzy synonym.
+        Generate signals from a name string with cascading priority:
+        
+        Priority (early exit on first successful match):
+        1. Industrial synonym exact match
+        2. Exact name match (case-insensitive)
+        3. Exact synonym match (case-insensitive)
+        4. Normalized match (strip special chars)
+        5. Base match (strip parentheses)
+        6. Fuzzy match (only if above fail, min 70%, top 5)
+        
+        Returns immediately after first successful exact/synonym/normalized match.
         """
         sigs: list[Signal] = []
         name_upper = name.upper().strip()
         name_norm = _normalize(name)
         name_lower = name.lower().strip()
-
-        # ── Industrial synonym pre-lookup ──
-        # If the input name matches a known trade/common name, resolve it
-        # to the canonical DB name and generate signals from THAT name too.
-        # Try exact match first, then progressively shorter prefixes
-        # e.g. "calcium carbonate dc" → try full, then "calcium carbonate"
+        
+        # Priority 1: Industrial synonym exact match
         canonical_name = _SYNONYM_LOOKUP.get(name_lower)
         if not canonical_name:
             # Try removing trailing words (grade/form suffixes like DC, USP, etc.)
@@ -841,10 +911,8 @@ class HybridMatcher:
                 canonical_name = _SYNONYM_LOOKUP.get(prefix)
                 if canonical_name:
                     break
-        extra_names = []
+        
         if canonical_name and canonical_name != name_lower:
-            extra_names.append(canonical_name)
-            # Try exact match on the canonical name
             canon_upper = canonical_name.upper()
             hit = self._name_map.get(canon_upper)
             if hit:
@@ -853,77 +921,93 @@ class HybridMatcher:
                     SIGNAL_WEIGHTS['name_synonym'],
                     f"Industrial synonym: '{name}' → '{hit['name']}'"
                 ))
+                # Early exit - don't waste time on fuzzy if we have exact match
+                return sigs
+            
             # Also check DB synonyms for the canonical name
             syn_hits = self._synonym_map.get(canon_upper, [])
-            for sh in syn_hits:
-                if not any(s.chemical_id == sh['id'] for s in sigs):
+            if syn_hits:
+                for sh in syn_hits:
                     sigs.append(Signal(
                         sh['id'], sh['name'], 'name_synonym', 1.0,
                         SIGNAL_WEIGHTS['name_synonym'],
                         f"Industrial synonym: '{name}' → '{canonical_name}' → {sh['name']}"
                     ))
-
-        # Exact name
+                # Early exit
+                return sigs
+        
+        # Priority 2: Exact name match (case-insensitive)
         hit = self._name_map.get(name_upper)
-        if hit and not any(s.chemical_id == hit['id'] for s in sigs):
+        if hit:
             sigs.append(Signal(
                 hit['id'], hit['name'], 'name_exact', 1.0,
                 SIGNAL_WEIGHTS['name_exact'],
                 f"Exact name match: '{name}'"
             ))
-
-        # Exact synonym
+            # Early exit
+            return sigs
+        
+        # Priority 3: Exact synonym match (case-insensitive)
         syn_hits = self._synonym_map.get(name_upper, [])
-        for sh in syn_hits:
-            if not any(s.chemical_id == sh['id'] for s in sigs):
+        if syn_hits:
+            for sh in syn_hits:
                 sigs.append(Signal(
                     sh['id'], sh['name'], 'name_synonym', 1.0,
                     SIGNAL_WEIGHTS['name_synonym'],
                     f"Exact synonym match: '{name}' → {sh['name']}"
                 ))
-
-        # Normalized match
+            # Early exit
+            return sigs
+        
+        # Priority 4: Normalized match (remove special chars)
         if name_norm:
             hit = self._norm_map.get(name_norm)
-            if hit and not any(s.chemical_id == hit['id'] and s.source in ('name_exact', 'name_synonym') for s in sigs):
+            if hit:
                 sigs.append(Signal(
                     hit['id'], hit['name'], 'name_normalized', 1.0,
                     SIGNAL_WEIGHTS['name_normalized'],
                     f"Normalized match: '{name}' → {hit['name']}"
                 ))
-
-        # Fuzzy name match (top 5) — also try canonical name if resolved
-        already_found = {s.chemical_id for s in sigs}
-        fuzzy_queries = [name_lower] + [cn for cn in extra_names if cn != name_lower]
+                # Early exit
+                return sigs
+        
+        # Priority 5: Base match (strip parentheses)
+        # Example: "VANADIUM (FUME)" → "VANADIUM"
+        base_name = re.sub(r'\s*\(.*?\)', '', name).strip()
+        if base_name != name:
+            base_upper = base_name.upper()
+            hit = self._name_map.get(base_upper)
+            if hit:
+                sigs.append(Signal(
+                    hit['id'], hit['name'], 'name_base', 1.0,
+                    SIGNAL_WEIGHTS['name_exact'],
+                    f"Base match: '{name}' → '{base_name}' → {hit['name']}"
+                ))
+                # Early exit
+                return sigs
+        
+        # Priority 6: Fuzzy match (only if above fail, min 70%, top 5)
+        # This is the last resort - only run if no exact matches found
+        already_found = set()
+        fuzzy_queries = [name_lower]
+        if canonical_name and canonical_name != name_lower:
+            fuzzy_queries.append(canonical_name)
+        
         if self._fuzzy_names:
             for fq in fuzzy_queries:
                 results = rfprocess.extract(fq, self._fuzzy_names, scorer=fuzz.WRatio, limit=5)
                 for match_low, score, _idx in results:
-                    entry = self._fuzzy_name_to_entry.get(match_low)
-                    if entry and entry['id'] not in already_found and score >= 70:
-                        sigs.append(Signal(
-                            entry['id'], entry['name'], 'name_fuzzy',
-                            score / 100.0,
-                            SIGNAL_WEIGHTS['name_fuzzy'],
-                            f"Fuzzy name: '{fq}' ≈ '{entry['name']}' ({score:.0f}%)"
-                        ))
-                        already_found.add(entry['id'])
-
-        # Fuzzy synonym match (top 5) — also try canonical name
-        if self._fuzzy_syns:
-            for fq in fuzzy_queries:
-                results = rfprocess.extract(fq, self._fuzzy_syns, scorer=fuzz.WRatio, limit=5)
-                for match_low, score, _idx in results:
-                    entry = self._fuzzy_syn_to_entry.get(match_low)
-                    if entry and entry['id'] not in already_found and score >= 70:
-                        sigs.append(Signal(
-                            entry['id'], entry['name'], 'synonym_fuzzy',
-                            score / 100.0,
-                            SIGNAL_WEIGHTS['synonym_fuzzy'],
-                            f"Fuzzy synonym: '{fq}' ≈ '{match_low}' → {entry['name']} ({score:.0f}%)"
-                        ))
-                        already_found.add(entry['id'])
-
+                    if score >= 70:
+                        entry = self._fuzzy_name_to_entry.get(match_low)
+                        if entry and entry['id'] not in already_found:
+                            sigs.append(Signal(
+                                entry['id'], entry['name'], 'name_fuzzy',
+                                score / 100.0,
+                                SIGNAL_WEIGHTS['name_fuzzy'],
+                                f"Fuzzy name: '{fq}' ≈ '{entry['name']}' ({score:.0f}%)"
+                            ))
+                            already_found.add(entry['id'])
+        
         return sigs
 
     def _signals_from_formula(self, formula: str) -> list[Signal]:

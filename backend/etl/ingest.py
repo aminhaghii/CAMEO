@@ -52,6 +52,34 @@ HEADER_KEYWORDS_FA = {
 
 ALL_HEADER_KEYWORDS = HEADER_KEYWORDS_EN | HEADER_KEYWORDS_FA
 
+# Column name aliases for mapping
+COLUMN_ALIASES = {
+    'name': [
+        'chemical', 'chemical name', 'name', 'material', 'substance', 'compound', 
+        'product', 'item', 'chemical_name', 'chemicalname', 'chem_name', 'chemname'
+    ],
+    'cas': [
+        'cas', 'cas rn', 'cas number', 'cas no', 'cas#', 'casnumber', 
+        'cas_number', 'casrn', 'cas_rn', 'casnumber', 'cas id', 'casid'
+    ],
+    'un': [
+        'un', 'un number', 'un no', 'unna', 'un_number', 'unno', 'un#'
+    ],
+    'formula': [
+        'formula', 'molecular formula', 'chem formula', 'chemical formula',
+        'chemformula', 'chemicalformula'
+    ],
+    'quantity': [
+        'quantity', 'qty', 'amount', 'volume', 'weight', 'mass'
+    ],
+    'unit': [
+        'unit', 'uom', 'measure', 'measurement'
+    ],
+    'location': [
+        'location', 'storage', 'warehouse', 'zone', 'area'
+    ],
+}
+
 # Sheet name patterns that suggest inventory data
 INVENTORY_SHEET_PATTERNS = [
     re.compile(r'inventor', re.IGNORECASE),
@@ -145,6 +173,10 @@ def smart_ingest(filepath: str) -> dict:
         }
 
     # ── Step 1.2–1.6: Read file based on type ──
+    # Note: Embedded objects (images, charts, shapes) are automatically ignored
+    # by pandas/openpyxl. Only cell data is processed.
+    logger.info("Note: Embedded images, charts, and shapes in Excel files are ignored during import.")
+    
     try:
         if ext == '.csv':
             df, enc_conf, enc_warnings = _read_csv_smart(filepath)
@@ -185,23 +217,41 @@ def smart_ingest(filepath: str) -> dict:
             'warnings': warnings,
         }
 
-    # ── Step 1.4: Structure Analysis — flatten merged cells ──
-    df = _flatten_structure(df)
-
-    # ── Step 1.5: Header Detection ──
+    # ═══════════════════════════════════════════════════════
+    #  PHASE 1.6: Data Quality Pipeline (Correct Order)
+    # ═══════════════════════════════════════════════════════
+    
+    # Step 1: Handle merged cells (forward-fill with limits)
+    df = _handle_merged_cells(df)
+    
+    # Step 2: Fix Excel date corruption (all variants)
+    df = _fix_excel_date_corruption(df)
+    
+    # Step 3: Normalize multi-line cell content
+    df = _normalize_cell_content(df)
+    
+    # Step 4: Remove empty rows (must be before header detection)
+    df = _remove_empty_rows(df)
+    
+    # Step 5: Header Detection (BEFORE structure analysis)
+    # CRITICAL: Detect header BEFORE flattening merged cells
     header_idx, header_conf, header_warnings = _detect_header_row(df)
     confidence['header_detection'] = header_conf
     metadata['header_row_index'] = header_idx
     warnings.extend(header_warnings)
 
     # Apply detected header
-    if header_idx > 0:
+    if header_idx >= 0:
         new_headers = df.iloc[header_idx].astype(str).tolist()
         df = df.iloc[header_idx + 1:].reset_index(drop=True)
         df.columns = new_headers
     else:
-        # Row 0 is header (default pandas behavior) — already applied
-        pass
+        # No header detected - use first row as header
+        df.columns = df.iloc[0].astype(str).tolist()
+        df = df.iloc[1:].reset_index(drop=True)
+
+    # ── Step 1.4: Structure Analysis — flatten merged cells ──
+    df = _flatten_structure(df)
 
     # ── Step 1.6: Data Extraction — clean up ──
     # Drop fully empty rows and columns
@@ -435,6 +485,8 @@ def _read_excel_smart(filepath: str, ext: str) -> tuple[pd.DataFrame, dict, list
             engine=engine,
         )
         df = df.dropna(how='all')
+        # CRITICAL: Fix Excel date corruption BEFORE any other processing
+        df = _fix_excel_date_corruption(df)
     except Exception as e:
         warnings.append(f"Error reading sheet '{sheet_info['selected_sheet']}': {str(e)[:200]}")
         return pd.DataFrame(), sheet_info, warnings
@@ -503,6 +555,203 @@ def _read_json_safe(filepath: str) -> pd.DataFrame:
 # ═══════════════════════════════════════════════════════
 #  Step 1.4: Structure Analysis
 # ═══════════════════════════════════════════════════════
+
+def _remove_empty_rows(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Remove completely empty rows from DataFrame.
+    
+    Empty row definition:
+    - All cells are null/NaN, OR
+    - All cells contain only whitespace (spaces, tabs, newlines), OR
+    - All cells are empty strings after strip()
+    
+    Returns cleaned DataFrame with removed rows logged.
+    """
+    if df.empty:
+        return df
+    
+    # Function to check if a single value is "empty"
+    def is_empty_value(val):
+        # Use pandas.isna() with explicit check to avoid boolean ambiguity warning
+        if val is None or (isinstance(val, float) and pd.isna(val)):
+            return True
+        if isinstance(val, str):
+            return val.strip() == ''
+        return False
+    
+    # Check each row
+    empty_mask = df.apply(lambda row: all(is_empty_value(val) for val in row), axis=1)
+    
+    empty_count = empty_mask.sum()
+    total_count = len(df)
+    
+    if empty_count > 0:
+        logger.info(f"Removed {empty_count} empty rows from {total_count} total rows")
+        df = df[~empty_mask].reset_index(drop=True)
+    
+    return df
+
+
+def _handle_merged_cells(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Handle merged cells by forward-filling with limits.
+    
+    Strategy: Forward-fill within reasonable limits (max 3 consecutive fills)
+    to prevent over-filling.
+    
+    Also handles header rows with gaps.
+    """
+    if df.empty:
+        return df
+    
+    original_nan_count = df.isna().sum().sum()
+    
+    # Forward-fill with limit of 3 consecutive fills
+    df = df.ffill(limit=3)
+    
+    new_nan_count = df.isna().sum().sum()
+    
+    # Sanity check: warn if excessive NaN remains
+    total_cells = len(df) * len(df.columns)
+    if new_nan_count > total_cells * 0.5:
+        logger.warning(
+            f"File may have excessive merged cells: {new_nan_count}/{total_cells} cells are NaN"
+        )
+    
+    if original_nan_count != new_nan_count:
+        filled_count = original_nan_count - new_nan_count
+        logger.info(f"Filled {filled_count} cells from merged cell regions")
+    
+    return df
+
+
+def _fix_excel_date_corruption(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Fix Excel's automatic date conversion of CAS numbers.
+    
+    Handles 5 patterns:
+    1. Timestamp format: YYYY-MM-DD HH:MM:SS → YYYY-MM-D
+    2. Date-only with leading zero: YYYY-MM-DD → YYYY-MM-D (strip leading zero from check digit)
+    3. Date-only format without time
+    4. Scientific notation: 7.78306E+06 → 778306
+    5. Distinguish CAS from actual dates (2-7 digits vs 4-digit year)
+    """
+    import re
+    logger.info(f"Checking for datetime corruption in {len(df.columns)} columns")
+    
+    for col in df.columns:
+        # Log column info for debugging
+        sample = df[col].iloc[0] if len(df) > 0 else None
+        logger.debug(f"  {col}: dtype={df[col].dtype}, sample={sample}")
+        
+        # Case 1: Column is datetime type
+        if df[col].dtype == 'datetime64[ns]':
+            logger.info(f"Converting datetime column '{col}' back to CAS format")
+            # Convert back: "2001-02-03 00:00:00" → "2001-02-3"
+            df[col] = df[col].apply(
+                lambda x: f"{x.year}-{x.month:02d}-{x.day}" if pd.notna(x) else x
+            )
+        
+        # Case 2: Column is string but contains timestamp pattern
+        elif df[col].dtype == 'object':
+            # Pattern 1: Timestamp format
+            timestamp_pattern = re.compile(r'(\d{4,7}-\d{2}-\d{1,2})\s+\d{2}:\d{2}:\d{2}')
+            
+            # Pattern 2: Date-only with leading zero (CAS format)
+            # Distinguish from actual dates: CAS starts with 2-7 digits, dates start with 4
+            cas_date_pattern = re.compile(r'(\d{2,7}-\d{2}-)0(\d)$')
+            
+            # Pattern 3: Scientific notation
+            sci_not_pattern = re.compile(r'(\d+)\.\d+E[+-]\d+')
+            
+            def clean_corruption(val):
+                # Check for None or NaN (avoid boolean ambiguity warning)
+                if val is None or (isinstance(val, float) and pd.isna(val)):
+                    return val
+                if not isinstance(val, str):
+                    return val
+                
+                original = val.strip()
+                
+                # Pattern 1: Timestamp
+                match = timestamp_pattern.match(original)
+                if match:
+                    cleaned = match.group(1)
+                    logger.debug(f"Cleaned timestamp: '{original}' → '{cleaned}'")
+                    return cleaned
+                
+                # Pattern 2: CAS with leading zero on check digit
+                # Only apply if it looks like CAS (2-7 digits at start, not 4-digit year)
+                match = cas_date_pattern.match(original)
+                if match:
+                    # Check if first part is 2-7 digits (CAS) vs 4 digits (year)
+                    first_part = match.group(1).split('-')[0]
+                    if len(first_part) in [2, 3, 4, 5, 6, 7]:
+                        cleaned = f"{match.group(1)}{match.group(2)}"
+                        logger.debug(f"Fixed CAS leading zero: '{original}' → '{cleaned}'")
+                        return cleaned
+                
+                # Pattern 3: Scientific notation
+                match = sci_not_pattern.match(original)
+                if match:
+                    cleaned = match.group(1)
+                    logger.debug(f"Fixed scientific notation: '{original}' → '{cleaned}'")
+                    return cleaned
+                
+                return original
+            
+            # Check if any values match corruption patterns
+            has_corruption = (
+                df[col].astype(str).str.match(timestamp_pattern).any() or
+                df[col].astype(str).str.match(cas_date_pattern).any() or
+                df[col].astype(str).str.match(sci_not_pattern).any()
+            )
+            
+            if has_corruption:
+                logger.info(f"Cleaning Excel date corruption in column '{col}'")
+                df[col] = df[col].apply(clean_corruption)
+    
+    return df
+
+
+def _normalize_cell_content(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Normalize multi-line cell content.
+    
+    Replaces newlines, tabs, and multiple spaces with single spaces.
+    Handles Alt+Enter in Excel cells.
+    """
+    if df.empty:
+        return df
+    
+    def normalize_cell(val):
+        # Check for None or NaN (avoid boolean ambiguity warning)
+        if val is None or (isinstance(val, float) and pd.isna(val)):
+            return val
+        if not isinstance(val, str):
+            return val
+        
+        # Replace newlines with space
+        val = re.sub(r'\r\n|\r|\n', ' ', val)
+        # Replace tabs with space
+        val = re.sub(r'\t', ' ', val)
+        # Collapse multiple spaces
+        val = re.sub(r' +', ' ', val)
+        # Strip whitespace
+        val = val.strip()
+        # If empty string, convert to NaN
+        if val == '':
+            return pd.NA
+        return val
+    
+    # Apply to all cells
+    for col in df.columns:
+        if df[col].dtype == 'object':
+            df[col] = df[col].apply(normalize_cell)
+    
+    logger.info("Normalized multi-line cell content")
+    return df
+
 
 def _flatten_structure(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -661,6 +910,32 @@ def _is_numeric_like(val: str) -> bool:
 #  Helpers
 # ═══════════════════════════════════════════════════════
 
+def _map_columns(df: pd.DataFrame) -> dict:
+    """
+    Map user column names to standard names.
+    
+    Returns dict mapping standard_name -> actual_column_name.
+    """
+    mapped = {}
+    df_cols_lower = {col.lower().strip(): col for col in df.columns}
+    
+    for std_name, aliases in COLUMN_ALIASES.items():
+        for alias in aliases:
+            # Check for exact match first
+            if alias in df_cols_lower:
+                mapped[std_name] = df_cols_lower[alias]
+                break
+            # Check if alias is a substring of any column name
+            for col_lower, col_actual in df_cols_lower.items():
+                if alias in col_lower:
+                    mapped[std_name] = col_actual
+                    break
+            if std_name in mapped:
+                break
+    
+    return mapped
+
+
 def _clean_column_name(col: Any) -> str:
     """Clean a column name: strip, collapse whitespace, handle None/numeric."""
     if col is None:
@@ -680,7 +955,11 @@ def _detect_language_hints(df: pd.DataFrame) -> list[str]:
 
     # Check first 10 rows of data too
     for _, row in df.head(10).iterrows():
-        text += ' ' + ' '.join(str(v) for v in row if v)
+        # Handle NA values to avoid boolean ambiguity error
+        text += ' ' + ' '.join(
+            str(v) if not (v is None or (isinstance(v, float) and pd.isna(v))) else ''
+            for v in row
+        )
 
     # Persian/Arabic characters
     if re.search(r'[\u0600-\u06FF]', text):

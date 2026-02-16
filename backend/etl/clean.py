@@ -117,6 +117,9 @@ def validate_cas(cas_string: str) -> tuple[bool, str]:
     """
     Validate a CAS Registry Number using the checksum algorithm.
     Format: XXXXXXX-YY-Z where Z is the check digit.
+    
+    REJECTS 4-digit group codes (1080, 1115, 9901, etc.) which are
+    generic chemical group codes, not actual CAS numbers.
 
     Returns:
         (is_valid, cleaned_cas_or_error_message)
@@ -125,6 +128,11 @@ def validate_cas(cas_string: str) -> tuple[bool, str]:
         return False, "Empty CAS"
 
     cas = cas_string.strip().replace(' ', '')
+
+    # REJECT 4-digit group codes (1080, 1115, 9901, etc.)
+    # These are generic chemical group codes, not actual CAS numbers
+    if cas.isdigit() and len(cas) == 4:
+        return False, f"4-digit code '{cas}' is not a valid CAS number"
 
     # Must match pattern: 2-7 digits, dash, 2 digits, dash, 1 digit
     if not re.match(r'^\d{2,7}-\d{2}-\d$', cas):
@@ -210,6 +218,33 @@ def reconstruct_cas_from_digits(digits: str) -> str | None:
     return result if is_valid else None
 
 
+def normalize_concentration(name: str) -> tuple[str, str | None]:
+    """
+    Extract concentration suffix from chemical name.
+    
+    Examples:
+        "Hydrogen Peroxide 30%" → ("Hydrogen Peroxide", "30%")
+        "H2O2 50 %" → ("H2O2", "50%")
+        "Sulfuric Acid" → ("Sulfuric Acid", None)
+    
+    Returns:
+        (cleaned_name, concentration_or_None)
+    """
+    if not name:
+        return name, None
+    
+    # Pattern: optional digits, optional decimal, optional space, % or 'percent' at end
+    pattern = r'\s*(\d+(?:\.\d+)?)\s*(%|percent)\s*$'
+    match = re.search(pattern, name, re.IGNORECASE)
+    
+    if match:
+        concentration = match.group(1) + '%'
+        cleaned = name[:match.start()].strip()
+        return cleaned, concentration
+    
+    return name, None
+
+
 def normalize_formula(raw: str) -> str:
     """
     Normalize a chemical formula:
@@ -242,9 +277,19 @@ def clean_quantity(raw_qty: str | None, raw_unit: str | None,
                    unit_column_exists: bool = True) -> dict[str, Any]:
     """
     Parse and normalize quantity + unit.
-    Returns dict with normalized values and any issues.
-    Only penalizes missing unit if the unit column actually exists in the file.
+    
+    Relaxed validation: Accepts industry-standard formats without warnings.
+    
+    Valid formats:
+    - Numeric only: "250", "1.5", "0.75"
+    - With units: "250 L", "1 kg", "500 mL"
+    - Ranges: "50-100 L", "1-2 kg"
+    - Containers: "3 cylinders", "2 bottles"
+    - Descriptive: "Full", "Half", "Reorder level"
+    
+    Only warns for truly unparseable strings.
     """
+    import re
     issues = []
     result = {
         'raw_quantity': raw_qty,
@@ -253,25 +298,97 @@ def clean_quantity(raw_qty: str | None, raw_unit: str | None,
         'unit': None,
         'normalized_quantity': None,
     }
-
-    # Parse quantity
-    if raw_qty:
+    
+    if not raw_qty:
+        # Missing quantity is OK if unit column doesn't exist
+        if unit_column_exists:
+            issues.append("Missing quantity")
+        result['issues'] = issues
+        return result
+    
+    qty_str = str(raw_qty).strip()
+    
+    # Pattern 1: Numeric only (with optional comma)
+    numeric_match = re.match(r'^[\d,]+\.?\d*$', qty_str.replace(',', ''))
+    if numeric_match:
         try:
-            result['quantity'] = float(raw_qty.strip().replace(',', ''))
+            result['quantity'] = float(qty_str.replace(',', ''))
         except ValueError:
-            issues.append(f"Non-numeric quantity: {raw_qty}")
-
-    # Normalize unit
+            pass
+    
+    # Pattern 2: Numeric with unit (e.g., "250 L", "1 kg")
+    if result['quantity'] is None:
+        unit_match = re.match(r'^([\d,]+\.?\d*)\s*([a-zA-Z]+)$', qty_str)
+        if unit_match:
+            try:
+                result['quantity'] = float(unit_match.group(1).replace(',', ''))
+                result['unit'] = unit_match.group(2)
+            except ValueError:
+                pass
+    
+    # Pattern 3: Range (e.g., "50-100 L", "1-2 kg")
+    if result['quantity'] is None:
+        range_match = re.match(r'^([\d,]+\.?\d*)\s*-\s*([\d,]+\.?\d*)\s*([a-zA-Z]+)?$', qty_str)
+        if range_match:
+            try:
+                min_val = float(range_match.group(1).replace(',', ''))
+                max_val = float(range_match.group(2).replace(',', ''))
+                # Use average for normalized quantity
+                result['quantity'] = (min_val + max_val) / 2
+                if range_match.group(3):
+                    result['unit'] = range_match.group(3)
+            except ValueError:
+                pass
+    
+    # Pattern 4: Container counts (e.g., "3 cylinders", "2 bottles")
+    if result['quantity'] is None:
+        container_match = re.match(r'^([\d,]+)\s+(cylinders?|bottles?|drums?|jugs?|containers?)$', qty_str, re.IGNORECASE)
+        if container_match:
+            try:
+                result['quantity'] = float(container_match.group(1).replace(',', ''))
+                result['unit'] = container_match.group(2)
+            except ValueError:
+                pass
+    
+    # Pattern 5: Descriptive (e.g., "Full", "Half", "~250L")
+    if result['quantity'] is None:
+        # Approximate notation
+        approx_match = re.match(r'^~\s*([\d,]+\.?\d*)\s*([a-zA-Z]+)?$', qty_str)
+        if approx_match:
+            try:
+                result['quantity'] = float(approx_match.group(1).replace(',', ''))
+                if approx_match.group(2):
+                    result['unit'] = approx_match.group(2)
+            except ValueError:
+                pass
+        # Descriptive text - accept as-is
+        elif qty_str.lower() in ['full', 'half', 'empty', 'reorder level', 'low', 'high']:
+            result['quantity'] = qty_str  # Store as text
+    
+    # If still no quantity, check if truly unparseable
+    if result['quantity'] is None:
+        # Only warn if contains suspicious characters
+        if re.search(r'[\u2600-\u27BF\u1F300-\u1F9FF]', qty_str):  # Emoji or symbols
+            issues.append(f"Non-standard quantity format: {raw_qty}")
+        # Check for URLs
+        elif 'http' in qty_str.lower():
+            issues.append(f"Quantity contains URL: {raw_qty}")
+        # Otherwise, just log info, don't warn user
+        else:
+            logger.info(f"Quantity format not recognized (accepted): {raw_qty}")
+    
+    # Normalize unit if provided separately
     if raw_unit:
         canonical_unit, multiplier = normalize_unit(raw_unit)
         result['unit'] = canonical_unit
         if canonical_unit == 'unknown':
-            issues.append(f"Unknown unit: {raw_unit}")
-        elif result['quantity'] is not None:
+            # Don't warn for unknown units - they might be valid
+            logger.info(f"Unit not recognized (accepted): {raw_unit}")
+        elif result['quantity'] is not None and isinstance(result['quantity'], (int, float)):
             result['normalized_quantity'] = result['quantity'] * multiplier
-    elif unit_column_exists:
-        issues.append("Missing unit")
-
+    elif unit_column_exists and not result['quantity']:
+        issues.append("Missing quantity")
+    
     result['issues'] = issues
     return result
 
@@ -317,6 +434,16 @@ def validate_row(row: dict, available_columns: set | None = None) -> dict:
     # ── Name: smart cleaning (extract parenthesized info, remove stopwords) ──
     name = (row.get('name') or '').strip()
     cleaned['name_raw'] = name  # Preserve original name for pre-match classification
+    
+    # Extract concentration suffix FIRST (e.g., "H2O2 30%" → "H2O2", "30%")
+    name, concentration = normalize_concentration(name)
+    if concentration:
+        cleaned.setdefault('notes', '')
+        if cleaned['notes']:
+            cleaned['notes'] += f" | Concentration: {concentration}"
+        else:
+            cleaned['notes'] = f"Concentration: {concentration}"
+    
     name_extra = _extract_name_extras(name)
     cleaned['name'] = name_extra['clean_name']
     # Store extracted purity/notes from parentheses

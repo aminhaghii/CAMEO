@@ -25,6 +25,25 @@ from etl.models import MatchResult
 logger = logging.getLogger(__name__)
 
 
+def _safe_cell_to_text(value) -> str:
+    """Convert arbitrary cell values to safe text without boolean evaluation of pandas.NA."""
+    if value is None:
+        return ''
+    try:
+        if isinstance(value, float):
+            # NaN check
+            import math
+            if math.isnan(value):
+                return ''
+    except Exception:
+        pass
+
+    text = str(value).strip()
+    if text.lower() in {'', 'nan', '<na>', 'none'}:
+        return ''
+    return text
+
+
 def init_inventory_tables(user_db_path: str):
     """Create inventory tables in user.db if they don't exist (Layer 5 included).
     Also migrates existing tables by adding new columns if missing."""
@@ -350,6 +369,8 @@ def _run_pipeline(user_db_path: str, chemicals_db_path: str,
             f"found {col_result['critical_fields_found']}, "
             f"missing {col_result['missing_fields']}"
         )
+        for w in col_result.get('warnings', []):
+            logger.warning(f"[Batch {batch_id[:8]}] Layer 2 warning: {w}")
 
         # ══════════════════════════════════════════════
         #  LAYER 3 + 4: Clean → Match per row
@@ -363,7 +384,7 @@ def _run_pipeline(user_db_path: str, chemicals_db_path: str,
 
         for idx, (_, row) in enumerate(df.iterrows()):
             try:
-                row_dict = {k: (str(v) if v and str(v).strip() else '') for k, v in row.to_dict().items()}
+                row_dict = {k: _safe_cell_to_text(v) for k, v in row.to_dict().items()}
 
                 # ── Layer 3: Clean ──
                 clean_result = validate_row(row_dict, available_columns=available_columns)

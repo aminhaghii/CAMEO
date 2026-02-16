@@ -889,7 +889,14 @@ def _score_header_candidate(row_values: list[str], df: pd.DataFrame, row_idx: in
     elif avg_len <= 50:
         score += 5
 
-    return score
+    # ── 6. Position Bonus (0–10) ──
+    # Most files place headers in top rows.
+    if row_idx == 0:
+        score += 10
+    elif row_idx <= 2:
+        score += 5
+
+    return min(score, 100.0)
 
 
 def _is_numeric_like(val: str) -> bool:

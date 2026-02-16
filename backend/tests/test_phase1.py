@@ -19,6 +19,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from etl.ingest import _detect_header_row, _flatten_structure, _fix_excel_date_corruption, _map_columns
 from etl.clean import normalize_concentration, validate_cas
 from etl.match_cascade import CascadeMatcher, MatchFlag
+from etl.schema import map_columns
 
 
 class TestHeaderDetection:
@@ -232,6 +233,62 @@ class TestIntegration:
         result = matcher.match({'name': name_clean})
         # Should get better match than with concentration suffix
         assert result.confidence > 0.5
+
+
+class TestPhase17BidirectionalMapping:
+    """Tests for Phase 1.7 bidirectional column mapping behavior."""
+
+    def test_content_only_inference_with_unknown_headers(self):
+        """Should infer semantic types from content even when headers are unknown."""
+        df = pd.DataFrame({
+            'chm': ['Acetone', 'Methanol', 'Ethanol'],
+            'x1': ['67-64-1', '67-56-1', '64-17-5'],
+            'c3': ['100 kg', '200 kg', '150 kg'],
+        })
+
+        result = map_columns(df)
+        cm = result['column_mapping']
+
+        assert cm['chm']['semantic_type'] == 'name'
+        assert cm['x1']['semantic_type'] == 'cas'
+        assert cm['c3']['semantic_type'] == 'quantity'
+        assert cm['chm']['method'] in ('content_inferred', 'content_only', 'hybrid')
+
+    def test_mapping_transparency_fields_present(self):
+        """Each mapped column should include reasoning metadata for UI transparency."""
+        df = pd.DataFrame({
+            'chemical_col': ['Acetone', 'Methanol'],
+            'cas_col': ['67-64-1', '67-56-1'],
+        })
+
+        result = map_columns(df)
+        for info in result['column_mapping'].values():
+            assert 'reasoning' in info
+            assert 'sample_values' in info
+            assert 'suggested_action' in info
+
+    def test_unknown_columns_keep_original_rename(self):
+        """Unknown semantic type columns should keep original column names in canonical rename."""
+        df = pd.DataFrame({
+            'foo': ['###', '@@@'],
+            'bar': ['???', '!!!'],
+        })
+
+        result = map_columns(df)
+        rename_map = result['canonical_rename']
+
+        assert rename_map['foo'] == 'foo'
+        assert rename_map['bar'] == 'bar'
+
+    def test_cross_validation_warns_quantity_without_unit(self):
+        """Cross-validation should warn when quantity exists without a separate unit column."""
+        df = pd.DataFrame({
+            'qty_col': ['100 kg', '200 kg', '300 kg'],
+        })
+
+        result = map_columns(df)
+        warnings = result['warnings']
+        assert any('Quantity detected without Unit column' in w for w in warnings)
 
 
 if __name__ == '__main__':

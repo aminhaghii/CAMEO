@@ -20,6 +20,7 @@ from etl.ingest import _detect_header_row, _flatten_structure, _fix_excel_date_c
 from etl.clean import normalize_concentration, validate_cas
 from etl.match_cascade import CascadeMatcher, MatchFlag
 from etl.schema import map_columns
+import etl.schema as schema_module
 
 
 class TestHeaderDetection:
@@ -289,6 +290,36 @@ class TestPhase17BidirectionalMapping:
         result = map_columns(df)
         warnings = result['warnings']
         assert any('Quantity detected without Unit column' in w for w in warnings)
+
+    def test_feature_flag_disable_uses_legacy_path(self, monkeypatch):
+        """Disabling deep-content flag should force legacy voting path and expose flag in payload."""
+        monkeypatch.setattr(schema_module, 'ENABLE_DEEP_CONTENT_ANALYSIS', False)
+        df = pd.DataFrame({
+            'unknown_h': ['Acetone', 'Methanol', 'Ethanol'],
+        })
+
+        result = map_columns(df)
+        info = result['column_mapping']['unknown_h']
+
+        assert result['feature_flags']['deep_content_analysis'] is False
+        assert info['method'] in ('legacy_vote', 'legacy_low_confidence', 'unresolved')
+
+    def test_cross_validation_warns_low_name_cas_cameo_agreement(self, monkeypatch):
+        """Should warn when mapped Name/CAS sampled pairs have low agreement with CAMEO pairs."""
+        monkeypatch.setattr(schema_module, '_cameo_name_index', lambda: {'acetone', 'methanol', 'ethanol'})
+        monkeypatch.setattr(
+            schema_module,
+            '_load_cameo_name_cas_pairs',
+            lambda _db_path: {('acetone', '67-64-1')}  # only 1/3 pairs valid
+        )
+
+        df = pd.DataFrame({
+            'chemical': ['Acetone', 'Methanol', 'Ethanol'],
+            'cas': ['67-64-1', '67-56-1', '64-17-5'],
+        })
+
+        result = map_columns(df)
+        assert any('Name-CAS sampled pairs have <50% CAMEO agreement' in w for w in result['warnings'])
 
 
 if __name__ == '__main__':

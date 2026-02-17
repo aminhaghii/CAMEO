@@ -3,6 +3,7 @@ import re
 import sqlite3
 import logging
 import difflib
+from pathlib import Path
 from flask import Flask, jsonify, request, render_template
 from flask_cors import CORS
 
@@ -30,7 +31,11 @@ reactivity_engine = ReactivityEngine(CHEMICALS_DB_PATH)
 
 # Register blueprints
 from routes.inventory import inventory_bp
+from routes.inventory_actions import inventory_actions_bp
+from routes.inventory_analysis import inventory_analysis_bp
 app.register_blueprint(inventory_bp)
+app.register_blueprint(inventory_actions_bp)
+app.register_blueprint(inventory_analysis_bp)
 
 def get_chemicals_db_connection():
     conn = sqlite3.connect(CHEMICALS_DB_PATH)
@@ -60,9 +65,29 @@ def init_user_db():
     conn.commit()
     conn.close()
 
+
+def init_inventory_tables():
+    """Initialize Phase 2 inventory persistence tables in user.db."""
+    try:
+        sql_path = Path(BASE_DIR) / 'scripts' / 'create_inventory_tables.sql'
+        if not sql_path.exists():
+            logger.warning("Phase 2 SQL file not found: %s", sql_path)
+            return
+
+        conn = sqlite3.connect(USER_DB_PATH)
+        with sql_path.open('r', encoding='utf-8') as f:
+            conn.executescript(f.read())
+        conn.commit()
+        conn.close()
+        logger.info("Phase 2 inventory tables initialized")
+    except Exception as e:
+        logger.error("Failed to initialize Phase 2 inventory tables: %s", e, exc_info=True)
+
 # Ensure user db is initialized on startup
 if not os.path.exists(USER_DB_PATH):
     init_user_db()
+
+init_inventory_tables()
 
 @app.route('/api/search', methods=['GET'])
 def search():

@@ -78,24 +78,31 @@
     <!-- ══════════════ STEP 3: Results ══════════════ -->
     <div x-show="step === 'results'">
 
-        <!-- Summary Cards -->
+        <!-- Summary Cards (Filter Buttons) -->
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 text-center">
-                <p class="text-3xl font-bold text-slate-900" x-text="summary?.total_rows || 0"></p>
+            <button @click="setFilter('TOTAL')" class="bg-white rounded-xl shadow-sm border p-5 text-center transition"
+                    :class="activeFilter === 'TOTAL' ? 'border-blue-500 ring-2 ring-blue-200' : 'border-slate-200 hover:border-blue-300'">
+                <p class="text-3xl font-bold text-slate-900" x-text="statusCounts.total"></p>
                 <p class="text-sm text-slate-500 mt-1">Total Rows</p>
-            </div>
-            <div class="bg-white rounded-xl shadow-sm border border-emerald-200 p-5 text-center">
-                <p class="text-3xl font-bold text-emerald-600" x-text="summary?.matched || 0"></p>
-                <p class="text-sm text-slate-500 mt-1">Matched</p>
-            </div>
-            <div class="bg-white rounded-xl shadow-sm border border-amber-200 p-5 text-center">
-                <p class="text-3xl font-bold text-amber-600" x-text="summary?.review_required || 0"></p>
+            </button>
+
+            <button @click="setFilter('CONFIRMED')" class="bg-white rounded-xl shadow-sm border p-5 text-center transition"
+                    :class="activeFilter === 'CONFIRMED' ? 'border-emerald-500 ring-2 ring-emerald-200' : 'border-emerald-200 hover:border-emerald-400'">
+                <p class="text-3xl font-bold text-emerald-600" x-text="statusCounts.confirmed"></p>
+                <p class="text-sm text-slate-500 mt-1">Confirmed</p>
+            </button>
+
+            <button @click="setFilter('REVIEW')" class="bg-white rounded-xl shadow-sm border p-5 text-center transition"
+                    :class="activeFilter === 'REVIEW' ? 'border-amber-500 ring-2 ring-amber-200' : 'border-amber-200 hover:border-amber-400'">
+                <p class="text-3xl font-bold text-amber-600" x-text="statusCounts.review"></p>
                 <p class="text-sm text-slate-500 mt-1">Review Required</p>
-            </div>
-            <div class="bg-white rounded-xl shadow-sm border border-rose-200 p-5 text-center">
-                <p class="text-3xl font-bold text-rose-600" x-text="summary?.unidentified || 0"></p>
-                <p class="text-sm text-slate-500 mt-1">Unidentified</p>
-            </div>
+            </button>
+
+            <button @click="setFilter('REJECTED')" class="bg-white rounded-xl shadow-sm border p-5 text-center transition"
+                    :class="activeFilter === 'REJECTED' ? 'border-rose-500 ring-2 ring-rose-200' : 'border-rose-200 hover:border-rose-400'">
+                <p class="text-3xl font-bold text-rose-600" x-text="statusCounts.rejected"></p>
+                <p class="text-sm text-slate-500 mt-1">Rejected</p>
+            </button>
         </div>
 
         <!-- Match Rate Bar -->
@@ -132,6 +139,81 @@
                         <span class="font-bold" x-text="count"></span>
                     </span>
                 </template>
+            </div>
+        </div>
+
+        <!-- Interactive Inventory Table -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+                <div>
+                    <h3 class="font-semibold text-slate-800">Inventory Rows</h3>
+                    <p class="text-sm text-slate-500">
+                        Active filter:
+                        <span class="font-medium text-slate-700" x-text="activeFilterLabel"></span>
+                        •
+                        <span x-text="filteredRows.length"></span> rows
+                    </p>
+                </div>
+                <button @click="openAddModal()"
+                        class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition">
+                    <span class="text-lg leading-none">+</span>
+                    <span>Add Chemical</span>
+                </button>
+            </div>
+
+            <div class="overflow-x-auto border border-slate-200 rounded-lg">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-slate-50 text-slate-600">
+                        <tr>
+                            <th class="px-3 py-2 text-left">Row</th>
+                            <th class="px-3 py-2 text-left">Chemical Name</th>
+                            <th class="px-3 py-2 text-left">CAS</th>
+                            <th class="px-3 py-2 text-left">Quantity</th>
+                            <th class="px-3 py-2 text-left">Location</th>
+                            <th class="px-3 py-2 text-left">Status</th>
+                            <th class="px-3 py-2 text-left">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        <template x-if="filteredRows.length === 0">
+                            <tr>
+                                <td colspan="7" class="px-4 py-6 text-center text-slate-500">
+                                    No rows match this filter.
+                                </td>
+                            </tr>
+                        </template>
+
+                        <template x-for="row in filteredRows" :key="row.staging_id">
+                            <tr>
+                                <td class="px-3 py-2 text-slate-500 font-mono text-xs" x-text="row.row_index"></td>
+                                <td class="px-3 py-2 font-medium text-slate-800" x-text="row.name || '-' "></td>
+                                <td class="px-3 py-2 font-mono text-xs text-slate-600" x-text="row.cas || '-' "></td>
+                                <td class="px-3 py-2 text-slate-700">
+                                    <span x-text="row.quantity || '-' "></span>
+                                    <span class="text-slate-400" x-text="row.unit || ''"></span>
+                                </td>
+                                <td class="px-3 py-2 text-slate-700" x-text="row.location || '-' "></td>
+                                <td class="px-3 py-2">
+                                    <span class="inline-flex px-2 py-0.5 rounded text-xs font-semibold"
+                                          :class="statusChipClass(row.match_status)"
+                                          x-text="statusLabel(row.match_status)"></span>
+                                </td>
+                                <td class="px-3 py-2">
+                                    <div class="flex items-center gap-2">
+                                        <button @click="openEditModal(row)"
+                                                class="px-2.5 py-1 rounded border border-blue-200 text-blue-700 hover:bg-blue-50 text-xs font-medium">
+                                            ✏️ Edit
+                                        </button>
+                                        <button @click="openDeleteModal(row)"
+                                                class="px-2.5 py-1 rounded border border-rose-200 text-rose-700 hover:bg-rose-50 text-xs font-medium">
+                                            🗑️ Delete
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
             </div>
         </div>
 
@@ -206,152 +288,17 @@
             </div>
         </div>
 
-        <!-- ══════════════ Needs Review Section ══════════════ -->
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6" x-show="summary?.needs_review?.length > 0">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="font-semibold text-slate-800">Needs Review</h3>
-                <span class="text-sm text-slate-400" x-text="summary?.needs_review?.length + ' rows'"></span>
-            </div>
-
-            <div class="space-y-4">
-                <template x-for="(item, idx) in summary?.needs_review || []" :key="item.row_index">
-                    <div class="border rounded-lg p-4" :class="{
-                        'border-amber-200 bg-amber-50/50': item.match_status === 'REVIEW_REQUIRED',
-                        'border-rose-200 bg-rose-50/50': item.match_status === 'UNIDENTIFIED',
-                    }">
-                        <!-- Row header -->
-                        <div class="flex items-center justify-between mb-3">
-                            <div class="flex items-center gap-3">
-                                <span class="text-xs font-mono text-slate-400">Row <span x-text="item.row_index"></span></span>
-                                <span class="font-semibold text-slate-800" x-text="item.input_name || '(empty)'"></span>
-                                <span x-show="item.input_cas" class="font-mono text-xs text-slate-500" x-text="'CAS: ' + item.input_cas"></span>
-                            </div>
-                            <span class="px-2.5 py-1 rounded-full text-xs font-bold"
-                                  :class="{
-                                      'bg-amber-200 text-amber-800': item.match_status === 'REVIEW_REQUIRED',
-                                      'bg-rose-200 text-rose-800': item.match_status === 'UNIDENTIFIED',
-                                      'bg-emerald-200 text-emerald-800': item.match_status === 'MATCHED',
-                                  }"
-                                  x-text="item.match_status === 'REVIEW_REQUIRED' ? 'REVIEW' : item.match_status === 'MATCHED' ? 'CONFIRMED' : 'UNIDENTIFIED'">
-                            </span>
-                        </div>
-
-                        <!-- Conflict warnings -->
-                        <template x-for="cf in item.conflicts || []" :key="cf">
-                            <div class="flex items-start gap-2 mb-2 p-2.5 bg-red-50 border border-red-200 rounded-lg">
-                                <svg class="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
-                                <span class="text-xs text-red-700 font-medium" x-text="cf"></span>
-                            </div>
-                        </template>
-
-                        <!-- Field swap alerts -->
-                        <template x-for="fs in item.field_swaps || []" :key="fs">
-                            <div class="flex items-start gap-2 mb-2 p-2.5 bg-orange-50 border border-orange-200 rounded-lg">
-                                <svg class="w-4 h-4 text-orange-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
-                                <span class="text-xs text-orange-700 font-medium" x-text="fs"></span>
-                            </div>
-                        </template>
-
-                        <!-- Issues -->
-                        <div x-show="item.issues?.length" class="mb-3">
-                            <template x-for="issue in (item.issues || []).filter(i => !i.startsWith('CONFLICT:') && !i.startsWith('FIELD_SWAP:'))" :key="issue">
-                                <span class="inline-block mr-1 mb-1 px-2 py-0.5 bg-red-100 text-red-600 text-xs rounded" x-text="issue"></span>
-                            </template>
-                        </div>
-
-                        <!-- Signal breakdown (collapsible) -->
-                        <div x-show="item.signals?.length > 0" class="mb-3" x-data="{ showSignals: false }">
-                            <button @click="showSignals = !showSignals" class="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1">
-                                <svg class="w-3 h-3 transition-transform" :class="showSignals ? 'rotate-90' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                                <span x-text="item.signals.length + ' signals detected'"></span>
-                            </button>
-                            <div x-show="showSignals" x-transition class="mt-2 space-y-1">
-                                <template x-for="sig in item.signals" :key="sig.source + sig.chemical_id">
-                                    <div class="flex items-center gap-2 text-xs px-2 py-1.5 rounded"
-                                         :class="sig.weighted > 70 ? 'bg-emerald-50' : sig.weighted > 40 ? 'bg-blue-50' : 'bg-slate-50'">
-                                        <span class="font-mono px-1.5 py-0.5 rounded text-[10px] font-bold"
-                                              :class="{
-                                                  'bg-emerald-200 text-emerald-800': sig.source.startsWith('cas'),
-                                                  'bg-blue-200 text-blue-800': sig.source.startsWith('name'),
-                                                  'bg-purple-200 text-purple-800': sig.source.startsWith('synonym'),
-                                                  'bg-cyan-200 text-cyan-800': sig.source.startsWith('formula'),
-                                                  'bg-amber-200 text-amber-800': sig.source.startsWith('un'),
-                                              }"
-                                              x-text="sig.source"></span>
-                                        <span class="text-slate-600 flex-1" x-text="sig.detail"></span>
-                                        <span class="font-bold" :class="sig.weighted > 70 ? 'text-emerald-700' : sig.weighted > 40 ? 'text-blue-700' : 'text-slate-500'"
-                                              x-text="sig.weighted + '%'"></span>
-                                    </div>
-                                </template>
-                            </div>
-                        </div>
-
-                        <!-- "Did you mean?" Suggestions (for REVIEW_REQUIRED) -->
-                        <div x-show="item.match_status === 'REVIEW_REQUIRED' && item.suggestions?.length > 0" class="mb-2">
-                            <p class="text-sm font-medium text-slate-600 mb-2">Did you mean?</p>
-                            <div class="flex flex-wrap gap-2">
-                                <template x-for="sug in item.suggestions || []" :key="sug.chemical_id">
-                                    <button
-                                        @click="confirmSuggestion(item, sug)"
-                                        class="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-sm hover:border-blue-400 hover:bg-blue-50 transition"
-                                    >
-                                        <span class="font-medium text-slate-800" x-text="sug.chemical_name"></span>
-                                        <span class="text-xs px-1.5 py-0.5 rounded-full font-bold"
-                                              :class="sug.score > 95 ? 'bg-emerald-100 text-emerald-700' : sug.score >= 80 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'"
-                                              x-text="Math.round(sug.score) + '%'"></span>
-                                    </button>
-                                </template>
-                            </div>
-                        </div>
-
-                        <!-- Manual Search (for UNIDENTIFIED or REVIEW_REQUIRED) -->
-                        <div x-show="item.match_status === 'UNIDENTIFIED' || item.match_status === 'REVIEW_REQUIRED'" class="mt-2">
-                            <p class="text-sm font-medium text-slate-600 mb-2">Search manually:</p>
-                            <div class="flex gap-2">
-                                <input type="text"
-                                    :id="'search-' + item.row_index"
-                                    class="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:border-blue-400 focus:ring-1 focus:ring-blue-400 outline-none"
-                                    placeholder="Type chemical name or CAS..."
-                                    @input.debounce.300ms="searchForRow(item, $event.target.value)"
-                                >
-                            </div>
-                            <!-- Search results -->
-                            <div x-show="item._searchResults?.length > 0" class="mt-2 border border-slate-200 rounded-lg overflow-hidden max-h-48 overflow-y-auto">
-                                <template x-for="sr in item._searchResults || []" :key="sr.chemical_id">
-                                    <button
-                                        @click="confirmSuggestion(item, sr)"
-                                        class="w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-blue-50 border-b border-slate-100 last:border-0 transition"
-                                    >
-                                        <span class="font-medium text-slate-800" x-text="sr.chemical_name"></span>
-                                        <span class="text-xs text-slate-400" x-text="sr.formula || ''"></span>
-                                    </button>
-                                </template>
-                            </div>
-                            <!-- Suggestions as fallback for UNIDENTIFIED -->
-                            <div x-show="item.match_status === 'UNIDENTIFIED' && item.suggestions?.length > 0 && !item._searchResults?.length" class="mt-2">
-                                <p class="text-xs text-slate-400 mb-1">Closest matches:</p>
-                                <div class="flex flex-wrap gap-2">
-                                    <template x-for="sug in item.suggestions || []" :key="sug.chemical_id">
-                                        <button
-                                            @click="confirmSuggestion(item, sug)"
-                                            class="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-sm hover:border-blue-400 hover:bg-blue-50 transition"
-                                        >
-                                            <span class="font-medium text-slate-800" x-text="sug.chemical_name"></span>
-                                            <span class="text-xs px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 font-bold" x-text="Math.round(sug.score) + '%'"></span>
-                                        </button>
-                                    </template>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Confirmed state -->
-                        <div x-show="item.match_status === 'MATCHED'" class="mt-2 flex items-center gap-2 text-sm text-emerald-700">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                            <span>Confirmed: <strong x-text="item._confirmedName || item.matched_name"></strong></span>
-                        </div>
-                    </div>
-                </template>
-            </div>
+        <!-- Analyze CTA -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6 text-center">
+            <button id="analyzeBtn"
+                    @click="analyzeInventory()"
+                    :disabled="!canAnalyze || analyzeLoading"
+                    class="inline-flex items-center justify-center gap-2 px-8 py-3 rounded-xl font-semibold text-white transition"
+                    :class="(!canAnalyze || analyzeLoading) ? 'bg-slate-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'">
+                <svg x-show="analyzeLoading" class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                <span x-text="analyzeLoading ? 'Analyzing...' : '🔬 Analyze Inventory for Compatibility Risks'"></span>
+            </button>
+            <p class="mt-3 text-sm text-slate-500" x-text="analyzeDisabledReason"></p>
         </div>
 
         <!-- Import Another -->
@@ -360,183 +307,81 @@
                 Import Another File
             </button>
         </div>
+
+        <!-- Add/Edit Modal -->
+        <div x-show="showEditModal" x-transition class="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-slate-900/40" @click="closeEditModal()"></div>
+            <div class="relative w-full max-w-2xl bg-white rounded-2xl shadow-xl border border-slate-200 p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-slate-800" x-text="editMode === 'add' ? 'Add Chemical' : 'Edit Row'"></h3>
+                    <button @click="closeEditModal()" class="text-slate-400 hover:text-slate-700">✕</button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Search Chemical</label>
+                        <input type="text" x-model="chemicalSearchQuery" @input.debounce.250ms="searchChemicals()"
+                               class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:border-blue-400 focus:ring-1 focus:ring-blue-400 outline-none"
+                               placeholder="Type chemical name or CAS...">
+                        <div x-show="chemicalSearchResults.length > 0" class="mt-1 border border-slate-200 rounded-lg max-h-40 overflow-y-auto">
+                            <template x-for="res in chemicalSearchResults" :key="res.chemical_id">
+                                <button @click="selectChemical(res)" class="w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-slate-100 last:border-b-0">
+                                    <div class="font-medium text-sm text-slate-800" x-text="res.chemical_name"></div>
+                                    <div class="text-xs text-slate-500" x-text="res.formula || ''"></div>
+                                </button>
+                            </template>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Chemical Name</label>
+                        <input type="text" x-model="editForm.name" class="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-50" readonly>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">CAS</label>
+                        <input type="text" x-model="editForm.cas" class="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-50" readonly>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Quantity</label>
+                        <input type="text" x-model="editForm.quantity" class="w-full px-3 py-2 border border-slate-300 rounded-lg" placeholder="e.g. 10">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Unit</label>
+                        <input type="text" x-model="editForm.unit" class="w-full px-3 py-2 border border-slate-300 rounded-lg" placeholder="e.g. L">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Location</label>
+                        <input type="text" x-model="editForm.location" class="w-full px-3 py-2 border border-slate-300 rounded-lg" placeholder="e.g. Acid Storage A-12">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Notes</label>
+                        <textarea x-model="editForm.notes" rows="2" class="w-full px-3 py-2 border border-slate-300 rounded-lg"></textarea>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-end gap-2 mt-6">
+                    <button @click="closeEditModal()" class="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50">Cancel</button>
+                    <button @click="saveEditModal()" class="px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700">Save</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Delete Confirmation Modal -->
+        <div x-show="showDeleteModal" x-transition class="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-slate-900/40" @click="closeDeleteModal()"></div>
+            <div class="relative w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 p-6">
+                <h3 class="text-lg font-semibold text-slate-800 mb-2">Confirm Deletion</h3>
+                <p class="text-sm text-slate-600 mb-5">
+                    Are you sure you want to delete
+                    <span class="font-semibold" x-text="deleteTarget?.name || 'this row'"></span>?
+                </p>
+                <div class="flex items-center justify-end gap-2">
+                    <button @click="closeDeleteModal()" class="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50">Cancel</button>
+                    <button @click="confirmDelete()" class="px-4 py-2 rounded-lg bg-rose-600 text-white font-semibold hover:bg-rose-700">Delete</button>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
-
-<script>
-function importApp() {
-    return {
-        step: 'upload',
-        dragOver: false,
-        selectedFile: null,
-        uploading: false,
-        uploadError: '',
-        batchId: null,
-        pollTimer: null,
-        statusFilename: '',
-        statusTotal: 0,
-        statusProcessed: 0,
-        summary: null,
-        columnMappingResult: null,
-        ingestionMeta: null,
-
-        get progressPct() {
-            if (!this.statusTotal) return 0;
-            return Math.round((this.statusProcessed / this.statusTotal) * 100);
-        },
-        get matchRatePct() {
-            return this.summary ? Math.round(this.summary.match_rate * 100) : 0;
-        },
-        get matchRateColor() {
-            const p = this.matchRatePct;
-            return p >= 80 ? 'text-emerald-600' : p >= 50 ? 'text-amber-600' : 'text-rose-600';
-        },
-        get matchRateBarColor() {
-            const p = this.matchRatePct;
-            return p >= 80 ? 'bg-emerald-500' : p >= 50 ? 'bg-amber-500' : 'bg-rose-500';
-        },
-
-        formatSize(bytes) {
-            if (!bytes) return '';
-            if (bytes < 1024) return bytes + ' B';
-            if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
-            return (bytes / 1048576).toFixed(1) + ' MB';
-        },
-
-        handleDrop(e) {
-            this.dragOver = false;
-            if (e.dataTransfer.files.length > 0) this.selectedFile = e.dataTransfer.files[0];
-        },
-        handleFileSelect(e) {
-            if (e.target.files.length > 0) this.selectedFile = e.target.files[0];
-        },
-
-        async startUpload() {
-            if (!this.selectedFile) return;
-            this.uploading = true;
-            this.uploadError = '';
-            const formData = new FormData();
-            formData.append('file', this.selectedFile);
-            try {
-                const res = await fetch('/api/inventory/upload', { method: 'POST', body: formData });
-                const data = await res.json();
-                if (data.error) { this.uploadError = data.error; this.uploading = false; return; }
-                this.batchId = data.batch_id;
-                this.statusFilename = data.filename;
-                this.step = 'processing';
-                this.startPolling();
-            } catch (e) {
-                this.uploadError = 'Upload failed: ' + e.message;
-            } finally {
-                this.uploading = false;
-            }
-        },
-
-        startPolling() {
-            this.pollTimer = setInterval(() => this.pollStatus(), 1500);
-        },
-
-        async pollStatus() {
-            if (!this.batchId) return;
-            try {
-                const res = await fetch(`/api/inventory/status/${this.batchId}`);
-                const data = await res.json();
-                this.statusTotal = data.total_rows || 0;
-                this.statusProcessed = data.processed || 0;
-                if (data.status === 'completed') {
-                    clearInterval(this.pollTimer);
-                    this.summary = data.summary;
-                    await this.loadColumnMapping();
-                    // Add reactive properties to review rows
-                    if (this.summary?.needs_review) {
-                        this.summary.needs_review.forEach(r => {
-                            r._searchResults = [];
-                            r._confirmedName = '';
-                        });
-                    }
-                    this.step = 'results';
-                } else if (data.status === 'error') {
-                    clearInterval(this.pollTimer);
-                    this.uploadError = data.error_msg || 'Processing failed';
-                    this.step = 'upload';
-                }
-            } catch (e) { console.error('Poll error:', e); }
-        },
-
-        async loadColumnMapping() {
-            if (!this.batchId) return;
-            try {
-                const res = await fetch(`/api/inventory/column_mapping/${this.batchId}`);
-                const data = await res.json();
-                this.columnMappingResult = data.column_mapping || null;
-                this.ingestionMeta = data.ingestion_meta || null;
-            } catch (e) {
-                console.error('Column mapping fetch error:', e);
-            }
-        },
-
-        async confirmSuggestion(item, suggestion) {
-            const chemId = suggestion.chemical_id;
-            const chemName = suggestion.chemical_name;
-            try {
-                const res = await fetch('/api/inventory/confirm', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        staging_id: item.row_index,
-                        chemical_id: chemId,
-                        chemical_name: chemName,
-                    })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    item.match_status = 'MATCHED';
-                    item._confirmedName = data.chemical_name;
-                    item.matched_chemical_id = chemId;
-                    // Update summary counts
-                    if (this.summary) {
-                        this.summary.matched = (this.summary.matched || 0) + 1;
-                        if (item.match_status === 'REVIEW_REQUIRED') {
-                            this.summary.review_required = Math.max(0, (this.summary.review_required || 0) - 1);
-                        } else {
-                            this.summary.unidentified = Math.max(0, (this.summary.unidentified || 0) - 1);
-                        }
-                        this.summary.match_rate = this.summary.total_rows > 0
-                            ? this.summary.matched / this.summary.total_rows : 0;
-                    }
-                } else {
-                    alert('Confirm failed: ' + (data.error || 'Unknown error'));
-                }
-            } catch (e) {
-                alert('Confirm error: ' + e.message);
-            }
-        },
-
-        async searchForRow(item, query) {
-            if (!query || query.length < 2) { item._searchResults = []; return; }
-            try {
-                const res = await fetch(`/api/inventory/search_chemicals?q=${encodeURIComponent(query)}`);
-                const data = await res.json();
-                item._searchResults = data.results || [];
-            } catch (e) {
-                console.error('Search error:', e);
-            }
-        },
-
-        reset() {
-            this.step = 'upload';
-            this.selectedFile = null;
-            this.uploading = false;
-            this.uploadError = '';
-            this.batchId = null;
-            this.summary = null;
-            this.columnMappingResult = null;
-            this.ingestionMeta = null;
-            this.statusTotal = 0;
-            this.statusProcessed = 0;
-            if (this.pollTimer) clearInterval(this.pollTimer);
-        }
-    }
-}
-</script>
+<script src="{{ url_for('static', filename='js/inventory_interactions.js') }}"></script>
 {% endblock %}

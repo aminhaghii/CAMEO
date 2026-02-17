@@ -7,6 +7,7 @@ Routes: upload, status polling, review rows, confirm match, search chemicals,
 import os
 import re
 import json
+import hashlib
 import sqlite3
 import logging
 from datetime import datetime
@@ -27,6 +28,12 @@ ALLOWED_EXTENSIONS = {'csv', 'xlsx', 'xls', 'json', 'txt', 'tsv'}
 
 def _allowed_file(filename: str) -> bool:
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def _row_version_hash(row: sqlite3.Row) -> str:
+    """Generate a deterministic version hash for optimistic locking in row edits."""
+    payload = f"{row['id']}|{row['cleaned_data'] or ''}|{row['match_status'] or ''}|{row['chemical_id'] or ''}|{row['quality_score'] or ''}|{row['confidence'] or ''}"
+    return hashlib.sha256(payload.encode('utf-8')).hexdigest()
 
 
 @inventory_bp.route('/admin/import')
@@ -83,6 +90,59 @@ def inventory_status(batch_id):
     user_db = current_app.config['USER_DB_PATH']
     status = get_batch_status(user_db, batch_id)
     return jsonify(status)
+
+
+@inventory_bp.route('/api/inventory/rows/<batch_id>')
+def inventory_rows(batch_id):
+    """Get all staging rows for interactive inventory management UI."""
+    user_db = current_app.config['USER_DB_PATH']
+    conn = sqlite3.connect(user_db)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT id, row_index, cleaned_data, raw_data, match_status,
+               chemical_id, confidence, quality_score, issues
+        FROM inventory_staging
+        WHERE batch_id = ?
+        ORDER BY row_index
+        """,
+        (batch_id,)
+    )
+    rows = cursor.fetchall()
+    conn.close()
+
+    payload = []
+    for row in rows:
+        cleaned = {}
+        raw = {}
+        issues = []
+        try:
+            cleaned = json.loads(row['cleaned_data']) if row['cleaned_data'] else {}
+            raw = json.loads(row['raw_data']) if row['raw_data'] else {}
+            issues = json.loads(row['issues']) if row['issues'] else []
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+        payload.append({
+            'staging_id': row['id'],
+            'row_index': row['row_index'],
+            'chemical_id': row['chemical_id'],
+            'name': cleaned.get('name') or raw.get('name', ''),
+            'cas': cleaned.get('cas') or raw.get('cas', ''),
+            'quantity': cleaned.get('quantity') or raw.get('quantity', ''),
+            'unit': cleaned.get('unit') or raw.get('unit', ''),
+            'location': cleaned.get('location') or raw.get('location', ''),
+            'notes': cleaned.get('notes') or raw.get('notes', ''),
+            'match_status': row['match_status'],
+            'confidence': row['confidence'],
+            'quality_score': row['quality_score'],
+            'issues': issues,
+            'row_version': _row_version_hash(row),
+        })
+
+    return jsonify({'rows': payload, 'count': len(payload)})
 
 
 @inventory_bp.route('/api/inventory/review/<batch_id>')
@@ -150,6 +210,7 @@ def search_chemicals_for_linking():
     like_term = f'%{query}%'
     cursor.execute("""
         SELECT DISTINCT c.id, c.name, c.formulas
+             , (SELECT cas_id FROM chemical_cas cc2 WHERE cc2.chem_id = c.id ORDER BY sort LIMIT 1) AS cas_id
         FROM chemicals c
         LEFT JOIN chemical_cas cc ON c.id = cc.chem_id
         WHERE c.name LIKE ?
@@ -165,6 +226,7 @@ def search_chemicals_for_linking():
             'chemical_id': row['id'],
             'chemical_name': row['name'],
             'formula': row['formulas'] or '',
+            'cas': row['cas_id'] or '',
         })
 
     conn.close()

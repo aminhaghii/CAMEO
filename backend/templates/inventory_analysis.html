@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+
+{% block title %}Inventory Analysis - SAFEWARE Safety Platform{% endblock %}
+
+{% block extra_head %}
+<style>
+    .risk-safe { background: #d4edda; }
+    .risk-caution { background: #fff3cd; }
+    .risk-dangerous { background: #f8d7da; }
+    .risk-explosive { background: #721c24; color: white; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" x-data="inventoryAnalysisApp('{{ batch_id }}')" x-init="init()">
+    <div class="mb-6">
+        <h1 class="text-3xl font-bold text-slate-900">Inventory Compatibility Analysis</h1>
+        <p class="text-slate-500 mt-1">Batch <span class="font-mono" x-text="batchId"></span></p>
+    </div>
+
+    <div x-show="loading" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-10 text-center">
+        <svg class="animate-spin h-8 w-8 text-indigo-600 mx-auto mb-3" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+        <p class="text-slate-600">Loading analysis results...</p>
+    </div>
+
+    <div x-show="error" class="bg-rose-50 border border-rose-200 rounded-xl p-4 text-rose-700 mb-6" x-text="error"></div>
+
+    <template x-if="analysis && !loading">
+        <div>
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+                <div class="bg-white rounded-xl border border-slate-200 p-4 text-center">
+                    <p class="text-2xl font-bold text-slate-900" x-text="analysis.total_chemicals || 0"></p>
+                    <p class="text-xs text-slate-500 mt-1">Total Chemicals</p>
+                </div>
+                <div class="bg-white rounded-xl border border-emerald-200 p-4 text-center risk-safe">
+                    <p class="text-2xl font-bold text-emerald-700" x-text="analysis.summary?.safe_pairs || 0"></p>
+                    <p class="text-xs text-slate-600 mt-1">Safe Pairs</p>
+                </div>
+                <div class="bg-white rounded-xl border border-amber-200 p-4 text-center risk-caution">
+                    <p class="text-2xl font-bold text-amber-700" x-text="analysis.summary?.caution_pairs || 0"></p>
+                    <p class="text-xs text-slate-600 mt-1">Caution Pairs</p>
+                </div>
+                <div class="bg-white rounded-xl border border-rose-200 p-4 text-center risk-dangerous">
+                    <p class="text-2xl font-bold text-rose-700" x-text="analysis.summary?.dangerous_pairs || 0"></p>
+                    <p class="text-xs text-slate-600 mt-1">Dangerous Pairs</p>
+                </div>
+                <div class="bg-white rounded-xl border border-slate-700 p-4 text-center risk-explosive">
+                    <p class="text-2xl font-bold" x-text="analysis.summary?.explosive_pairs || 0"></p>
+                    <p class="text-xs mt-1 opacity-90">Explosive Pairs</p>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+                    <h3 class="font-semibold text-slate-800">Export Analysis</h3>
+                    <div class="flex items-center gap-2">
+                        <a :href="`/api/inventory/analysis/${encodeURIComponent(batchId)}/export/pdf`" class="px-4 py-2 rounded-lg bg-slate-700 text-white text-sm font-medium hover:bg-slate-800">Download PDF</a>
+                        <a :href="`/api/inventory/analysis/${encodeURIComponent(batchId)}/export/excel`" class="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700">Download Excel</a>
+                    </div>
+                </div>
+                <p class="text-sm text-slate-500">Generated at: <span class="font-mono" x-text="analysis.analysis_date || analysis.analyzed_at || '-' "></span></p>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6 overflow-x-auto">
+                <h3 class="font-semibold text-slate-800 mb-4">Incompatibility Matrix</h3>
+                <table class="min-w-max border-collapse text-xs">
+                    <thead>
+                        <tr>
+                            <th class="border border-slate-300 bg-slate-50 p-2 sticky left-0 z-10">Chemical</th>
+                            <template x-for="(chem, cidx) in analysis.chemicals" :key="`h-${cidx}`">
+                                <th class="border border-slate-300 bg-slate-50 p-2 min-w-[84px]" x-text="chem.name"></th>
+                            </template>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="(row, ridx) in analysis.matrix" :key="`r-${ridx}`">
+                            <tr>
+                                <th class="border border-slate-300 bg-slate-50 p-2 text-left sticky left-0 z-10" x-text="analysis.chemicals[ridx]?.name"></th>
+                                <template x-for="(cell, cidx) in row" :key="`c-${ridx}-${cidx}`">
+                                    <td class="border border-slate-300 p-2 text-center" :style="`background:${cell.color || '#f8fafc'};${cell.risk_level === 'EXPLOSIVE' ? 'color:white;' : ''}`">
+                                        <span class="font-semibold" x-text="cell.risk_level"></span>
+                                    </td>
+                                </template>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+                <h3 class="font-semibold text-slate-800 mb-4">Dangerous / Explosive Warnings</h3>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm">
+                        <thead class="bg-slate-50 text-slate-600">
+                            <tr>
+                                <th class="px-3 py-2 text-left">Chemical 1</th>
+                                <th class="px-3 py-2 text-left">Chemical 2</th>
+                                <th class="px-3 py-2 text-left">Risk</th>
+                                <th class="px-3 py-2 text-left">Explanation</th>
+                                <th class="px-3 py-2 text-left">Storage Issue</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <template x-if="criticalPairs.length === 0">
+                                <tr><td colspan="5" class="px-4 py-5 text-slate-500 text-center">No dangerous or explosive pairs found.</td></tr>
+                            </template>
+                            <template x-for="pair in criticalPairs" :key="pair.chemical_a_id + '-' + pair.chemical_b_id">
+                                <tr>
+                                    <td class="px-3 py-2" x-text="pair.chemical_a_name"></td>
+                                    <td class="px-3 py-2" x-text="pair.chemical_b_name"></td>
+                                    <td class="px-3 py-2">
+                                        <span class="inline-flex px-2 py-0.5 rounded text-xs font-semibold"
+                                              :class="pair.risk_level === 'EXPLOSIVE' ? 'risk-explosive' : 'risk-dangerous'"
+                                              x-text="pair.risk_level"></span>
+                                    </td>
+                                    <td class="px-3 py-2 text-slate-600" x-text="pair.explanation"></td>
+                                    <td class="px-3 py-2">
+                                        <span x-text="storageIssueFor(pair)"></span>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <h3 class="font-semibold text-slate-800 mb-4">Storage Location Report</h3>
+                <div class="space-y-3">
+                    <template x-if="!analysis.location_warnings || analysis.location_warnings.length === 0">
+                        <p class="text-sm text-emerald-700">No incompatible chemicals stored in the same location.</p>
+                    </template>
+                    <template x-for="(w, idx) in (analysis.location_warnings || [])" :key="idx">
+                        <div class="p-3 rounded-lg border border-rose-200 bg-rose-50 text-sm text-rose-800">
+                            <strong x-text="`${w.chemical_a} + ${w.chemical_b}`"></strong>
+                            <span> → </span>
+                            <span x-text="w.message"></span>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+    </template>
+</div>
+
+<script>
+function inventoryAnalysisApp(batchId) {
+    return {
+        batchId,
+        loading: true,
+        error: '',
+        analysis: null,
+
+        get criticalPairs() {
+            const pairs = (this.analysis?.pair_details || []);
+            return pairs.filter(p => p.risk_level === 'DANGEROUS' || p.risk_level === 'EXPLOSIVE');
+        },
+
+        async init() {
+            await this.loadAnalysis();
+        },
+
+        async loadAnalysis() {
+            this.loading = true;
+            this.error = '';
+            try {
+                const res = await fetch(`/api/inventory/analysis/${encodeURIComponent(this.batchId)}`);
+                const data = await res.json();
+                if (!res.ok || data.error) {
+                    this.error = data.error || 'Failed to load analysis.';
+                    this.loading = false;
+                    return;
+                }
+                this.analysis = data;
+            } catch (e) {
+                this.error = `Failed to load analysis: ${e.message}`;
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        storageIssueFor(pair) {
+            const warnings = this.analysis?.location_warnings || [];
+            const found = warnings.find((w) => {
+                const direct = w.chemical_a === pair.chemical_a_name && w.chemical_b === pair.chemical_b_name;
+                const reverse = w.chemical_a === pair.chemical_b_name && w.chemical_b === pair.chemical_a_name;
+                return direct || reverse;
+            });
+            if (!found) return '—';
+            return `⚠️ ${found.locations.join(', ')}`;
+        },
+    };
+}
+</script>
+{% endblock %}

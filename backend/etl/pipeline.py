@@ -19,6 +19,8 @@ from etl.ingest import read_file
 from etl.schema import map_columns
 from etl.clean import validate_row
 from etl.match import ChemicalMatcher
+from etl.header_guard import remove_repeated_headers
+from etl.last_ditch_recovery import attempt_last_ditch_recovery
 from etl.report import generate_summary
 from etl.models import MatchResult
 
@@ -371,6 +373,12 @@ def _run_pipeline(user_db_path: str, chemicals_db_path: str,
         )
         for w in col_result.get('warnings', []):
             logger.warning(f"[Batch {batch_id[:8]}] Layer 2 warning: {w}")
+        
+        # ══════════════════════════════════════════════
+        #  TASK 1: Header Guard (Remove Repeated Headers)
+        # ══════════════════════════════════════════════
+        df = remove_repeated_headers(df, batch_id)
+        total = len(df)  # Update total after header removal
 
         # ══════════════════════════════════════════════
         #  LAYER 3 + 4: Clean → Match per row
@@ -398,6 +406,23 @@ def _run_pipeline(user_db_path: str, chemicals_db_path: str,
 
                 # ── Layer 4: Match ──
                 match_result = matcher.match(cleaned)
+                
+                # ══════════════════════════════════════════════
+                #  TASK 2: Last-Ditch Recovery (Fallback for UNIDENTIFIED)
+                # ══════════════════════════════════════════════
+                if match_result.get('match_status') in ('UNIDENTIFIED', 'FAILED'):
+                    recovery_result = attempt_last_ditch_recovery(
+                        row_dict, cleaned, chemicals_db_path, batch_id, idx + 1
+                    )
+                    if recovery_result:
+                        # Recovery succeeded - use recovered match result
+                        match_result = recovery_result
+                        recovery_note = recovery_result.get('recovery_note', 'Recovered via deep row scan')
+                        issues.append(f"WARNING: {recovery_note}")
+                        logger.info(
+                            f"[Batch {batch_id[:8]}] Row {idx+1}: Last-ditch recovery succeeded - "
+                            f"{recovery_note}"
+                        )
 
                 # ── Layer 5: Anti-Hallucination Validation ──
                 try:

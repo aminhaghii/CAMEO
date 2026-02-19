@@ -1,0 +1,407 @@
+/**
+ * SAFEWARE - Enterprise Chemical Safety Platform
+ * Global Layout Styles
+ * Reference: Professional Dashboard Design System
+ */
+
+/* ============================================
+   RESET & GLOBAL STYLES
+   ============================================ */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+html, body {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+}
+
+:root {
+    /* Color Palette - Industrial Navy Theme */
+    --color-navy-dark: #0F172A;
+    --color-navy-medium: #1E293B;
+    --color-slate-light: #F8FAFC;
+    --color-slate-medium: #F1F5F9;
+    --color-slate-text: #64748B;
+    
+    /* Accent Colors */
+    --color-accent-cyan: #06B6D4;
+    --color-accent-blue: #3B82F6;
+    --color-danger: #EF4444;
+    --color-success: #10B981;
+    --color-warning: #F59E0B;
+    
+    /* Spacing */
+    --sidebar-width-expanded: 280px;
+    --sidebar-width-collapsed: 80px;
+    --header-height: 64px;
+    
+    /* Transitions */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ============================================
+   SCROLLBAR STYLING
+   ============================================ */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--color-slate-light);
+}
+
+::-webkit-scrollbar-thumb {
+    background: #CBD5E1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #94A3B8;
+}
+
+/* ============================================
+   SIDEBAR STYLES
+   ============================================ */
+.sidebar {
+    background: var(--color-navy-dark);
+    height: 100vh;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 2px 0 12px rgba(0, 0, 0, 0.1);
+}
+
+.sidebar-header {
+    background: var(--color-navy-dark);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Navigation Item Styles */
+.nav-item {
+    font-size: 0.875rem;
+    font-weight: 500;
+    position: relative;
+    cursor: pointer;
+}
+
+.nav-item:hover {
+    background: var(--color-navy-medium);
+    color: #FFFFFF;
+}
+
+/* Active Navigation Item */
+.nav-item-active {
+    background: var(--color-navy-medium);
+    color: #FFFFFF;
+    position: relative;
+}
+
+.nav-item-active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: linear-gradient(180deg, var(--color-accent-cyan), var(--color-accent-blue));
+    border-radius: 0 4px 4px 0;
+}
+
+/* Icon Styling */
+.nav-item svg {
+    transition: transform 0.2s ease;
+}
+
+.nav-item:hover svg {
+    transform: scale(1.1);
+}
+
+/* ============================================
+   HEADER STYLES (Glassmorphism)
+   ============================================ */
+.header-glass {
+    backdrop-filter: blur(16px) saturate(180%);
+    background-color: rgba(255, 255, 255, 0.85);
+    border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+/* Search Bar */
+.header-glass input[type="text"] {
+    transition: all 0.2s ease;
+}
+
+.header-glass input[type="text"]:focus {
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* ============================================
+   MAIN CONTENT AREA
+   ============================================ */
+main {
+    background: var(--color-slate-light);
+}
+
+/* Content Cards */
+.content-card {
+    background: #FFFFFF;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: box-shadow 0.2s ease;
+}
+
+.content-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* ============================================
+   NOTIFICATION BADGE
+   ============================================ */
+.notification-badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 10px;
+    height: 10px;
+    background: var(--color-danger);
+    border-radius: 50%;
+    border: 2px solid #FFFFFF;
+    animation: pulse-badge 2s infinite;
+}
+
+@keyframes pulse-badge {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.1);
+        opacity: 0.8;
+    }
+}
+
+/* ============================================
+   USER PROFILE POPOVER
+   ============================================ */
+.profile-popover {
+    position: absolute;
+    bottom: 100%;
+    left: 1rem;
+    right: 1rem;
+    margin-bottom: 0.5rem;
+    background: #FFFFFF;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
+    z-index: 100;
+}
+
+.profile-popover a {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    color: #334155;
+    text-decoration: none;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: background 0.15s ease;
+}
+
+.profile-popover a:hover {
+    background: var(--color-slate-medium);
+}
+
+.profile-popover a:last-child {
+    color: var(--color-danger);
+}
+
+.profile-popover a:last-child:hover {
+    background: #FEE2E2;
+}
+
+/* ============================================
+   RESPONSIVE UTILITIES
+   ============================================ */
+@media (max-width: 768px) {
+    .sidebar {
+        position: absolute;
+        z-index: 50;
+        height: 100vh;
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+    }
+    
+    .sidebar.sidebar-open {
+        transform: translateX(0);
+    }
+}
+
+/* ============================================
+   ANIMATIONS
+   ============================================ */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-fade-in {
+    animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.animate-slide-in {
+    animation: slideIn 0.3s ease-out;
+}
+
+/* ============================================
+   BREADCRUMB STYLING
+   ============================================ */
+nav.breadcrumb a {
+    color: var(--color-slate-text);
+    text-decoration: none;
+    transition: color 0.15s ease;
+}
+
+nav.breadcrumb a:hover {
+    color: var(--color-accent-blue);
+}
+
+/* ============================================
+   DATE/TIME WIDGET
+   ============================================ */
+#currentDate {
+    font-weight: 600;
+    color: #0F172A;
+    font-size: 0.875rem;
+}
+
+#currentTime {
+    color: var(--color-slate-text);
+    font-size: 0.75rem;
+    letter-spacing: 0.5px;
+}
+
+/* ============================================
+   MATRIX & DATA VISUALIZATION STYLES
+   ============================================ */
+.matrix-grid {
+    display: grid;
+    gap: 1px;
+    background: #E2E8F0;
+}
+
+.matrix-cell {
+    position: relative;
+    transition: all 0.15s ease;
+    cursor: pointer;
+}
+
+.matrix-cell:hover {
+    z-index: 10;
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.matrix-row:hover .matrix-cell {
+    background-color: rgba(148, 163, 184, 0.1);
+}
+
+/* Tooltip */
+.tooltip {
+    visibility: hidden;
+    position: absolute;
+    z-index: 50;
+    background-color: rgba(15, 23, 42, 0.95);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    white-space: nowrap;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-bottom: 8px;
+    pointer-events: none;
+}
+
+.matrix-cell:hover .tooltip {
+    visibility: visible;
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+.shadow-elevated {
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1), 0 4px 10px rgba(0, 0, 0, 0.05);
+}
+
+.glass-effect {
+    backdrop-filter: blur(12px) saturate(150%);
+    background-color: rgba(255, 255, 255, 0.8);
+}
+
+.text-gradient {
+    background: linear-gradient(135deg, var(--color-accent-cyan), var(--color-accent-blue));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* Status Indicators */
+.status-safe {
+    background: #D1FAE5;
+    color: #065F46;
+}
+
+.status-warning {
+    background: #FEF3C7;
+    color: #92400E;
+}
+
+.status-danger {
+    background: #FEE2E2;
+    color: #991B1B;
+}
+
+.status-info {
+    background: #DBEAFE;
+    color: #1E40AF;
+}
+
+/* ============================================
+   PRINT STYLES
+   ============================================ */
+@media print {
+    .sidebar,
+    .header-glass,
+    nav.breadcrumb,
+    button {
+        display: none !important;
+    }
+    
+    main {
+        padding: 0 !important;
+        overflow: visible !important;
+    }
+}

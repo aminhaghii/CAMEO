@@ -1,32 +1,284 @@
 {% extends "base.html" %}
 
 {% block title %}Inventory Analysis - SAFEWARE Safety Platform{% endblock %}
+{% block breadcrumb %}Inventory Analysis{% endblock %}
 
 {% block extra_head %}
 <style>
-    .risk-safe { background: #d4edda; }
-    .risk-caution { background: #fff3cd; }
-    .risk-dangerous { background: #f8d7da; }
-    .risk-explosive { background: #721c24; color: white; }
+    .risk-safe {
+        background: #d4edda;
+    }
+
+    .risk-caution {
+        background: #fff3cd;
+    }
+
+    .risk-dangerous {
+        background: #f8d7da;
+    }
+
+    .risk-explosive {
+        background: #721c24;
+        color: white;
+    }
+
+    /* ── Matrix Overlay ── */
+    .matrix-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        background: #f8faf8;
+        display: flex;
+        flex-direction: column;
+        animation: matOverIn 0.25s ease;
+    }
+
+    @keyframes matOverIn {
+        from {
+            opacity: 0;
+            transform: scale(0.97);
+        }
+
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+    /* Header */
+    .mat-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 20px;
+        background: #fff;
+        border-bottom: 1px solid #e2e8f0;
+        flex-shrink: 0;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    }
+
+    .mat-header h3 {
+        color: #1e293b;
+        font-weight: 800;
+        font-size: 15px;
+        letter-spacing: -0.3px;
+    }
+
+    /* Filter pills */
+    .mat-filt {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 16px;
+        border-radius: 9999px;
+        font-size: 12px;
+        font-weight: 700;
+        border: 2px solid transparent;
+        cursor: pointer;
+        transition: all 0.2s;
+        background: #f1f5f9;
+        color: #64748b;
+    }
+
+    .mat-filt:hover {
+        background: #e2e8f0;
+    }
+
+    .mat-filt.active {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+        transform: translateY(-1px);
+    }
+
+    .mat-filt.f-all.active {
+        background: #3b82f6;
+        color: #fff;
+        border-color: #3b82f6;
+    }
+
+    .mat-filt.f-safe.active {
+        background: #dcfce7;
+        color: #166534;
+        border-color: #86efac;
+    }
+
+    .mat-filt.f-caut.active {
+        background: #fef9c3;
+        color: #854d0e;
+        border-color: #facc15;
+    }
+
+    .mat-filt.f-dang.active {
+        background: #fee2e2;
+        color: #991b1b;
+        border-color: #f87171;
+    }
+
+    .mat-filt.f-expl.active {
+        background: #450a0a;
+        color: #fecaca;
+        border-color: #721c24;
+    }
+
+    .mat-filt .filt-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 3px;
+    }
+
+    .mat-filt .filt-cnt {
+        font-size: 11px;
+        opacity: 0.8;
+        margin-left: 2px;
+    }
+
+    /* Canvas body */
+    .mat-body {
+        flex: 1;
+        position: relative;
+        overflow: hidden;
+        background: #f8faf8;
+    }
+
+    .mat-canvas {
+        position: absolute;
+        inset: 0;
+        cursor: grab;
+    }
+
+    .mat-canvas.grabbing {
+        cursor: grabbing;
+    }
+
+    /* Tooltip */
+    .mat-tip {
+        position: fixed;
+        pointer-events: none;
+        z-index: 120;
+        background: #0f172a;
+        color: #f1f5f9;
+        padding: 10px 16px;
+        border-radius: 12px;
+        font-size: 12px;
+        line-height: 1.6;
+        max-width: 350px;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        opacity: 0;
+        transition: opacity 0.12s;
+    }
+
+    .mat-tip.show {
+        opacity: 1;
+    }
+
+    /* Minimap */
+    .mat-minimap {
+        position: absolute;
+        bottom: 16px;
+        right: 16px;
+        border: 2px solid #cbd5e1;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+        background: #fff;
+    }
+
+    .mm-vp {
+        position: absolute;
+        border: 2px solid #3b82f6;
+        background: rgba(59, 130, 246, 0.12);
+        pointer-events: none;
+        border-radius: 2px;
+    }
+
+    /* Zoom */
+    .zoom-bar {
+        position: absolute;
+        bottom: 16px;
+        left: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .z-btn {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        color: #334155;
+        font-size: 18px;
+        font-weight: 700;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.15s;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+    }
+
+    .z-btn:hover {
+        background: #f1f5f9;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    }
+
+    /* Legend bar */
+    .mat-legend {
+        position: absolute;
+        top: 12px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 16px;
+        padding: 8px 20px;
+        background: rgba(255, 255, 255, 0.92);
+        backdrop-filter: blur(8px);
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        font-size: 11px;
+        font-weight: 600;
+        color: #475569;
+    }
+
+    .mat-legend .lg-item {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .mat-legend .lg-sq {
+        width: 14px;
+        height: 14px;
+        border-radius: 3px;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" x-data="inventoryAnalysisApp('{{ batch_id }}')" x-init="init()">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" x-data="inventoryAnalysisApp('{{ batch_id }}')"
+    x-init="init()">
     <div class="mb-6">
         <h1 class="text-3xl font-bold text-slate-900">Inventory Compatibility Analysis</h1>
         <p class="text-slate-500 mt-1">Batch <span class="font-mono" x-text="batchId"></span></p>
     </div>
 
+    <!-- Loading -->
     <div x-show="loading" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-10 text-center">
-        <svg class="animate-spin h-8 w-8 text-indigo-600 mx-auto mb-3" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+        <svg class="animate-spin h-8 w-8 text-indigo-600 mx-auto mb-3" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
         <p class="text-slate-600">Loading analysis results...</p>
     </div>
 
-    <div x-show="error" class="bg-rose-50 border border-rose-200 rounded-xl p-4 text-rose-700 mb-6" x-text="error"></div>
+    <div x-show="error" class="bg-rose-50 border border-rose-200 rounded-xl p-4 text-rose-700 mb-6" x-text="error">
+    </div>
 
     <template x-if="analysis && !loading">
         <div>
+            <!-- KPI Cards -->
             <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
                 <div class="bg-white rounded-xl border border-slate-200 p-4 text-center">
                     <p class="text-2xl font-bold text-slate-900" x-text="analysis.total_chemicals || 0"></p>
@@ -50,43 +302,37 @@
                 </div>
             </div>
 
+            <!-- Export + Open Matrix -->
             <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
                 <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
-                    <h3 class="font-semibold text-slate-800">Export Analysis</h3>
-                    <div class="flex items-center gap-2">
-                        <a :href="`/api/inventory/analysis/${encodeURIComponent(batchId)}/export/pdf`" class="px-4 py-2 rounded-lg bg-slate-700 text-white text-sm font-medium hover:bg-slate-800">Download PDF</a>
-                        <a :href="`/api/inventory/analysis/${encodeURIComponent(batchId)}/export/excel`" class="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700">Download Excel</a>
+                    <h3 class="font-semibold text-slate-800">Analysis Tools</h3>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <button @click="openMatrixOverlay()"
+                            class="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition shadow-sm">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                            </svg>
+                            Open Interactive Matrix
+                        </button>
+                        <a :href="`/api/inventory/analysis/${encodeURIComponent(batchId)}/export/pdf`"
+                            class="px-4 py-2 rounded-lg bg-slate-700 text-white text-sm font-medium hover:bg-slate-800">Download
+                            PDF</a>
+                        <a :href="`/api/inventory/analysis/${encodeURIComponent(batchId)}/export/excel`"
+                            class="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700">Download
+                            Excel</a>
                     </div>
                 </div>
-                <p class="text-sm text-slate-500">Generated at: <span class="font-mono" x-text="analysis.analysis_date || analysis.analyzed_at || '-' "></span></p>
+                <p class="text-sm text-slate-500">Generated at: <span class="font-mono"
+                        x-text="analysis.analysis_date || analysis.analyzed_at || '-'"></span></p>
+                <p class="text-sm text-slate-500 mt-1">Matrix size: <span class="font-semibold"
+                        x-text="(analysis.total_chemicals || 0) + ' × ' + (analysis.total_chemicals || 0)"></span>
+                    (<span
+                        x-text="((analysis.total_chemicals||0) * ((analysis.total_chemicals||0)-1) / 2).toLocaleString()"></span>
+                    unique pairs)</p>
             </div>
 
-            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6 overflow-x-auto">
-                <h3 class="font-semibold text-slate-800 mb-4">Incompatibility Matrix</h3>
-                <table class="min-w-max border-collapse text-xs">
-                    <thead>
-                        <tr>
-                            <th class="border border-slate-300 bg-slate-50 p-2 sticky left-0 z-10">Chemical</th>
-                            <template x-for="(chem, cidx) in analysis.chemicals" :key="`h-${cidx}`">
-                                <th class="border border-slate-300 bg-slate-50 p-2 min-w-[84px]" x-text="chem.name"></th>
-                            </template>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <template x-for="(row, ridx) in analysis.matrix" :key="`r-${ridx}`">
-                            <tr>
-                                <th class="border border-slate-300 bg-slate-50 p-2 text-left sticky left-0 z-10" x-text="analysis.chemicals[ridx]?.name"></th>
-                                <template x-for="(cell, cidx) in row" :key="`c-${ridx}-${cidx}`">
-                                    <td class="border border-slate-300 p-2 text-center" :style="`background:${cell.color || '#f8fafc'};${cell.risk_level === 'EXPLOSIVE' ? 'color:white;' : ''}`">
-                                        <span class="font-semibold" x-text="cell.risk_level"></span>
-                                    </td>
-                                </template>
-                            </tr>
-                        </template>
-                    </tbody>
-                </table>
-            </div>
-
+            <!-- Dangerous / Explosive Warnings Table -->
             <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
                 <h3 class="font-semibold text-slate-800 mb-4">Dangerous / Explosive Warnings</h3>
                 <div class="overflow-x-auto">
@@ -102,21 +348,23 @@
                         </thead>
                         <tbody class="divide-y divide-slate-100">
                             <template x-if="criticalPairs.length === 0">
-                                <tr><td colspan="5" class="px-4 py-5 text-slate-500 text-center">No dangerous or explosive pairs found.</td></tr>
+                                <tr>
+                                    <td colspan="5" class="px-4 py-5 text-slate-500 text-center">No dangerous or
+                                        explosive pairs found.</td>
+                                </tr>
                             </template>
-                            <template x-for="pair in criticalPairs" :key="pair.chemical_a_id + '-' + pair.chemical_b_id">
+                            <template x-for="pair in criticalPairs"
+                                :key="pair.chemical_a_id + '-' + pair.chemical_b_id">
                                 <tr>
                                     <td class="px-3 py-2" x-text="pair.chemical_a_name"></td>
                                     <td class="px-3 py-2" x-text="pair.chemical_b_name"></td>
                                     <td class="px-3 py-2">
                                         <span class="inline-flex px-2 py-0.5 rounded text-xs font-semibold"
-                                              :class="pair.risk_level === 'EXPLOSIVE' ? 'risk-explosive' : 'risk-dangerous'"
-                                              x-text="pair.risk_level"></span>
+                                            :class="pair.risk_level === 'EXPLOSIVE' ? 'risk-explosive' : 'risk-dangerous'"
+                                            x-text="pair.risk_level"></span>
                                     </td>
                                     <td class="px-3 py-2 text-slate-600" x-text="pair.explanation"></td>
-                                    <td class="px-3 py-2">
-                                        <span x-text="storageIssueFor(pair)"></span>
-                                    </td>
+                                    <td class="px-3 py-2"><span x-text="storageIssueFor(pair)"></span></td>
                                 </tr>
                             </template>
                         </tbody>
@@ -124,6 +372,7 @@
                 </div>
             </div>
 
+            <!-- Storage Location Report -->
             <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                 <h3 class="font-semibold text-slate-800 mb-4">Storage Location Report</h3>
                 <div class="space-y-3">
@@ -141,55 +390,828 @@
             </div>
         </div>
     </template>
+
+    <!-- ═══════ MATRIX FULL-SCREEN OVERLAY ═══════ -->
+    <div x-show="matrixOpen" x-transition class="matrix-overlay" style="display:none;"
+        @keydown.escape.window="matrixOpen && closeMatrixOverlay()">
+
+        <!-- Top Bar -->
+        <div class="mat-header">
+            <div class="flex items-center gap-4">
+                <h3>⬡ Incompatibility Matrix</h3>
+                <span class="text-xs text-slate-400 font-mono"
+                    x-text="(analysis?.total_chemicals||0) + ' chemicals'"></span>
+            </div>
+            <div class="flex items-center gap-3 flex-wrap">
+                <button class="mat-filt f-all" :class="{'active': matrixFilter==='ALL'}"
+                    @click="setMatrixFilter('ALL')">All</button>
+                <button class="mat-filt f-safe" :class="{'active': matrixFilter==='SAFE'}"
+                    @click="setMatrixFilter('SAFE')"><span class="filt-dot" style="background:#22c55e;"></span>
+                    Compatible <span class="filt-cnt" x-text="filterCounts.SAFE||0"></span></button>
+                <button class="mat-filt f-caut" :class="{'active': matrixFilter==='CAUTION'}"
+                    @click="setMatrixFilter('CAUTION')"><span class="filt-dot" style="background:#eab308;"></span>
+                    Caution <span class="filt-cnt" x-text="filterCounts.CAUTION||0"></span></button>
+                <button class="mat-filt f-dang" :class="{'active': matrixFilter==='DANGEROUS'}"
+                    @click="setMatrixFilter('DANGEROUS')"><span class="filt-dot" style="background:#ef4444;"></span>
+                    Incompatible <span class="filt-cnt" x-text="filterCounts.DANGEROUS||0"></span></button>
+                <button class="mat-filt f-expl" :class="{'active': matrixFilter==='EXPLOSIVE'}"
+                    @click="setMatrixFilter('EXPLOSIVE')"><span class="filt-dot" style="background:#721c24;"></span>
+                    Explosive <span class="filt-cnt" x-text="filterCounts.EXPLOSIVE||0"></span></button>
+                <div style="width:1px;height:24px;background:#e2e8f0;margin:0 4px;"></div>
+                <button @click="closeMatrixOverlay()" class="z-btn" title="Close (Esc)"
+                    style="color:#ef4444;">✕</button>
+            </div>
+        </div>
+
+        <!-- Canvas -->
+        <div class="mat-body" id="matrix-container">
+            <canvas id="matrix-canvas" class="mat-canvas"></canvas>
+
+            <!-- Legend -->
+            <div class="mat-legend">
+                <div class="lg-item">
+                    <div class="lg-sq" style="background:#dcfce7;border:1px solid #86efac;"></div> Compatible
+                </div>
+                <div class="lg-item">
+                    <div class="lg-sq" style="background:#fef9c3;border:1px solid #facc15;"></div> Caution
+                </div>
+                <div class="lg-item">
+                    <div class="lg-sq" style="background:#fee2e2;border:1px solid #fca5a5;"></div> Incompatible
+                </div>
+                <div class="lg-item">
+                    <div class="lg-sq" style="background:#450a0a;border:1px solid #721c24;"></div> Explosive
+                </div>
+                <div class="lg-item">
+                    <div class="lg-sq" style="background:#f0fdf4;border:1px solid #bbf7d0;"></div> Self / Diagonal
+                </div>
+            </div>
+
+            <!-- Zoom -->
+            <div class="zoom-bar">
+                <button class="z-btn" @click="matrixZoomIn()" title="Zoom In">+</button>
+                <button class="z-btn" @click="matrixZoomOut()" title="Zoom Out">−</button>
+                <button class="z-btn" @click="matrixResetView()" title="Fit All" style="font-size:13px;">⟲</button>
+            </div>
+
+            <!-- Minimap -->
+            <div class="mat-minimap" id="minimap-box">
+                <canvas id="minimap-canvas" width="160" height="160"></canvas>
+                <div class="mm-vp" id="mm-vp"></div>
+            </div>
+        </div>
+
+        <!-- Tooltip -->
+        <div class="mat-tip" id="mat-tip"></div>
+    </div>
+
+    <!-- Click Detail Modal -->
+    <div x-show="pairModalOpen" x-transition class="fixed inset-0 z-[130] flex items-center justify-center p-4"
+        style="display:none;">
+        <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" @click="pairModalOpen=false"></div>
+        <div class="relative w-full max-w-md bg-white rounded-2xl shadow-2xl p-6" @click.stop>
+            <div class="flex items-start justify-between mb-4">
+                <h3 class="text-lg font-bold text-slate-900">Pair Details</h3>
+                <button @click="pairModalOpen=false" class="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <template x-if="selectedPair">
+                <div class="space-y-4">
+                    <div class="flex items-center gap-3">
+                        <span class="text-sm font-bold text-slate-800" x-text="selectedPair.chemA"></span>
+                        <span class="text-slate-400">×</span>
+                        <span class="text-sm font-bold text-slate-800" x-text="selectedPair.chemB"></span>
+                    </div>
+                    <div>
+                        <span class="inline-flex px-3 py-1 rounded-full text-sm font-bold" :class="{
+                                  'bg-emerald-100 text-emerald-800': selectedPair.risk==='SAFE',
+                                  'bg-amber-100 text-amber-800': selectedPair.risk==='CAUTION',
+                                  'bg-red-100 text-red-800': selectedPair.risk==='DANGEROUS',
+                                  'risk-explosive': selectedPair.risk==='EXPLOSIVE',
+                              }" x-text="selectedPair.riskLabel"></span>
+                    </div>
+                    <template x-if="selectedPair.hazards && selectedPair.hazards.length">
+                        <div>
+                            <p class="text-xs font-semibold text-slate-500 uppercase mb-1">Hazards</p>
+                            <div class="flex flex-wrap gap-1">
+                                <template x-for="h in selectedPair.hazards" :key="h">
+                                    <span class="px-2 py-0.5 rounded bg-red-50 text-red-700 text-xs font-medium"
+                                        x-text="h"></span>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                    <template x-if="selectedPair.gases && selectedPair.gases.length">
+                        <div>
+                            <p class="text-xs font-semibold text-slate-500 uppercase mb-1">Gas Products</p>
+                            <div class="flex flex-wrap gap-1">
+                                <template x-for="g in selectedPair.gases" :key="g">
+                                    <span class="px-2 py-0.5 rounded bg-purple-50 text-purple-700 text-xs font-medium"
+                                        x-text="g"></span>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                    <template x-if="selectedPair.explanation">
+                        <div>
+                            <p class="text-xs font-semibold text-slate-500 uppercase mb-1">Explanation</p>
+                            <p class="text-sm text-slate-700" x-text="selectedPair.explanation"></p>
+                        </div>
+                    </template>
+                </div>
+            </template>
+        </div>
+    </div>
 </div>
 
 <script>
-function inventoryAnalysisApp(batchId) {
-    return {
-        batchId,
-        loading: true,
-        error: '',
-        analysis: null,
+    /**
+     * MatrixRenderer — Google-Maps-style Canvas renderer for chemical compatibility.
+     * Shows detailed text (status + hazards) in each cell like a professional data grid.
+     * Handles 500×500 at 60fps via viewport culling.
+     */
+    class MatrixRenderer {
+        constructor(canvas, minimapCanvas, data, pairIndex, onCellClick) {
+            this.canvas = canvas;
+            this.ctx = canvas.getContext('2d');
+            this.mmCanvas = minimapCanvas;
+            this.mmCtx = minimapCanvas.getContext('2d');
+            this.data = data;
+            this.pairIndex = pairIndex;   // { "r-c": pairDetail }
+            this.onCellClick = onCellClick;
 
-        get criticalPairs() {
-            const pairs = (this.analysis?.pair_details || []);
-            return pairs.filter(p => p.risk_level === 'DANGEROUS' || p.risk_level === 'EXPLOSIVE');
-        },
+            this.N = data.chemicals.length;
 
-        async init() {
-            await this.loadAnalysis();
-        },
+            // Cell dimensions — large enough for text like the reference image
+            this.cellW = 200;
+            this.cellH = 130;
+            this.headerH = 140;  // top header boxes height (enough for name + wrapped text)
+            this.labelW = 240;  // left header boxes width (full name readable)
 
-        async loadAnalysis() {
-            this.loading = true;
-            this.error = '';
-            try {
-                const res = await fetch(`/api/inventory/analysis/${encodeURIComponent(this.batchId)}`);
-                const data = await res.json();
-                if (!res.ok || data.error) {
-                    this.error = data.error || 'Failed to load analysis.';
-                    this.loading = false;
-                    return;
+            this.scale = 1;
+            this.minScale = 0.03;
+            this.maxScale = 3;
+            this.offsetX = 0;
+            this.offsetY = 0;
+
+            // Interaction
+            this.dragging = false;
+            this.dragSX = 0; this.dragSY = 0;
+            this.lastOX = 0; this.lastOY = 0;
+            this.hoveredCell = null;
+            this.filter = 'ALL';
+
+            // Colors
+            this.riskConfig = {
+                'SAFE': { bg: '#f0fdf4', border: '#86efac', text: '#166534', label: 'Compatible', icon: '■', iconColor: '#22c55e' },
+                'CAUTION': { bg: '#fefce8', border: '#facc15', text: '#854d0e', label: 'Caution', icon: '■', iconColor: '#eab308' },
+                'DANGEROUS': { bg: '#fef2f2', border: '#fca5a5', text: '#991b1b', label: 'Incompatible', icon: '■', iconColor: '#ef4444' },
+                'EXPLOSIVE': { bg: '#450a0a', border: '#721c24', text: '#fecaca', label: 'Incompatible', icon: '■', iconColor: '#dc2626' },
+            };
+            this.selfConfig = { bg: '#f0fdf4', border: '#bbf7d0' };
+            this.dimAlpha = 0.06;
+
+            this._bind();
+            this._fitToView();
+            this._drawMinimap();
+        }
+
+        // ── Events ──
+
+        _bind() {
+            const c = this.canvas;
+            c.addEventListener('mousedown', e => this._mouseDown(e));
+            c.addEventListener('mousemove', e => this._mouseMove(e));
+            c.addEventListener('mouseup', e => this._mouseUp(e));
+            c.addEventListener('mouseleave', e => this._mouseLeave(e));
+            c.addEventListener('wheel', e => this._wheel(e), { passive: false });
+            c.addEventListener('click', e => this._click(e));
+            c.addEventListener('dblclick', e => this._dblClick(e));
+            c.addEventListener('touchstart', e => this._touchStart(e), { passive: false });
+            c.addEventListener('touchmove', e => this._touchMove(e), { passive: false });
+            c.addEventListener('touchend', e => this._touchEnd(e));
+        }
+
+        resize(w, h) {
+            const dpr = window.devicePixelRatio || 1;
+            this.canvas.width = w * dpr;
+            this.canvas.height = h * dpr;
+            this.canvas.style.width = w + 'px';
+            this.canvas.style.height = h + 'px';
+            this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            this.vW = w;
+            this.vH = h;
+            this.render();
+        }
+
+        _fitToView() {
+            const totalW = this.labelW + this.N * this.cellW;
+            const totalH = this.headerH + this.N * this.cellH;
+            const fitS = Math.min((this.vW || 900) / totalW, (this.vH || 600) / totalH, 1);
+            this.scale = Math.max(fitS, this.minScale);
+            this.offsetX = 10;
+            this.offsetY = 10;
+        }
+
+        resetView() { this._fitToView(); this.render(); this._updateMmVp(); }
+
+        setFilter(f) { this.filter = f; this.render(); this._drawMinimap(); }
+
+        // ── Core Render ──
+
+        render() {
+            const ctx = this.ctx;
+            const w = this.vW, h = this.vH;
+            if (!w || !h) return;
+
+            ctx.clearRect(0, 0, w, h);
+            ctx.save();
+            ctx.translate(this.offsetX, this.offsetY);
+            ctx.scale(this.scale, this.scale);
+
+            const cW = this.cellW, cH = this.cellH;
+            const lW = this.labelW, hH = this.headerH;
+            const N = this.N;
+            const matrix = this.data.matrix;
+            const chems = this.data.chemicals;
+
+            // Visible range (viewport culling)
+            const inv = 1 / this.scale;
+            const vL = -this.offsetX * inv;
+            const vT = -this.offsetY * inv;
+            const vR = vL + w * inv;
+            const vB = vT + h * inv;
+
+            const c0 = Math.max(0, Math.floor((vL - lW) / cW));
+            const c1 = Math.min(N, Math.ceil((vR - lW) / cW));
+            const r0 = Math.max(0, Math.floor((vT - hH) / cH));
+            const r1 = Math.min(N, Math.ceil((vB - hH) / cH));
+
+            // Determine detail level based on zoom
+            const showText = this.scale >= 0.18;
+            const showHazards = this.scale >= 0.35;
+            const showFullDetail = this.scale >= 0.55;
+
+            // ── Draw cells ──
+            for (let i = r0; i < r1; i++) {
+                const row = matrix[i];
+                if (!row) continue;
+                for (let j = c0; j < c1; j++) {
+                    const cell = row[j];
+                    if (!cell) continue;
+
+                    const risk = cell.risk_level || 'SAFE';
+                    const isDiag = (i === j);
+                    const x = lW + j * cW;
+                    const y = hH + i * cH;
+
+                    // Filter dimming
+                    if (this.filter !== 'ALL' && !isDiag && risk !== this.filter) {
+                        ctx.globalAlpha = this.dimAlpha;
+                    } else {
+                        ctx.globalAlpha = 1;
+                    }
+
+                    const cfg = isDiag ? this.selfConfig : (this.riskConfig[risk] || this.riskConfig['SAFE']);
+
+                    // Cell background
+                    ctx.fillStyle = cfg.bg;
+                    ctx.fillRect(x, y, cW, cH);
+
+                    // Cell border
+                    ctx.strokeStyle = cfg.border;
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(x + 0.5, y + 0.5, cW - 1, cH - 1);
+
+                    // Hover highlight
+                    if (this.hoveredCell && this.hoveredCell.r === i && this.hoveredCell.c === j) {
+                        ctx.globalAlpha = 1;
+                        ctx.strokeStyle = '#3b82f6';
+                        ctx.lineWidth = 3 / this.scale;
+                        ctx.strokeRect(x, y, cW, cH);
+                        ctx.strokeStyle = cfg.border;
+                        ctx.lineWidth = 1;
+                    }
+
+                    if (ctx.globalAlpha < 0.1) continue; // skip text if dimmed
+
+                    // Diagonal cell: just the chemical name
+                    if (isDiag) {
+                        if (showText) {
+                            const name = chems[i]?.name || '';
+                            ctx.fillStyle = '#166534';
+                            ctx.font = 'bold 11px Inter, system-ui, sans-serif';
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'middle';
+                            this._wrapText(ctx, name.toUpperCase(), x + cW / 2, y + cH / 2, cW - 12, 13);
+                        }
+                        continue;
+                    }
+
+                    // Non-diagonal cell: status label + hazards
+                    if (showText) {
+                        const rc = this.riskConfig[risk] || this.riskConfig['SAFE'];
+                        let ty = y + 14;
+
+                        // Status label with colored square icon
+                        ctx.font = 'bold 12px Inter, system-ui, sans-serif';
+                        ctx.textAlign = 'left';
+                        ctx.textBaseline = 'top';
+
+                        // Icon square
+                        ctx.fillStyle = rc.iconColor;
+                        ctx.fillRect(x + 10, ty - 1, 12, 12);
+                        ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+                        ctx.lineWidth = 0.5;
+                        ctx.strokeRect(x + 10, ty - 1, 12, 12);
+
+                        // Label text
+                        ctx.fillStyle = rc.text;
+                        ctx.fillText(rc.label, x + 28, ty);
+                        ty += 18;
+
+                        // Hazards list
+                        if (showHazards) {
+                            const pair = this._getPair(i, j);
+                            const hazards = pair?.hazards || cell.hazards || [];
+                            const gases = pair?.gases || cell.gases || [];
+                            const items = [...hazards, ...gases.map(g => g)];
+
+                            ctx.font = '10px Inter, system-ui, sans-serif';
+                            ctx.fillStyle = '#64748b';
+
+                            const maxItems = showFullDetail ? 7 : 3;
+                            for (let k = 0; k < Math.min(items.length, maxItems); k++) {
+                                if (ty > y + cH - 10) break;
+                                let label = items[k];
+                                if (label.length > 28) label = label.slice(0, 26) + '…';
+                                ctx.fillText(label, x + 12, ty);
+                                ty += 13;
+                            }
+                            if (items.length > maxItems) {
+                                ctx.fillStyle = '#94a3b8';
+                                ctx.fillText(`+${items.length - maxItems} more…`, x + 12, ty);
+                            }
+                        }
+                    }
                 }
-                this.analysis = data;
-            } catch (e) {
-                this.error = `Failed to load analysis: ${e.message}`;
-            } finally {
-                this.loading = false;
             }
-        },
 
-        storageIssueFor(pair) {
-            const warnings = this.analysis?.location_warnings || [];
-            const found = warnings.find((w) => {
-                const direct = w.chemical_a === pair.chemical_a_name && w.chemical_b === pair.chemical_b_name;
-                const reverse = w.chemical_a === pair.chemical_b_name && w.chemical_b === pair.chemical_a_name;
-                return direct || reverse;
-            });
-            if (!found) return '—';
-            return `⚠️ ${found.locations.join(', ')}`;
-        },
-    };
-}
+            ctx.globalAlpha = 1;
+
+            // ── Column header boxes (top strip) ──
+            // Always drawn so the grid structure is visible even when cells are dimmed
+            for (let j = c0; j < c1; j++) {
+                const bx = lW + j * cW;
+                const by = 0;
+                const bw = cW;
+                const bh = hH;
+                const pad = 6;
+                const radius = 4;
+
+                // Box background + border
+                ctx.fillStyle = '#f8fafc';
+                this._roundRect(ctx, bx + 1, by + 1, bw - 2, bh - 2, radius);
+                ctx.fill();
+                ctx.strokeStyle = '#cbd5e1';
+                ctx.lineWidth = 1;
+                this._roundRect(ctx, bx + 1, by + 1, bw - 2, bh - 2, radius);
+                ctx.stroke();
+
+                // Accent bar at bottom of column header box
+                ctx.fillStyle = '#3b82f6';
+                ctx.fillRect(bx + 1, by + bh - 3, bw - 2, 3);
+
+                // Chemical name — wrap inside box
+                if (showText) {
+                    const name = (chems[j]?.name || '').toUpperCase();
+                    ctx.fillStyle = '#1e293b';
+                    ctx.font = 'bold 11px Inter, system-ui, sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'top';
+                    this._wrapTextBox(ctx, name, bx + bw / 2, by + pad, bw - pad * 2, 14);
+                }
+            }
+
+            // Top-left corner box (blank)
+            ctx.fillStyle = '#f1f5f9';
+            this._roundRect(ctx, 1, 1, lW - 2, hH - 2, 4);
+            ctx.fill();
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.lineWidth = 1;
+            this._roundRect(ctx, 1, 1, lW - 2, hH - 2, 4);
+            ctx.stroke();
+
+            // ── Row header boxes (left strip) ──
+            for (let i = r0; i < r1; i++) {
+                const bx = 0;
+                const by = hH + i * cH;
+                const bw = lW;
+                const bh = cH;
+                const pad = 8;
+                const radius = 4;
+
+                // Box background + border
+                ctx.fillStyle = '#f8fafc';
+                this._roundRect(ctx, bx + 1, by + 1, bw - 2, bh - 2, radius);
+                ctx.fill();
+                ctx.strokeStyle = '#cbd5e1';
+                ctx.lineWidth = 1;
+                this._roundRect(ctx, bx + 1, by + 1, bw - 2, bh - 2, radius);
+                ctx.stroke();
+
+                // Accent bar on right edge of row header box
+                ctx.fillStyle = '#3b82f6';
+                ctx.fillRect(bx + bw - 3, by + 1, 3, bh - 2);
+
+                // Chemical name — wrap inside box
+                if (showText) {
+                    const name = (chems[i]?.name || '').toUpperCase();
+                    ctx.fillStyle = '#1e293b';
+                    ctx.font = 'bold 11px Inter, system-ui, sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    this._wrapTextBox(ctx, name, bx + (bw - 3) / 2, by + bh / 2, bw - pad * 2 - 3, 14);
+                }
+            }
+
+            ctx.restore();
+            this._updateMmVp();
+        }
+
+        // Wrap text centered around cx,cy with hard max width
+        _wrapText(ctx, text, cx, cy, maxW, lineH) {
+            const words = text.split(' ');
+            let lines = [];
+            let cur = '';
+            for (const w of words) {
+                const test = cur ? cur + ' ' + w : w;
+                if (ctx.measureText(test).width > maxW && cur) { lines.push(cur); cur = w; }
+                else cur = test;
+            }
+            if (cur) lines.push(cur);
+            const startY = cy - (lines.length - 1) * lineH / 2;
+            for (let l = 0; l < lines.length; l++) ctx.fillText(lines[l], cx, startY + l * lineH);
+        }
+
+        // Wrap text in a box — top-aligned from startY, centered on cx
+        _wrapTextBox(ctx, text, cx, startY, maxW, lineH) {
+            const words = text.split(' ');
+            let lines = [];
+            let cur = '';
+            for (const w of words) {
+                const test = cur ? cur + ' ' + w : w;
+                if (ctx.measureText(test).width > maxW && cur) { lines.push(cur); cur = w; }
+                else cur = test;
+            }
+            if (cur) lines.push(cur);
+            for (let l = 0; l < lines.length; l++) ctx.fillText(lines[l], cx, startY + l * lineH);
+        }
+
+        // Reusable rounded rect path
+        _roundRect(ctx, x, y, w, h, r) {
+            ctx.beginPath();
+            ctx.moveTo(x + r, y);
+            ctx.lineTo(x + w - r, y);
+            ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+            ctx.lineTo(x + w, y + h - r);
+            ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+            ctx.lineTo(x + r, y + h);
+            ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+            ctx.lineTo(x, y + r);
+            ctx.quadraticCurveTo(x, y, x + r, y);
+            ctx.closePath();
+        }
+
+        _getPair(r, c) {
+            return this.pairIndex[`${r}-${c}`] || this.pairIndex[`${c}-${r}`] || null;
+        }
+
+        // ── Minimap ──
+
+        _drawMinimap() {
+            const mc = this.mmCtx;
+            const S = 160;
+            mc.clearRect(0, 0, S, S);
+            const N = this.N;
+            if (!N) return;
+            const cs = S / N;
+            const matrix = this.data.matrix;
+
+            for (let i = 0; i < N; i++) {
+                const row = matrix[i];
+                if (!row) continue;
+                for (let j = 0; j < N; j++) {
+                    const cell = row[j];
+                    if (!cell) continue;
+                    const risk = cell.risk_level || 'SAFE';
+                    const cfg = this.riskConfig[risk];
+                    if (this.filter !== 'ALL' && i !== j && risk !== this.filter) {
+                        mc.globalAlpha = 0.08;
+                    } else {
+                        mc.globalAlpha = 1;
+                    }
+                    mc.fillStyle = cfg ? cfg.iconColor : '#86efac';
+                    mc.fillRect(j * cs, i * cs, Math.max(cs, 1), Math.max(cs, 1));
+                }
+            }
+            mc.globalAlpha = 1;
+        }
+
+        _updateMmVp() {
+            const vp = document.getElementById('mm-vp');
+            if (!vp || !this.vW) return;
+            const S = 160;
+            const totalW = this.labelW + this.N * this.cellW;
+            const totalH = this.headerH + this.N * this.cellH;
+            const rX = S / totalW, rY = S / totalH;
+            const inv = 1 / this.scale;
+            vp.style.left = Math.max(0, (-this.offsetX * inv - this.labelW) * rX) + 'px';
+            vp.style.top = Math.max(0, (-this.offsetY * inv - this.headerH) * rY) + 'px';
+            vp.style.width = Math.min(S, this.vW * inv * rX) + 'px';
+            vp.style.height = Math.min(S, this.vH * inv * rY) + 'px';
+        }
+
+        // ── Hit Test ──
+
+        _screen2cell(ex, ey) {
+            const r = this.canvas.getBoundingClientRect();
+            const mx = (ex - r.left - this.offsetX) / this.scale;
+            const my = (ey - r.top - this.offsetY) / this.scale;
+            const col = Math.floor((mx - this.labelW) / this.cellW);
+            const row = Math.floor((my - this.headerH) / this.cellH);
+            if (row >= 0 && row < this.N && col >= 0 && col < this.N) return { r: row, c: col };
+            return null;
+        }
+
+        // ── Mouse ──
+
+        _mouseDown(e) {
+            this.dragging = true;
+            this.dragSX = e.clientX; this.dragSY = e.clientY;
+            this.lastOX = this.offsetX; this.lastOY = this.offsetY;
+            this.canvas.classList.add('grabbing');
+        }
+        _mouseMove(e) {
+            if (this.dragging) {
+                this.offsetX = this.lastOX + (e.clientX - this.dragSX);
+                this.offsetY = this.lastOY + (e.clientY - this.dragSY);
+                this.render();
+                this._hideTip();
+            } else {
+                const cell = this._screen2cell(e.clientX, e.clientY);
+                this.hoveredCell = cell;
+                if (cell) this._showTip(e.clientX, e.clientY, cell);
+                else this._hideTip();
+                this.render();
+            }
+        }
+        _mouseUp() { this.dragging = false; this.canvas.classList.remove('grabbing'); }
+        _mouseLeave() { this.dragging = false; this.canvas.classList.remove('grabbing'); this.hoveredCell = null; this._hideTip(); this.render(); }
+
+        _wheel(e) {
+            e.preventDefault();
+            const r = this.canvas.getBoundingClientRect();
+            const mx = e.clientX - r.left, my = e.clientY - r.top;
+            const d = e.deltaY > 0 ? 0.82 : 1.22;
+            const ns = Math.max(this.minScale, Math.min(this.maxScale, this.scale * d));
+            const ratio = ns / this.scale;
+            this.offsetX = mx - ratio * (mx - this.offsetX);
+            this.offsetY = my - ratio * (my - this.offsetY);
+            this.scale = ns;
+            this.render();
+        }
+
+        _click(e) {
+            if (Math.abs(e.clientX - this.dragSX) > 5 || Math.abs(e.clientY - this.dragSY) > 5) return;
+            const cell = this._screen2cell(e.clientX, e.clientY);
+            if (cell && this.onCellClick) {
+                const cd = this.data.matrix[cell.r]?.[cell.c];
+                if (cd) this.onCellClick(cell.r, cell.c, cd);
+            }
+        }
+
+        _dblClick(e) {
+            const r = this.canvas.getBoundingClientRect();
+            const mx = e.clientX - r.left, my = e.clientY - r.top;
+            const ns = Math.min(this.maxScale, this.scale * 2);
+            const ratio = ns / this.scale;
+            this.offsetX = mx - ratio * (mx - this.offsetX);
+            this.offsetY = my - ratio * (my - this.offsetY);
+            this.scale = ns;
+            this.render();
+        }
+
+        // ── Touch ──
+
+        _touchStart(e) {
+            e.preventDefault();
+            if (e.touches.length === 1) {
+                this.dragging = true;
+                this.dragSX = e.touches[0].clientX; this.dragSY = e.touches[0].clientY;
+                this.lastOX = this.offsetX; this.lastOY = this.offsetY;
+            } else if (e.touches.length === 2) {
+                this._pinchDist = Math.hypot(e.touches[1].clientX - e.touches[0].clientX, e.touches[1].clientY - e.touches[0].clientY);
+                this._pinchScale = this.scale;
+            }
+        }
+        _touchMove(e) {
+            e.preventDefault();
+            if (e.touches.length === 1 && this.dragging) {
+                this.offsetX = this.lastOX + (e.touches[0].clientX - this.dragSX);
+                this.offsetY = this.lastOY + (e.touches[0].clientY - this.dragSY);
+                this.render();
+            } else if (e.touches.length === 2 && this._pinchDist) {
+                const d = Math.hypot(e.touches[1].clientX - e.touches[0].clientX, e.touches[1].clientY - e.touches[0].clientY);
+                this.scale = Math.max(this.minScale, Math.min(this.maxScale, this._pinchScale * (d / this._pinchDist)));
+                this.render();
+            }
+        }
+        _touchEnd() { this.dragging = false; this._pinchDist = null; }
+
+        // ── Tooltip ──
+
+        _showTip(x, y, cell) {
+            const tt = document.getElementById('mat-tip');
+            if (!tt) return;
+            const chA = this.data.chemicals[cell.r]?.name || '?';
+            const chB = this.data.chemicals[cell.c]?.name || '?';
+            const cd = this.data.matrix[cell.r]?.[cell.c];
+            const risk = cd?.risk_level || 'SAFE';
+            const rc = this.riskConfig[risk];
+            const pair = this._getPair(cell.r, cell.c);
+            const hazards = pair?.hazards || cd?.hazards || [];
+
+            let html = `<div style="font-weight:800;margin-bottom:4px;">${chA} × ${chB}</div>`;
+            html += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${rc.iconColor};"></span><span style="font-weight:700;">${rc.label}</span></div>`;
+            if (hazards.length) {
+                html += `<div style="margin-top:4px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.1);font-size:11px;color:#94a3b8;">`;
+                hazards.slice(0, 5).forEach(h => { html += `${h}<br>`; });
+                if (hazards.length > 5) html += `+${hazards.length - 5} more`;
+                html += '</div>';
+            }
+            tt.innerHTML = html;
+            tt.classList.add('show');
+            let tx = x + 18, ty = y + 18;
+            if (tx + 320 > window.innerWidth) tx = x - 320;
+            if (ty + 120 > window.innerHeight) ty = y - 120;
+            tt.style.left = tx + 'px';
+            tt.style.top = ty + 'px';
+        }
+        _hideTip() { const tt = document.getElementById('mat-tip'); if (tt) tt.classList.remove('show'); }
+
+        // ── Programmatic zoom ──
+
+        zoomIn() { this._zoomCenter(1.5); }
+        zoomOut() { this._zoomCenter(0.65); }
+        _zoomCenter(factor) {
+            const cx = this.vW / 2, cy = this.vH / 2;
+            const ns = Math.max(this.minScale, Math.min(this.maxScale, this.scale * factor));
+            const r = ns / this.scale;
+            this.offsetX = cx - r * (cx - this.offsetX);
+            this.offsetY = cy - r * (cy - this.offsetY);
+            this.scale = ns;
+            this.render();
+        }
+    }
+
+    // ── Alpine App ──
+
+    function inventoryAnalysisApp(batchId) {
+        return {
+            batchId,
+            loading: true,
+            error: '',
+            analysis: null,
+            matrixOpen: false,
+            matrixFilter: 'ALL',
+            pairModalOpen: false,
+            selectedPair: null,
+            filterCounts: {},
+            _renderer: null,
+            _pairIndex: {},
+
+            get criticalPairs() {
+                return (this.analysis?.pair_details || []).filter(p => p.risk_level === 'DANGEROUS' || p.risk_level === 'EXPLOSIVE');
+            },
+
+            async init() { await this.loadAnalysis(); },
+
+            async loadAnalysis() {
+                this.loading = true;
+                this.error = '';
+                try {
+                    const res = await fetch(`/api/inventory/analysis/${encodeURIComponent(this.batchId)}`);
+                    const data = await res.json();
+                    if (!res.ok || data.error) { this.error = data.error || 'Failed to load analysis.'; this.loading = false; return; }
+                    this.analysis = data;
+                    this._buildPairIndex();
+                    this._buildFilterCounts();
+                } catch (e) { this.error = `Failed to load analysis: ${e.message}`; }
+                finally { this.loading = false; }
+            },
+
+            _buildPairIndex() {
+                this._pairIndex = {};
+                const chems = this.analysis?.chemicals || [];
+                const pairs = this.analysis?.pair_details || [];
+                // Map chem ID → matrix index
+                const idToIdx = {};
+                chems.forEach((c, idx) => { idToIdx[c.id] = idx; });
+                pairs.forEach(p => {
+                    const ri = idToIdx[p.chemical_a_id];
+                    const ci = idToIdx[p.chemical_b_id];
+                    if (ri !== undefined && ci !== undefined) {
+                        this._pairIndex[`${ri}-${ci}`] = p;
+                        this._pairIndex[`${ci}-${ri}`] = p;
+                    }
+                });
+            },
+
+            _buildFilterCounts() {
+                const counts = { SAFE: 0, CAUTION: 0, DANGEROUS: 0, EXPLOSIVE: 0 };
+                const matrix = this.analysis?.matrix || [];
+                const N = matrix.length;
+                for (let i = 0; i < N; i++) {
+                    for (let j = i + 1; j < N; j++) {
+                        const cell = matrix[i]?.[j];
+                        if (!cell) continue;
+                        const r = cell.risk_level || 'SAFE';
+                        if (counts[r] !== undefined) counts[r]++;
+                    }
+                }
+                this.filterCounts = counts;
+            },
+
+            storageIssueFor(pair) {
+                const warnings = this.analysis?.location_warnings || [];
+                const found = warnings.find(w =>
+                    (w.chemical_a === pair.chemical_a_name && w.chemical_b === pair.chemical_b_name) ||
+                    (w.chemical_a === pair.chemical_b_name && w.chemical_b === pair.chemical_a_name)
+                );
+                return found ? `⚠️ ${found.locations.join(', ')}` : '—';
+            },
+
+            // ── Matrix Overlay ──
+
+            openMatrixOverlay() {
+                if (!this.analysis?.matrix) return;
+                this.matrixOpen = true;
+                this.matrixFilter = 'ALL';
+
+                this.$nextTick(() => {
+                    const container = document.getElementById('matrix-container');
+                    const canvas = document.getElementById('matrix-canvas');
+                    const mm = document.getElementById('minimap-canvas');
+                    if (!container || !canvas || !mm) return;
+
+                    const self = this;
+                    this._renderer = new MatrixRenderer(canvas, mm, this.analysis, this._pairIndex, (r, c, cd) => {
+                        if (r === c) return; // skip diagonal
+                        const pair = self._pairIndex[`${r}-${c}`] || self._pairIndex[`${c}-${r}`] || {};
+                        const risk = cd.risk_level || 'SAFE';
+                        const labels = { SAFE: 'Compatible', CAUTION: 'Caution', DANGEROUS: 'Incompatible', EXPLOSIVE: 'Explosive' };
+                        self.selectedPair = {
+                            chemA: self.analysis.chemicals[r]?.name,
+                            chemB: self.analysis.chemicals[c]?.name,
+                            risk,
+                            riskLabel: labels[risk] || risk,
+                            hazards: pair.hazards || cd.hazards || [],
+                            gases: pair.gases || cd.gases || [],
+                            explanation: pair.explanation || '',
+                        };
+                        self.pairModalOpen = true;
+                    });
+
+                    const rect = container.getBoundingClientRect();
+                    this._renderer.resize(rect.width, rect.height);
+
+                    this._resizeH = () => {
+                        const r = container.getBoundingClientRect();
+                        if (self._renderer) self._renderer.resize(r.width, r.height);
+                    };
+                    window.addEventListener('resize', this._resizeH);
+                });
+            },
+
+            closeMatrixOverlay() {
+                this.matrixOpen = false;
+                if (this._resizeH) { window.removeEventListener('resize', this._resizeH); this._resizeH = null; }
+                this._renderer = null;
+            },
+
+            setMatrixFilter(f) {
+                this.matrixFilter = f;
+                if (this._renderer) this._renderer.setFilter(f);
+            },
+
+            matrixZoomIn() { if (this._renderer) this._renderer.zoomIn(); },
+            matrixZoomOut() { if (this._renderer) this._renderer.zoomOut(); },
+            matrixResetView() { if (this._renderer) this._renderer.resetView(); },
+        };
+    }
 </script>
 {% endblock %}

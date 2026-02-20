@@ -1,0 +1,446 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - SAFEWARE{% endblock %}
+{% block breadcrumb %}Dashboard{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div x-data="dashboardApp()" x-init="init()" class="space-y-6 animate-fade-in">
+
+    <!-- Page Title -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900">Safety Overview</h1>
+            <p class="text-sm text-slate-500 mt-1">Real-time chemical safety intelligence</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <span
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block"></span>
+                Live
+            </span>
+            <a href="/inventory"
+                class="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition">
+                + Import Inventory
+            </a>
+        </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+        <!-- Total Chemicals -->
+        <div class="content-card group relative overflow-hidden border border-slate-100">
+            <div
+                class="absolute inset-0 bg-gradient-to-br from-blue-50 to-transparent opacity-0 group-hover:opacity-100 transition duration-300">
+            </div>
+            <div class="relative flex items-start justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Chemicals</p>
+                    <p class="text-4xl font-black text-slate-900 mt-2"
+                        x-text="stats.total_chemicals?.toLocaleString() ?? '—'">—</p>
+                    <p class="text-xs text-slate-400 mt-2">In database</p>
+                </div>
+                <div class="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <!-- Safe Pairs -->
+        <div class="content-card group relative overflow-hidden border border-slate-100">
+            <div
+                class="absolute inset-0 bg-gradient-to-br from-emerald-50 to-transparent opacity-0 group-hover:opacity-100 transition duration-300">
+            </div>
+            <div class="relative flex items-start justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Safe Pairs</p>
+                    <p class="text-4xl font-black text-emerald-600 mt-2"
+                        x-text="stats.safe_pairs?.toLocaleString() ?? '—'">—</p>
+                    <p class="text-xs text-slate-400 mt-2">Compatible combinations</p>
+                </div>
+                <div class="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <!-- Caution Pairs -->
+        <div class="content-card group relative overflow-hidden border border-slate-100">
+            <div
+                class="absolute inset-0 bg-gradient-to-br from-amber-50 to-transparent opacity-0 group-hover:opacity-100 transition duration-300">
+            </div>
+            <div class="relative flex items-start justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Caution Pairs</p>
+                    <p class="text-4xl font-black text-amber-500 mt-2"
+                        x-text="stats.caution_pairs?.toLocaleString() ?? '—'">—</p>
+                    <p class="text-xs text-slate-400 mt-2">Require monitoring</p>
+                </div>
+                <div class="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <!-- Critical Incompatibilities -->
+        <div class="content-card group relative overflow-hidden border border-slate-100">
+            <div
+                class="absolute inset-0 bg-gradient-to-br from-red-50 to-transparent opacity-0 group-hover:opacity-100 transition duration-300">
+            </div>
+            <div class="relative flex items-start justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Critical</p>
+                    <p class="text-4xl font-black text-red-600 mt-2"
+                        x-text="stats.critical_pairs?.toLocaleString() ?? '—'">—</p>
+                    <p class="text-xs text-slate-400 mt-2">Incompatible pairs</p>
+                </div>
+                <div class="w-12 h-12 rounded-xl bg-red-100 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="grid grid-cols-1 xl:grid-cols-5 gap-5">
+
+        <!-- Radar Chart -->
+        <div class="content-card xl:col-span-2 border border-slate-100">
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <h3 class="font-bold text-slate-900">Hazard Profile</h3>
+                    <p class="text-xs text-slate-500 mt-0.5">GHS risk distribution</p>
+                </div>
+                <span class="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded-full font-medium">Radar</span>
+            </div>
+            <div class="flex items-center justify-center" style="height:260px;">
+                <canvas id="radarChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Donut Chart -->
+        <div class="content-card xl:col-span-3 border border-slate-100">
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <h3 class="font-bold text-slate-900">Compatibility Breakdown</h3>
+                    <p class="text-xs text-slate-500 mt-0.5">Distribution of chemical pair results</p>
+                </div>
+                <span class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full font-medium">Donut</span>
+            </div>
+            <div class="flex items-center gap-8">
+                <div style="width:220px;height:220px;flex-shrink:0;">
+                    <canvas id="donutChart"></canvas>
+                </div>
+                <div class="flex-1 space-y-3">
+                    <div class="flex items-center justify-between p-3 rounded-xl bg-emerald-50 border border-emerald-100 cursor-pointer hover:bg-emerald-100 transition"
+                        @click="goToMatrix('safe')">
+                        <div class="flex items-center gap-3">
+                            <span class="w-3 h-3 rounded-full bg-emerald-500 flex-shrink-0"></span>
+                            <span class="text-sm font-semibold text-slate-700">Safe / Compatible</span>
+                        </div>
+                        <span class="text-sm font-bold text-emerald-600" x-text="safePercent + '%'">60%</span>
+                    </div>
+                    <div class="flex items-center justify-between p-3 rounded-xl bg-amber-50 border border-amber-100 cursor-pointer hover:bg-amber-100 transition"
+                        @click="goToMatrix('caution')">
+                        <div class="flex items-center gap-3">
+                            <span class="w-3 h-3 rounded-full bg-amber-400 flex-shrink-0"></span>
+                            <span class="text-sm font-semibold text-slate-700">Caution / Review</span>
+                        </div>
+                        <span class="text-sm font-bold text-amber-600" x-text="cautionPercent + '%'">25%</span>
+                    </div>
+                    <div class="flex items-center justify-between p-3 rounded-xl bg-red-50 border border-red-100 cursor-pointer hover:bg-red-100 transition"
+                        @click="goToMatrix('critical')">
+                        <div class="flex items-center gap-3">
+                            <span class="w-3 h-3 rounded-full bg-red-500 flex-shrink-0"></span>
+                            <span class="text-sm font-semibold text-slate-700">Critical / Incompatible</span>
+                        </div>
+                        <span class="text-sm font-bold text-red-600" x-text="criticalPercent + '%'">15%</span>
+                    </div>
+                    <p class="text-xs text-center text-slate-400 pt-1">Click a slice to filter Matrix view</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Row: Quick Actions + Recent Activity -->
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+
+        <!-- Quick Actions -->
+        <div class="content-card border border-slate-100">
+            <h3 class="font-bold text-slate-900 mb-4">Quick Actions</h3>
+            <div class="space-y-3">
+                <a href="/inventory"
+                    class="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 transition group border border-transparent hover:border-slate-200">
+                    <div
+                        class="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center group-hover:bg-blue-200 transition">
+                        <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-sm font-semibold text-slate-800">Import Inventory</p>
+                        <p class="text-xs text-slate-500">Upload Excel or CSV file</p>
+                    </div>
+                    <svg class="w-4 h-4 text-slate-400 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </a>
+                <a href="/mixer"
+                    class="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 transition group border border-transparent hover:border-slate-200">
+                    <div
+                        class="w-9 h-9 rounded-lg bg-purple-100 flex items-center justify-center group-hover:bg-purple-200 transition">
+                        <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-sm font-semibold text-slate-800">Matrix Analysis</p>
+                        <p class="text-xs text-slate-500">Check chemical compatibility</p>
+                    </div>
+                    <svg class="w-4 h-4 text-slate-400 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </a>
+                <a href="/warehouse"
+                    class="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 transition group border border-transparent hover:border-slate-200">
+                    <div
+                        class="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center group-hover:bg-amber-200 transition">
+                        <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-sm font-semibold text-slate-800">Warehouse Overview</p>
+                        <p class="text-xs text-slate-500">Monitor storage locations</p>
+                    </div>
+                    <svg class="w-4 h-4 text-slate-400 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </a>
+            </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="content-card xl:col-span-2 border border-slate-100">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="font-bold text-slate-900">Recent Activity</h3>
+                <a href="/logs" class="text-xs font-semibold text-blue-600 hover:text-blue-700 transition">View all
+                    →</a>
+            </div>
+            <div class="space-y-1" id="recent-activity">
+                <template x-for="log in recentLogs" :key="log.id">
+                    <div class="flex items-start gap-3 p-3 rounded-xl hover:bg-slate-50 transition">
+                        <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5" :class="{
+                                'bg-blue-100': log.category === 'import',
+                                'bg-purple-100': log.category === 'analysis',
+                                'bg-red-100': log.category === 'alert',
+                                'bg-amber-100': log.category === 'edit',
+                                'bg-slate-100': !log.category
+                              }">
+                            <!-- import icon -->
+                            <template x-if="log.category === 'import'">
+                                <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                </svg>
+                            </template>
+                            <!-- analysis icon -->
+                            <template x-if="log.category === 'analysis'">
+                                <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10" />
+                                </svg>
+                            </template>
+                            <!-- alert icon -->
+                            <template x-if="log.category === 'alert'">
+                                <svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                            </template>
+                            <!-- edit icon -->
+                            <template x-if="log.category === 'edit'">
+                                <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                            </template>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-semibold text-slate-800 truncate" x-text="log.title"></p>
+                            <p class="text-xs text-slate-500" x-text="formatTime(log.timestamp)"></p>
+                        </div>
+                    </div>
+                </template>
+                <template x-if="recentLogs.length === 0">
+                    <p class="text-sm text-slate-400 text-center py-6">No activity yet. Import an inventory file to get
+                        started.</p>
+                </template>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    function dashboardApp() {
+        return {
+            stats: {},
+            recentLogs: [],
+            safePercent: 60,
+            cautionPercent: 25,
+            criticalPercent: 15,
+
+            async init() {
+                await Promise.all([this.loadStats(), this.loadLogs()]);
+                this.$nextTick(() => {
+                    this.renderDonut();
+                    this.renderRadar();
+                });
+            },
+
+            async loadStats() {
+                try {
+                    const res = await fetch('/api/dashboard/stats');
+                    const data = await res.json();
+                    if (data.success) {
+                        this.stats = data.data;
+                        const total = (data.data.safe_pairs || 0) + (data.data.caution_pairs || 0) + (data.data.critical_pairs || 0);
+                        if (total > 0) {
+                            this.safePercent = Math.round((data.data.safe_pairs / total) * 100);
+                            this.cautionPercent = Math.round((data.data.caution_pairs / total) * 100);
+                            this.criticalPercent = 100 - this.safePercent - this.cautionPercent;
+                        }
+                    }
+                } catch (e) { console.error(e); }
+            },
+
+            async loadLogs() {
+                try {
+                    const res = await fetch('/api/logs');
+                    const data = await res.json();
+                    if (data.success) {
+                        this.recentLogs = data.data.slice(0, 5);
+                    }
+                } catch (e) { console.error(e); }
+            },
+
+            renderDonut() {
+                const ctx = document.getElementById('donutChart')?.getContext('2d');
+                if (!ctx) return;
+                new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Safe', 'Caution', 'Critical'],
+                        datasets: [{
+                            data: [this.safePercent, this.cautionPercent, this.criticalPercent],
+                            backgroundColor: ['#10B981', '#F59E0B', '#EF4444'],
+                            borderWidth: 0,
+                            hoverOffset: 8,
+                        }]
+                    },
+                    options: {
+                        cutout: '70%',
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: ctx => ` ${ctx.label}: ${ctx.parsed}%`
+                                }
+                            }
+                        },
+                        onClick: (evt, elements) => {
+                            if (elements.length > 0) {
+                                const idx = elements[0].index;
+                                const map = ['safe', 'caution', 'critical'];
+                                this.goToMatrix(map[idx]);
+                            }
+                        }
+                    }
+                });
+            },
+
+            renderRadar() {
+                const ctx = document.getElementById('radarChart')?.getContext('2d');
+                if (!ctx) return;
+                new Chart(ctx, {
+                    type: 'radar',
+                    data: {
+                        labels: ['Flammability', 'Toxicity', 'Corrosivity', 'Reactivity', 'Oxidizer'],
+                        datasets: [{
+                            label: 'Hazard Index',
+                            data: [78, 62, 55, 71, 43],
+                            backgroundColor: 'rgba(139, 92, 246, 0.15)',
+                            borderColor: 'rgba(139, 92, 246, 0.8)',
+                            borderWidth: 2,
+                            pointBackgroundColor: 'rgba(139, 92, 246, 1)',
+                            pointBorderColor: '#fff',
+                            pointHoverBackgroundColor: '#fff',
+                            pointHoverBorderColor: 'rgba(139, 92, 246, 1)',
+                            pointRadius: 4,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        scales: {
+                            r: {
+                                beginAtZero: true,
+                                max: 100,
+                                ticks: { stepSize: 25, display: false },
+                                grid: { color: 'rgba(148, 163, 184, 0.2)' },
+                                pointLabels: {
+                                    font: { size: 11, weight: '600' },
+                                    color: '#475569'
+                                }
+                            }
+                        },
+                        plugins: { legend: { display: false } }
+                    }
+                });
+            },
+
+            goToMatrix(filter) {
+                window.location.href = `/mixer?filter=${filter}`;
+            },
+
+            formatTime(ts) {
+                if (!ts) return '';
+                try {
+                    const d = new Date(ts);
+                    const now = new Date();
+                    const diff = Math.floor((now - d) / 1000);
+                    if (diff < 60) return 'Just now';
+                    if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
+                    if (diff < 86400) return `${Math.floor(diff / 3600)} hr ago`;
+                    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                } catch (e) { return ts; }
+            }
+        }
+    }
+</script>
+{% endblock %}

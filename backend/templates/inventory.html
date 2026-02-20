@@ -1,0 +1,436 @@
+{% extends "base.html" %}
+{% block title %}Inventory Management - SAFEWARE{% endblock %}
+{% block breadcrumb %}Inventory Management{% endblock %}
+
+{% block content %}
+<div x-data="inventoryApp()" x-init="init()" class="space-y-6 animate-fade-in">
+
+    <!-- Page Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900">Inventory Management</h1>
+            <p class="text-sm text-slate-500 mt-1">Import, manage and review your chemical inventory</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <a href="/admin/import"
+                class="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition shadow-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                Import New File
+            </a>
+            <a href="/mixer"
+                class="inline-flex items-center gap-2 px-4 py-2.5 bg-purple-600 text-white text-sm font-semibold rounded-lg hover:bg-purple-700 transition shadow-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10" />
+                </svg>
+                Analyze Matrix
+            </a>
+        </div>
+    </div>
+
+    <!-- Batch Selector -->
+    <div class="content-card border border-slate-100">
+        <div class="flex flex-col sm:flex-row sm:items-center gap-4">
+            <div class="flex-1">
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Import
+                    Batch</label>
+                <select x-model="selectedBatch" @change="loadRows()"
+                    class="w-full sm:w-auto px-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
+                    <option value="">— Select an uploaded batch —</option>
+                    <template x-for="b in batches" :key="b.id">
+                        <option :value="b.id" x-text="b.filename + ' (' + (b.total_rows || 0) + ' rows)'"></option>
+                    </template>
+                </select>
+            </div>
+            <div class="flex gap-3 text-sm text-slate-500" x-show="selectedBatch">
+                <span
+                    class="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg border border-emerald-100 font-medium">
+                    <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd"
+                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                            clip-rule="evenodd" />
+                    </svg>
+                    <span x-text="statusCounts.confirmed + ' Confirmed'"></span>
+                </span>
+                <span
+                    class="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-lg border border-amber-100 font-medium">
+                    <span x-text="statusCounts.review + ' Review'"></span>
+                </span>
+                <span
+                    class="inline-flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-700 rounded-lg border border-red-100 font-medium">
+                    <span x-text="statusCounts.rejected + ' Rejected'"></span>
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="flex flex-wrap items-center gap-3" x-show="selectedBatch">
+
+        <!-- Status Filters -->
+        <div class="flex gap-2">
+            <button @click="activeFilter='ALL'" class="px-4 py-2 text-sm font-semibold rounded-full transition"
+                :class="activeFilter === 'ALL' ? 'bg-slate-800 text-white shadow' : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300'">
+                All
+            </button>
+            <button @click="activeFilter='MATCHED'" class="px-4 py-2 text-sm font-semibold rounded-full transition"
+                :class="activeFilter === 'MATCHED' ? 'bg-emerald-600 text-white shadow' : 'bg-white text-emerald-700 border border-emerald-200 hover:border-emerald-400'">
+                ✓ Matched
+            </button>
+            <button @click="activeFilter='REVIEW'" class="px-4 py-2 text-sm font-semibold rounded-full transition"
+                :class="activeFilter === 'REVIEW' ? 'bg-amber-500 text-white shadow' : 'bg-white text-amber-700 border border-amber-200 hover:border-amber-400'">
+                ⚠ Review
+            </button>
+            <button @click="activeFilter='UNIDENTIFIED'" class="px-4 py-2 text-sm font-semibold rounded-full transition"
+                :class="activeFilter === 'UNIDENTIFIED' ? 'bg-red-600 text-white shadow' : 'bg-white text-red-700 border border-red-200 hover:border-red-400'">
+                ✗ Unmatched
+            </button>
+        </div>
+
+        <!-- Search -->
+        <div class="relative flex-1 max-w-xs">
+            <input type="text" x-model="searchQuery" placeholder="Filter rows..."
+                class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none"
+                stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+        </div>
+
+        <p class="text-sm text-slate-500 ml-auto"><span class="font-semibold text-slate-700"
+                x-text="filteredRows.length"></span> rows</p>
+    </div>
+
+    <!-- Data Grid -->
+    <div class="content-card border border-slate-100 !p-0 overflow-hidden" x-show="selectedBatch">
+        <div class="overflow-x-auto">
+            <table class="min-w-full text-sm" id="inventory-grid">
+                <thead>
+                    <tr class="bg-slate-50 border-b border-slate-200">
+                        <th class="w-8 px-4 py-3"></th>
+                        <th class="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">#</th>
+                        <th class="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">
+                            Chemical Name</th>
+                        <th class="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">CAS
+                            Number</th>
+                        <th class="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">
+                            Quantity</th>
+                        <th class="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">
+                            Location</th>
+                        <th class="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Status
+                        </th>
+                        <th class="px-4 py-3 text-center text-xs font-bold text-slate-500 uppercase tracking-wider">
+                            Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 bg-white" id="inventory-tbody">
+                    <template x-if="filteredRows.length === 0">
+                        <tr>
+                            <td colspan="8" class="px-4 py-12 text-center text-slate-400">
+                                <svg class="w-10 h-10 mx-auto mb-3 text-slate-300" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                <p class="font-medium">No rows match this filter</p>
+                            </td>
+                        </tr>
+                    </template>
+                    <template x-for="row in filteredRows" :key="row.staging_id">
+                        <tr class="group cursor-pointer transition-colors duration-100 hover:bg-blue-50"
+                            :class="{'bg-blue-50 ring-1 ring-inset ring-blue-200': selectedRow === row.staging_id}"
+                            @click="selectedRow = (selectedRow === row.staging_id ? null : row.staging_id)"
+                            @dblclick="openEditModal(row)">
+
+                            <!-- Status color strip -->
+                            <td class="relative px-0 py-0">
+                                <div class="absolute inset-y-0 left-0 w-1 rounded-r" :class="{
+                                        'bg-emerald-500': row.match_status === 'MATCHED',
+                                        'bg-amber-400': row.match_status === 'REVIEW_REQUIRED',
+                                        'bg-red-500': row.match_status === 'UNIDENTIFIED',
+                                        'bg-slate-300': !row.match_status
+                                     }"></div>
+                            </td>
+
+                            <td class="px-4 py-3 font-mono text-xs text-slate-500" x-text="row.row_index"></td>
+                            <td class="px-4 py-3 font-semibold text-slate-800 max-w-[200px] truncate"
+                                x-text="row.name || '—'"></td>
+                            <td class="px-4 py-3 font-mono text-xs text-slate-600" x-text="row.cas || '—'"></td>
+                            <td class="px-4 py-3 text-slate-700">
+                                <span x-text="row.quantity || '—'"></span>
+                                <span class="text-slate-400 ml-1" x-text="row.unit || ''"></span>
+                            </td>
+                            <td class="px-4 py-3 text-slate-700 max-w-[150px] truncate" x-text="row.location || '—'">
+                            </td>
+                            <td class="px-4 py-3">
+                                <span
+                                    class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold"
+                                    :class="statusChipClass(row.match_status)"
+                                    x-text="statusLabel(row.match_status)"></span>
+                            </td>
+                            <td class="px-4 py-3 text-center">
+                                <!-- Meatball menu -->
+                                <div class="relative inline-block" x-data="{ open: false }">
+                                    <button @click.stop="open = !open"
+                                        class="p-1.5 rounded-lg hover:bg-slate-200 transition text-slate-500">
+                                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                            <path
+                                                d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                                        </svg>
+                                    </button>
+                                    <div x-show="open" @click.away="open = false"
+                                        x-transition:enter="transition ease-out duration-100"
+                                        x-transition:enter-start="opacity-0 scale-95"
+                                        x-transition:enter-end="opacity-100 scale-100"
+                                        class="absolute right-0 mt-2 w-40 bg-white rounded-xl shadow-xl border border-slate-100 py-1 z-20"
+                                        style="display:none;">
+                                        <button @click.stop="openEditModal(row); open=false"
+                                            class="flex items-center gap-2 w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                            </svg>
+                                            Edit
+                                        </button>
+                                        <template x-if="row.chemical_id">
+                                            <a :href="'/chemical/' + row.chemical_id" target="_blank" @click.stop
+                                                class="flex items-center gap-2 w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor"
+                                                    viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2"
+                                                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                </svg>
+                                                View Details
+                                            </a>
+                                        </template>
+                                        <hr class="my-1 border-slate-100">
+                                        <button @click.stop="deleteRow(row); open=false"
+                                            class="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            </svg>
+                                            Delete
+                                        </button>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Empty state for no batch selected -->
+    <div x-show="!selectedBatch" class="content-card border border-dashed border-slate-300 text-center py-16">
+        <svg class="w-14 h-14 mx-auto text-slate-200 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+        </svg>
+        <h3 class="text-lg font-semibold text-slate-600 mb-2">No Inventory Loaded</h3>
+        <p class="text-sm text-slate-400 mb-6">Upload a CSV or Excel file to get started</p>
+        <a href="/admin/import"
+            class="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition shadow-sm">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            Import Inventory
+        </a>
+    </div>
+
+    <!-- Edit Modal -->
+    <div x-show="showEditModal" x-transition class="fixed inset-0 z-50 flex items-center justify-center p-4"
+        style="display:none;">
+        <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" @click="showEditModal = false"></div>
+        <div class="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl p-6 border border-slate-100" @click.stop>
+            <div class="flex items-center justify-between mb-5">
+                <h3 class="text-lg font-bold text-slate-900">Edit Chemical Row</h3>
+                <button @click="showEditModal = false"
+                    class="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div class="col-span-2">
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Chemical
+                        Name</label>
+                    <input type="text" x-model="editForm.name"
+                        class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm bg-slate-50"
+                        readonly>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">CAS
+                        #</label>
+                    <input type="text" x-model="editForm.cas"
+                        class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm bg-slate-50"
+                        readonly>
+                </div>
+                <div>
+                    <label
+                        class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Quantity</label>
+                    <input type="text" x-model="editForm.quantity"
+                        class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm">
+                </div>
+                <div>
+                    <label
+                        class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Unit</label>
+                    <input type="text" x-model="editForm.unit"
+                        class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm"
+                        placeholder="L, kg, mol...">
+                </div>
+                <div>
+                    <label
+                        class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Location</label>
+                    <input type="text" x-model="editForm.location"
+                        class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm">
+                </div>
+                <div class="col-span-2">
+                    <label
+                        class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Notes</label>
+                    <textarea x-model="editForm.notes" rows="2"
+                        class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm resize-none"></textarea>
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 mt-5">
+                <button @click="showEditModal = false"
+                    class="px-4 py-2 border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 text-sm font-medium transition">Cancel</button>
+                <button @click="saveEdit()"
+                    class="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-semibold transition shadow-sm">Save
+                    Changes</button>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    function inventoryApp() {
+        return {
+            batches: [],
+            selectedBatch: '',
+            allRows: [],
+            activeFilter: 'ALL',
+            searchQuery: '',
+            selectedRow: null,
+            showEditModal: false,
+            editForm: {},
+            statusCounts: { confirmed: 0, review: 0, rejected: 0 },
+
+            get filteredRows() {
+                let rows = this.allRows;
+                if (this.activeFilter !== 'ALL') {
+                    rows = rows.filter(r => {
+                        if (this.activeFilter === 'MATCHED') return r.match_status === 'MATCHED';
+                        if (this.activeFilter === 'REVIEW') return r.match_status === 'REVIEW_REQUIRED';
+                        if (this.activeFilter === 'UNIDENTIFIED') return r.match_status === 'UNIDENTIFIED';
+                        return true;
+                    });
+                }
+                if (this.searchQuery) {
+                    const q = this.searchQuery.toLowerCase();
+                    rows = rows.filter(r =>
+                        (r.name || '').toLowerCase().includes(q) ||
+                        (r.cas || '').toLowerCase().includes(q) ||
+                        (r.location || '').toLowerCase().includes(q)
+                    );
+                }
+                return rows;
+            },
+
+            async init() {
+                await this.loadBatches();
+            },
+
+            async loadBatches() {
+                try {
+                    // Get batches from existing API - try fetching status from a known batch list
+                    const res = await fetch('/api/inventory/batches');
+                    if (res.ok) {
+                        const data = await res.json();
+                        this.batches = data.batches || [];
+                        if (this.batches.length > 0) {
+                            this.selectedBatch = this.batches[0].id;
+                            await this.loadRows();
+                        }
+                    }
+                } catch (e) {
+                    // If no batches endpoint, check localStorage for last batch
+                    const lastBatch = localStorage.getItem('safeware_last_batch');
+                    if (lastBatch) {
+                        this.selectedBatch = lastBatch;
+                        await this.loadRows();
+                    }
+                }
+            },
+
+            async loadRows() {
+                if (!this.selectedBatch) return;
+                try {
+                    const res = await fetch(`/api/inventory/rows/${this.selectedBatch}`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        this.allRows = data.rows || [];
+                        this.statusCounts = {
+                            confirmed: this.allRows.filter(r => r.match_status === 'MATCHED').length,
+                            review: this.allRows.filter(r => r.match_status === 'REVIEW_REQUIRED').length,
+                            rejected: this.allRows.filter(r => r.match_status === 'UNIDENTIFIED').length,
+                        };
+                    }
+                } catch (e) { console.error(e); }
+            },
+
+            statusChipClass(s) {
+                if (s === 'MATCHED') return 'bg-emerald-100 text-emerald-700';
+                if (s === 'REVIEW_REQUIRED') return 'bg-amber-100 text-amber-700';
+                if (s === 'UNIDENTIFIED') return 'bg-red-100 text-red-700';
+                return 'bg-slate-100 text-slate-600';
+            },
+
+            statusLabel(s) {
+                if (s === 'MATCHED') return '✓ Matched';
+                if (s === 'REVIEW_REQUIRED') return '⚠ Review';
+                if (s === 'UNIDENTIFIED') return '✗ Unmatched';
+                return s || '—';
+            },
+
+            openEditModal(row) {
+                this.editForm = { ...row };
+                this.showEditModal = true;
+            },
+
+            saveEdit() {
+                // Update local array optimistically
+                const idx = this.allRows.findIndex(r => r.staging_id === this.editForm.staging_id);
+                if (idx > -1) this.allRows[idx] = { ...this.editForm };
+                this.showEditModal = false;
+            },
+
+            deleteRow(row) {
+                if (!confirm(`Delete "${row.name}"?`)) return;
+                this.allRows = this.allRows.filter(r => r.staging_id !== row.staging_id);
+                this.updateStatusCounts();
+            },
+
+            updateStatusCounts() {
+                this.statusCounts = {
+                    confirmed: this.allRows.filter(r => r.match_status === 'MATCHED').length,
+                    review: this.allRows.filter(r => r.match_status === 'REVIEW_REQUIRED').length,
+                    rejected: this.allRows.filter(r => r.match_status === 'UNIDENTIFIED').length,
+                };
+            }
+        }
+    }
+</script>
+{% endblock %}

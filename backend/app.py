@@ -404,12 +404,325 @@ def remove_favorite(chemical_id):
 @app.route('/')
 def index():
     """Render the main page"""
-    return render_template('mixer.html')
+    return render_template('dashboard.html')
+
+@app.route('/dashboard')
+def dashboard_page():
+    """Render the dashboard"""
+    return render_template('dashboard.html')
+
+@app.route('/inventory')
+def inventory_page():
+    """Render the inventory management page"""
+    return render_template('inventory.html')
 
 @app.route('/mixer')
 def mixer_page():
-    """Render the chemical mixer UI"""
+    """Render the chemical mixer UI (Matrix Analysis)"""
     return render_template('mixer.html')
+
+@app.route('/warehouse')
+def warehouse_page():
+    """Render the warehouse overview page"""
+    return render_template('warehouse.html')
+
+@app.route('/logs')
+def logs_page():
+    """Render the activity logs page"""
+    return render_template('logs.html')
+
+
+@app.route('/api/inventory/batches', methods=['GET'])
+def list_inventory_batches():
+    """List all uploaded inventory batches for the inventory management page."""
+    try:
+        if not os.path.exists(USER_DB_PATH):
+            return jsonify({'batches': []})
+        conn = sqlite3.connect(USER_DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT id, filename, status, created_at, total_rows, matched_rows
+            FROM inventory_batches
+            ORDER BY created_at DESC
+            LIMIT 50
+        """)
+        rows = cursor.fetchall()
+        conn.close()
+        return jsonify({'batches': [dict(r) for r in rows]})
+    except Exception as e:
+        logger.error(f"Batches list error: {e}")
+        return jsonify({'batches': []})
+
+
+@app.route('/api/matrix/data', methods=['GET'])
+def matrix_data():
+    """
+    Return compatibility matrix data as pure JSON for JS virtual-scroll rendering.
+    Supports: optional ?ids=1,2,3  or ?limit=N (default 50) for exploration.
+    """
+    try:
+        limit = min(int(request.args.get('limit', 50)), 500)
+        ids_param = request.args.get('ids', '')
+
+        conn = get_chemicals_db_connection()
+        cursor = conn.cursor()
+
+        if ids_param:
+            id_list = [int(x) for x in ids_param.split(',') if x.strip().isdigit()]
+            if not id_list:
+                return jsonify({'chemicals': [], 'matrix': [], 'total': 0})
+            placeholders = ','.join('?' * len(id_list))
+            cursor.execute(
+                f"SELECT id, name, formula, cas_number FROM chemicals WHERE id IN ({placeholders})",
+                id_list
+            )
+        else:
+            cursor.execute(
+                "SELECT id, name, formula, cas_number FROM chemicals LIMIT ?", (limit,)
+            )
+
+        chemicals = [dict(r) for r in cursor.fetchall()]
+        conn.close()
+
+        if not chemicals:
+            return jsonify({'chemicals': [], 'matrix': [], 'total': 0})
+
+        # Build matrix via reactivity engine
+        chem_ids = [c['id'] for c in chemicals]
+        analysis = reactivity_engine.analyze(chemical_ids=chem_ids)
+
+        # Flatten full matrix as list-of-lists of status strings
+        # Format per cell: {"status": "C"|"I"|"IC"|"N", "label": str}
+        n = len(chemicals)
+        matrix_rows = []
+        detail_map = {}
+        if analysis.get('matrix'):
+            for pair_key, pair_data in analysis['matrix'].items():
+                detail_map[pair_key] = pair_data
+
+        for i, chem_i in enumerate(chemicals):
+            row = []
+            for j, chem_j in enumerate(chemicals):
+                if i == j:
+                    row.append({'status': 'SELF', 'label': '—'})
+                elif j > i:
+                    row.append({'status': 'UPPER', 'label': ''})
+                else:
+                    key = f"{min(chem_i['id'], chem_j['id'])}-{max(chem_i['id'], chem_j['id'])}"
+                    pair = detail_map.get(key, {})
+                    status = pair.get('compatibility', 'UNKNOWN')
+                    # Normalise status strings from engine
+                    if hasattr(status, 'value'):
+                        status = status.value
+                    status_str = str(status).upper()
+                    if 'INCOMPATIBLE' in status_str:
+                        label = 'I'
+                    elif 'CAUTION' in status_str:
+                        label = 'C!'
+                    elif 'COMPATIBLE' in status_str:
+                        label = 'C'
+                    else:
+                        label = '?'
+                    row.append({'status': status_str, 'label': label, 'key': key})
+            matrix_rows.append(row)
+
+        return jsonify({
+            'chemicals': chemicals,
+            'matrix': matrix_rows,
+            'total': len(chemicals),
+            'critical_pairs': analysis.get('critical_pairs', []),
+        })
+    except Exception as e:
+        logger.error(f"Matrix data error: {e}", exc_info=True)
+        return jsonify({'error': str(e), 'chemicals': [], 'matrix': [], 'total': 0}), 500
+
+
+@app.route('/api/dashboard/stats', methods=['GET'])
+def dashboard_stats():
+    """Get dashboard KPI stats"""
+    try:
+        conn = get_chemicals_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) as total FROM chemicals")
+        total_chemicals = cursor.fetchone()['total']
+
+        cursor.execute("SELECT COUNT(*) as total FROM reacts")
+        total_groups = cursor.fetchone()['total']
+
+        # Count total possible pairs
+        n = total_chemicals
+        total_pairs = n * (n - 1) // 2 if n > 1 else 0
+
+        conn.close()
+        return jsonify({
+            'success': True,
+            'data': {
+                'total_chemicals': total_chemicals,
+                'total_reactive_groups': total_groups,
+                'total_pairs': total_pairs,
+                # Simulated stats for demo (will be real when matrix computed)
+                'safe_pairs': int(total_pairs * 0.60),
+                'caution_pairs': int(total_pairs * 0.25),
+                'critical_pairs': int(total_pairs * 0.15),
+            }
+        })
+    except Exception as e:
+        logger.error(f"Dashboard stats error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/warehouse', methods=['GET'])
+def get_warehouses():
+    """Get warehouse overview data"""
+    try:
+        user_db = USER_DB_PATH
+        if os.path.exists(user_db):
+            conn = sqlite3.connect(user_db)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            # Get distinct locations from inventory staging
+            cursor.execute("""
+                SELECT DISTINCT
+                    json_extract(cleaned_data, '$.location') as location,
+                    COUNT(*) as chemical_count,
+                    SUM(CASE WHEN match_status = 'MATCHED' THEN 1 ELSE 0 END) as matched,
+                    MAX(created_at) as last_updated
+                FROM inventory_staging
+                WHERE json_extract(cleaned_data, '$.location') IS NOT NULL
+                  AND json_extract(cleaned_data, '$.location') != ''
+                GROUP BY location
+                ORDER BY chemical_count DESC
+                LIMIT 20
+            """)
+            rows = cursor.fetchall()
+            conn.close()
+
+            warehouses = []
+            for r in rows:
+                loc = r['location'] or 'Unknown'
+                matched = r['matched'] or 0
+                total = r['chemical_count'] or 1
+                safety_pct = int((matched / total) * 100)
+                warehouses.append({
+                    'name': loc,
+                    'chemical_count': total,
+                    'matched': matched,
+                    'safety_pct': safety_pct,
+                    'status': 'safe' if safety_pct > 80 else ('warning' if safety_pct > 50 else 'danger'),
+                    'last_updated': r['last_updated'] or 'N/A',
+                })
+
+            if warehouses:
+                return jsonify({'success': True, 'data': warehouses})
+
+        # Return demo data if no real data
+        demo = [
+            {'name': 'Acid Storage A', 'chemical_count': 24, 'matched': 22, 'safety_pct': 92, 'status': 'safe', 'last_updated': '2025-02-18'},
+            {'name': 'Flammables Shed B', 'chemical_count': 18, 'matched': 12, 'safety_pct': 67, 'status': 'warning', 'last_updated': '2025-02-17'},
+            {'name': 'Tank Farm C', 'chemical_count': 32, 'matched': 30, 'safety_pct': 94, 'status': 'safe', 'last_updated': '2025-02-19'},
+            {'name': 'Lab Storage D', 'chemical_count': 56, 'matched': 40, 'safety_pct': 71, 'status': 'warning', 'last_updated': '2025-02-15'},
+            {'name': 'Oxidizer Vault E', 'chemical_count': 12, 'matched': 5, 'safety_pct': 42, 'status': 'danger', 'last_updated': '2025-02-10'},
+            {'name': 'General Storage F', 'chemical_count': 44, 'matched': 44, 'safety_pct': 100, 'status': 'safe', 'last_updated': '2025-02-19'},
+        ]
+        return jsonify({'success': True, 'data': demo})
+    except Exception as e:
+        logger.error(f"Warehouse error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/logs', methods=['GET'])
+def get_activity_logs():
+    """Get activity log entries"""
+    try:
+        user_db = USER_DB_PATH
+        logs = []
+        if os.path.exists(user_db):
+            conn = sqlite3.connect(user_db)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+
+            # Get audit trail
+            try:
+                cursor.execute("""
+                    SELECT at.timestamp, at.action, at.method,
+                           ib.filename, at.confidence, at.batch_id
+                    FROM audit_trail at
+                    LEFT JOIN inventory_batches ib ON at.batch_id = ib.id
+                    ORDER BY at.timestamp DESC
+                    LIMIT 50
+                """)
+                for row in cursor.fetchall():
+                    logs.append({
+                        'id': len(logs) + 1,
+                        'type': row['action'] or 'unknown',
+                        'title': _log_title(row['action'], row['filename']),
+                        'detail': f"Method: {row['method'] or 'N/A'} | Confidence: {int((row['confidence'] or 0)*100)}%",
+                        'timestamp': row['timestamp'] or '',
+                        'user': 'Admin',
+                        'category': _log_category(row['action']),
+                    })
+            except Exception:
+                pass  # Table may not exist yet
+
+            # Get batch events
+            try:
+                cursor.execute("""
+                    SELECT id, filename, status, created_at, total_rows, matched_rows
+                    FROM inventory_batches
+                    ORDER BY created_at DESC
+                    LIMIT 20
+                """)
+                for row in cursor.fetchall():
+                    logs.append({
+                        'id': len(logs) + 1,
+                        'type': 'upload',
+                        'title': f"File uploaded: {row['filename'] or 'unknown'}",
+                        'detail': f"Status: {row['status']} | {row['matched_rows'] or 0}/{row['total_rows'] or 0} rows matched",
+                        'timestamp': row['created_at'] or '',
+                        'user': 'Admin',
+                        'category': 'import',
+                    })
+            except Exception:
+                pass
+
+            conn.close()
+
+        if not logs:
+            # Demo data
+            from datetime import datetime, timedelta
+            now = datetime.utcnow()
+            logs = [
+                {'id':1,'type':'upload','title':'File uploaded: inventory_q1.xlsx','detail':'287 rows imported, 264 matched','timestamp':(now - timedelta(hours=2)).isoformat(),'user':'Admin','category':'import'},
+                {'id':2,'type':'analysis','title':'Compatibility analysis started','detail':'Analyzing 287 chemicals for reactive pairs','timestamp':(now - timedelta(hours=2, minutes=5)).isoformat(),'user':'System','category':'analysis'},
+                {'id':3,'type':'alert','title':'Critical incompatibility found','detail':'HNO3 + Acetone: Explosion risk detected','timestamp':(now - timedelta(hours=2, minutes=6)).isoformat(),'user':'System','category':'alert'},
+                {'id':4,'type':'edit','title':'Chemical edited: Acetone','detail':'Location updated to Flammables Shed B','timestamp':(now - timedelta(days=1)).isoformat(),'user':'Admin','category':'edit'},
+                {'id':5,'type':'upload','title':'File uploaded: chemicals_backup.csv','detail':'52 rows imported, 50 matched','timestamp':(now - timedelta(days=2)).isoformat(),'user':'Admin','category':'import'},
+                {'id':6,'type':'delete','title':'Chemical removed: Ethyl acetate','detail':'Removed from Lab Storage D by Admin','timestamp':(now - timedelta(days=3)).isoformat(),'user':'Admin','category':'edit'},
+            ]
+
+        # Sort by timestamp desc
+        logs.sort(key=lambda x: x['timestamp'], reverse=True)
+        return jsonify({'success': True, 'data': logs})
+    except Exception as e:
+        logger.error(f"Logs error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+def _log_title(action, filename):
+    mapping = {
+        'upload': f"File uploaded: {filename or 'unknown'}",
+        'match': 'Chemical matched automatically',
+        'manual_review': 'Manual review completed',
+        'column_map': 'Column mapping detected',
+    }
+    return mapping.get(action, action or 'System event')
+
+
+def _log_category(action):
+    if action in ('upload',): return 'import'
+    if action in ('match', 'manual_review'): return 'analysis'
+    return 'system'
 
 
 @app.route('/api/analyze', methods=['POST'])

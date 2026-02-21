@@ -181,6 +181,7 @@
             toastType: 'success',
             currentUserId: {{ current_user.id if current_user else 0 }
     },
+        },
 
         async init() {
         await Promise.all([this.loadPending(), this.loadAll()]);

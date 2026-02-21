@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SAFEWARE — Login</title>
+
+    <!-- Tailwind CSS v3.4 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <!-- Inter Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
+
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+
+        /* Background slideshow */
+        .bg-slide {
+            position: absolute;
+            inset: 0;
+            background-size: cover;
+            background-position: center;
+            opacity: 0;
+            transition: opacity 2s ease-in-out;
+        }
+        .bg-slide.active { opacity: 1; }
+
+        /* Glassmorphism card */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5),
+                        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+
+        /* Input glass style */
+        .glass-input {
+            background: rgba(255, 255, 255, 0.07);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: white;
+            transition: all 0.3s ease;
+        }
+        .glass-input:focus {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(59, 130, 246, 0.6);
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.2);
+            outline: none;
+        }
+        .glass-input::placeholder { color: rgba(255, 255, 255, 0.4); }
+
+        /* Button glow */
+        .btn-glow {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            box-shadow: 0 4px 20px rgba(59, 130, 246, 0.4);
+            transition: all 0.3s ease;
+        }
+        .btn-glow:hover {
+            box-shadow: 0 6px 30px rgba(59, 130, 246, 0.6);
+            transform: translateY(-1px);
+        }
+        .btn-glow:active { transform: translateY(0); }
+
+        /* Spinner */
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner {
+            width: 20px; height: 20px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+
+        /* Success checkmark */
+        @keyframes checkmark {
+            0% { stroke-dashoffset: 100; }
+            100% { stroke-dashoffset: 0; }
+        }
+        .checkmark-svg { stroke-dasharray: 100; stroke-dashoffset: 100; }
+        .animate-check .checkmark-svg { animation: checkmark 0.6s ease forwards 0.2s; }
+    </style>
+</head>
+
+<body class="h-full overflow-hidden">
+
+    <!-- Background Slideshow -->
+    <div class="fixed inset-0 z-0" x-data="bgSlideshow()" x-init="start()">
+        <div class="bg-slide" :class="{ 'active': current === 0 }"
+             style="background-image: url('{{ url_for('static', filename='img/auth/bg-reaction.png') }}')"></div>
+        <div class="bg-slide" :class="{ 'active': current === 1 }"
+             style="background-image: url('{{ url_for('static', filename='img/auth/bg-warehouse.png') }}')"></div>
+        <div class="bg-slide" :class="{ 'active': current === 2 }"
+             style="background-image: url('{{ url_for('static', filename='img/auth/bg-matrix.png') }}')"></div>
+        <div class="bg-slide" :class="{ 'active': current === 3 }"
+             style="background-image: url('{{ url_for('static', filename='img/auth/bg-refinery.png') }}')"></div>
+
+        <!-- Dark overlay -->
+        <div class="absolute inset-0 bg-gradient-to-br from-slate-900/80 via-slate-900/70 to-blue-900/60"></div>
+    </div>
+
+    <!-- Main Layout -->
+    <div class="relative z-10 flex h-full items-center justify-center p-4"
+         x-data="loginForm()">
+
+        <div class="w-full max-w-md">
+
+            <!-- Logo -->
+            <div class="text-center mb-8">
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-400 shadow-2xl mb-4">
+                    <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>
+                </div>
+                <h1 class="text-3xl font-bold text-white tracking-tight">SAFEWARE</h1>
+                <p class="text-white/50 text-sm mt-1">Enterprise Chemical Safety Platform</p>
+            </div>
+
+            <!-- Login Card -->
+            <div class="glass-card rounded-2xl p-8">
+
+                <!-- IDLE / ERROR State -->
+                <template x-if="state === 'idle' || state === 'error'">
+                    <div>
+                        <h2 class="text-xl font-semibold text-white mb-1">Welcome Back</h2>
+                        <p class="text-white/40 text-sm mb-6">Sign in to your account</p>
+
+                        <!-- Error Alert -->
+                        <div x-show="error" x-transition
+                             class="mb-4 rounded-lg bg-red-500/10 border border-red-500/20 p-3">
+                            <div class="flex items-center gap-2">
+                                <svg class="w-5 h-5 text-red-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                                </svg>
+                                <p class="text-red-300 text-sm" x-text="error"></p>
+                            </div>
+                        </div>
+
+                        <form @submit.prevent="submit()">
+                            <!-- Email -->
+                            <div class="mb-4">
+                                <label class="block text-white/60 text-xs font-medium mb-2 uppercase tracking-wider">Email</label>
+                                <input type="email" x-model="email" required
+                                       class="glass-input w-full px-4 py-3 rounded-xl text-sm"
+                                       placeholder="your@company.com" autocomplete="email">
+                            </div>
+
+                            <!-- Password -->
+                            <div class="mb-6">
+                                <label class="block text-white/60 text-xs font-medium mb-2 uppercase tracking-wider">Password</label>
+                                <div class="relative">
+                                    <input :type="showPassword ? 'text' : 'password'" x-model="password" required
+                                           class="glass-input w-full px-4 py-3 rounded-xl text-sm pr-12"
+                                           placeholder="••••••••" autocomplete="current-password">
+                                    <button type="button" @click="showPassword = !showPassword"
+                                            class="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition">
+                                        <svg x-show="!showPassword" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                        </svg>
+                                        <svg x-show="showPassword" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.542 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Submit -->
+                            <button type="submit"
+                                    class="btn-glow w-full py-3 rounded-xl text-white font-semibold text-sm uppercase tracking-wider flex items-center justify-center gap-2"
+                                    :disabled="state === 'loading'">
+                                <template x-if="state === 'loading'">
+                                    <div class="spinner"></div>
+                                </template>
+                                <span x-text="state === 'loading' ? 'Authenticating...' : 'Sign In'"></span>
+                            </button>
+                        </form>
+
+                        <!-- Register link -->
+                        <p class="text-center text-white/40 text-sm mt-6">
+                            Don't have an account?
+                            <a href="/auth/register" class="text-blue-400 hover:text-blue-300 font-medium transition">Register</a>
+                        </p>
+                    </div>
+                </template>
+
+                <!-- PENDING State -->
+                <template x-if="state === 'pending'">
+                    <div class="text-center py-4" x-transition>
+                        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-500/10 border border-amber-500/20 mb-4">
+                            <svg class="w-8 h-8 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-semibold text-white mb-2">Account Pending</h3>
+                        <p class="text-white/50 text-sm">Your account is awaiting approval from your company administrator. You'll be notified when activated.</p>
+                        <button @click="state='idle'; error=null"
+                                class="mt-6 text-blue-400 hover:text-blue-300 text-sm font-medium transition">
+                            ← Back to Login
+                        </button>
+                    </div>
+                </template>
+
+                <!-- LOCKED State -->
+                <template x-if="state === 'locked'">
+                    <div class="text-center py-4" x-transition>
+                        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-500/10 border border-red-500/20 mb-4">
+                            <svg class="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-semibold text-white mb-2">Account Locked</h3>
+                        <p class="text-white/50 text-sm">Too many failed attempts. Please try again later.</p>
+                        <button @click="state='idle'; error=null"
+                                class="mt-6 text-blue-400 hover:text-blue-300 text-sm font-medium transition">
+                            ← Back to Login
+                        </button>
+                    </div>
+                </template>
+
+            </div>
+
+            <!-- Footer -->
+            <p class="text-center text-white/20 text-xs mt-8">
+                © 2025 SAFEWARE — Enterprise Chemical Safety Platform
+            </p>
+        </div>
+    </div>
+
+    <script>
+        function bgSlideshow() {
+            return {
+                current: 0,
+                total: 4,
+                start() {
+                    setInterval(() => {
+                        this.current = (this.current + 1) % this.total;
+                    }, 8000);
+                }
+            }
+        }
+
+        function loginForm() {
+            return {
+                email: '',
+                password: '',
+                showPassword: false,
+                state: 'idle',  // idle, loading, error, pending, locked
+                error: null,
+
+                async submit() {
+                    this.state = 'loading';
+                    this.error = null;
+
+                    try {
+                        const resp = await fetch('/auth/login', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                email: this.email,
+                                password: this.password
+                            })
+                        });
+
+                        const data = await resp.json();
+
+                        if (resp.ok && data.success) {
+                            // Redirect on success
+                            window.location.href = data.redirect || '/dashboard';
+                        } else if (resp.status === 423) {
+                            this.state = 'locked';
+                        } else if (resp.status === 403 && data.code === 'ACCOUNT_PENDING') {
+                            this.state = 'pending';
+                        } else {
+                            this.state = 'error';
+                            this.error = data.error || 'Authentication failed';
+                        }
+                    } catch (err) {
+                        this.state = 'error';
+                        this.error = 'Connection error. Please try again.';
+                    }
+                }
+            }
+        }
+    </script>
+
+</body>
+</html>

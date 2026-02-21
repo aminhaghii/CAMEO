@@ -126,6 +126,29 @@
                         </a>
                     </li>
                 </ul>
+
+                <!-- Users Management (Company Admin / Super Admin Only) -->
+                {% if current_user and current_user.role in ('company_admin', 'super_admin') %}
+                <div class="mt-4 pt-4 border-t border-slate-800/50 px-0">
+                    <ul class="space-y-1">
+                        <li>
+                            <a href="/admin/users"
+                                class="nav-item flex items-center gap-3 px-3 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition group {% if request.path == '/admin/users' %}nav-item-active{% endif %}"
+                                :class="{'justify-center': !sidebarOpen}">
+                                <svg class="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                                </svg>
+                                <span x-show="sidebarOpen" x-transition class="font-medium">Users</span>
+                                <span x-show="sidebarOpen" id="pendingBadge"
+                                    class="ml-auto hidden px-2 py-0.5 rounded-full bg-amber-500 text-white text-xs font-bold"></span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+                {% endif %}
+
             </nav>
 
             <!-- User Profile (Bottom) -->
@@ -134,12 +157,15 @@
                     class="w-full flex items-center gap-3 px-4 py-4 text-slate-300 hover:bg-slate-800 transition"
                     :class="{'justify-center': !sidebarOpen}">
                     <div
-                        class="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center flex-shrink-0 shadow-lg">
-                        <span class="text-white font-bold text-sm">AD</span>
+                        class="w-10 h-10 rounded-full bg-gradient-to-br {% if current_user %}{% if current_user.role == 'super_admin' %}from-blue-500 to-cyan-500{% elif current_user.role == 'company_admin' %}from-emerald-500 to-teal-500{% elif current_user.role == 'operator' %}from-violet-500 to-purple-500{% else %}from-slate-400 to-slate-500{% endif %}{% else %}from-cyan-400 to-blue-500{% endif %} flex items-center justify-center flex-shrink-0 shadow-lg">
+                        <span class="text-white font-bold text-sm">{{ current_user.full_name[0]|upper if current_user
+                            else 'U' }}</span>
                     </div>
                     <div x-show="sidebarOpen" x-transition class="text-left flex-1">
-                        <p class="text-sm font-semibold text-white">Admin User</p>
-                        <p class="text-xs text-slate-400">Safety Manager</p>
+                        <p class="text-sm font-semibold text-white">{{ current_user.full_name if current_user else
+                            'Guest' }}</p>
+                        <p class="text-xs text-slate-400">{{ current_user.role|replace('_', ' ')|title if current_user
+                            else '' }}</p>
                     </div>
                     <svg x-show="sidebarOpen" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
@@ -175,7 +201,7 @@
                         Help & Support
                     </a>
                     <hr class="my-1 border-slate-200">
-                    <a href="/logout"
+                    <a href="/auth/logout"
                         class="flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -274,6 +300,23 @@
 
         updateDateTime();
         setInterval(updateDateTime, 1000);
+
+        // Load pending user badge count for admins
+        {% if current_user and current_user.role in ('company_admin', 'super_admin') %}
+        (async function () {
+            try {
+                const resp = await fetch('/api/admin/pending-count');
+                if (resp.ok) {
+                    const data = await resp.json();
+                    const badge = document.getElementById('pendingBadge');
+                    if (badge && data.count > 0) {
+                        badge.textContent = data.count;
+                        badge.classList.remove('hidden');
+                    }
+                }
+            } catch (e) { }
+        })();
+        {% endif %}
     </script>
 
     {% block scripts %}{% endblock %}

@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+
+{% block title %}SAFEWARE — User Management{% endblock %}
+{% block breadcrumb %}User Management{% endblock %}
+
+{% block content %}
+<div x-data="userManagement()" x-init="init()">
+
+    <!-- Page Header -->
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900">User Management</h1>
+            <p class="text-sm text-slate-500 mt-1">Approve, manage and assign roles to your team members</p>
+        </div>
+    </div>
+
+    <!-- Pending Users Section -->
+    <template x-if="pendingUsers.length > 0">
+        <div class="mb-8">
+            <div class="flex items-center gap-2 mb-4">
+                <h2 class="text-lg font-semibold text-slate-900">Pending Approval</h2>
+                <span
+                    class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-100 text-amber-700 text-xs font-bold"
+                    x-text="pendingUsers.length"></span>
+            </div>
+
+            <div class="grid gap-3">
+                <template x-for="user in pendingUsers" :key="user.id">
+                    <div
+                        class="bg-white rounded-xl border border-amber-200 shadow-sm p-5 flex items-center justify-between hover:shadow-md transition-shadow">
+                        <div class="flex items-center gap-4">
+                            <div
+                                class="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-400 flex items-center justify-center">
+                                <span class="text-white font-bold text-sm"
+                                    x-text="user.full_name.charAt(0).toUpperCase()"></span>
+                            </div>
+                            <div>
+                                <p class="font-semibold text-slate-900" x-text="user.full_name"></p>
+                                <p class="text-sm text-slate-500" x-text="user.email"></p>
+                                <p class="text-xs text-slate-400 mt-0.5">
+                                    Registered: <span x-text="new Date(user.created_at).toLocaleDateString()"></span>
+                                    <template x-if="user.company_name">
+                                        <span> · <span x-text="user.company_name"></span></span>
+                                    </template>
+                                </p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <select x-model="user._assignRole"
+                                class="text-sm border border-slate-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="viewer">Viewer (Read-Only)</option>
+                                <option value="operator">Operator</option>
+                                <option value="company_admin">Company Admin</option>
+                            </select>
+                            <button @click="approveUser(user)"
+                                class="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium rounded-lg transition shadow-sm hover:shadow-md flex items-center gap-1.5">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M5 13l4 4L19 7" />
+                                </svg>
+                                Approve
+                            </button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </template>
+
+    <!-- All Users Table -->
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <h2 class="font-semibold text-slate-900">All Users</h2>
+            <span class="text-sm text-slate-500" x-text="`${allUsers.length} total`"></span>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead>
+                    <tr class="bg-slate-50 text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        <th class="px-6 py-3 text-left">User</th>
+                        <th class="px-6 py-3 text-left">Role</th>
+                        <th class="px-6 py-3 text-left">Status</th>
+                        <th class="px-6 py-3 text-left">Company</th>
+                        <th class="px-6 py-3 text-left">Last Login</th>
+                        <th class="px-6 py-3 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    <template x-for="user in allUsers" :key="user.id">
+                        <tr class="hover:bg-slate-50 transition">
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs"
+                                        :class="{
+                                             'bg-gradient-to-br from-blue-500 to-cyan-500': user.role === 'super_admin',
+                                             'bg-gradient-to-br from-emerald-500 to-teal-500': user.role === 'company_admin',
+                                             'bg-gradient-to-br from-violet-500 to-purple-500': user.role === 'operator',
+                                             'bg-gradient-to-br from-slate-400 to-slate-500': user.role === 'viewer'
+                                         }">
+                                        <span x-text="user.full_name.charAt(0).toUpperCase()"></span>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm font-medium text-slate-900" x-text="user.full_name"></p>
+                                        <p class="text-xs text-slate-500" x-text="user.email"></p>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+                                    :class="{
+                                          'bg-blue-100 text-blue-800': user.role === 'super_admin',
+                                          'bg-emerald-100 text-emerald-800': user.role === 'company_admin',
+                                          'bg-violet-100 text-violet-800': user.role === 'operator',
+                                          'bg-slate-100 text-slate-700': user.role === 'viewer'
+                                      }" x-text="user.role.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())">
+                                </span>
+                            </td>
+                            <td class="px-6 py-4">
+                                <span class="inline-flex items-center gap-1 text-xs font-medium" :class="{
+                                          'text-emerald-600': user.status === 'ACTIVE',
+                                          'text-amber-600': user.status === 'PENDING',
+                                          'text-red-600': user.status === 'SUSPENDED'
+                                      }">
+                                    <span class="w-1.5 h-1.5 rounded-full" :class="{
+                                              'bg-emerald-500': user.status === 'ACTIVE',
+                                              'bg-amber-500': user.status === 'PENDING',
+                                              'bg-red-500': user.status === 'SUSPENDED'
+                                          }"></span>
+                                    <span x-text="user.status"></span>
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 text-sm text-slate-600" x-text="user.company_name || '—'"></td>
+                            <td class="px-6 py-4 text-sm text-slate-500"
+                                x-text="user.last_login ? new Date(user.last_login).toLocaleString() : 'Never'"></td>
+                            <td class="px-6 py-4 text-right">
+                                <template x-if="user.status === 'ACTIVE' && user.id !== currentUserId">
+                                    <button @click="suspendUser(user)"
+                                        class="text-xs text-red-500 hover:text-red-700 font-medium transition">
+                                        Suspend
+                                    </button>
+                                </template>
+                                <template x-if="user.status === 'SUSPENDED'">
+                                    <button @click="reactivateUser(user)"
+                                        class="text-xs text-emerald-500 hover:text-emerald-700 font-medium transition">
+                                        Reactivate
+                                    </button>
+                                </template>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Empty State -->
+        <div x-show="allUsers.length === 0" class="text-center py-12 text-slate-400">
+            <svg class="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                    d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+            <p class="text-sm">No users found</p>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div x-show="toast" x-transition
+        class="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl shadow-2xl border text-sm font-medium flex items-center gap-2"
+        :class="toastType === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-800'"
+        x-text="toast"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function userManagement() {
+        return {
+            pendingUsers: [],
+            allUsers: [],
+            toast: null,
+            toastType: 'success',
+            currentUserId: {{ current_user.id if current_user else 0 }
+    },
+
+        async init() {
+        await Promise.all([this.loadPending(), this.loadAll()]);
+    },
+
+        async loadPending() {
+        try {
+            const resp = await fetch('/api/admin/pending-users');
+            if (resp.ok) {
+                const data = await resp.json();
+                this.pendingUsers = data.map(u => ({ ...u, _assignRole: 'viewer' }));
+            }
+        } catch (e) { console.error(e); }
+    },
+
+        async loadAll() {
+        try {
+            const resp = await fetch('/api/admin/users');
+            if (resp.ok) this.allUsers = await resp.json();
+        } catch (e) { console.error(e); }
+    },
+
+        async approveUser(user) {
+        try {
+            const resp = await fetch('/api/admin/approve-user', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: user.id, role: user._assignRole })
+            });
+            const data = await resp.json();
+            if (data.success) {
+                this.showToast(`${user.full_name} approved as ${user._assignRole}`, 'success');
+                await this.init();
+            } else {
+                this.showToast(data.error, 'error');
+            }
+        } catch (e) { this.showToast('Network error', 'error'); }
+    },
+
+        async suspendUser(user) {
+        if (!confirm(`Suspend ${user.full_name}? They will lose access immediately.`)) return;
+        try {
+            const resp = await fetch('/api/admin/suspend-user', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: user.id })
+            });
+            const data = await resp.json();
+            if (data.success) {
+                this.showToast(`${user.full_name} suspended`, 'success');
+                await this.init();
+            } else {
+                this.showToast(data.error, 'error');
+            }
+        } catch (e) { this.showToast('Network error', 'error'); }
+    },
+
+        async reactivateUser(user) {
+        try {
+            const resp = await fetch('/api/admin/approve-user', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: user.id, role: user.role })
+            });
+            const data = await resp.json();
+            if (data.success) {
+                this.showToast(`${user.full_name} reactivated`, 'success');
+                await this.init();
+            }
+        } catch (e) { this.showToast('Network error', 'error'); }
+    },
+
+    showToast(msg, type = 'success') {
+        this.toast = msg;
+        this.toastType = type;
+        setTimeout(() => this.toast = null, 4000);
+    }
+    }
+}
+</script>
+{% endblock %}

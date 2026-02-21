@@ -1,41 +1,172 @@
 import os
 import re
+import secrets
 import sqlite3
 import logging
 import difflib
 from pathlib import Path
-from flask import Flask, jsonify, request, render_template
+from flask import Flask, jsonify, request, render_template, g
 from flask_cors import CORS
 
 from logic.reactivity_engine import ReactivityEngine
 from logic.constants import Compatibility, COMPATIBILITY_MAP
+from auth.models import init_auth_db, seed_default_company_and_admin, get_auth_db_connection
+from auth.security import hash_password, validate_session, generate_csrf_token
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
+CORS(app, supports_credentials=True)  # Enable CORS with credentials for auth cookies
+
+# ═══════════════════════════════════════════════════════
+#  Security Configuration
+# ═══════════════════════════════════════════════════════
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', secrets.token_hex(32))
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, 'data')
 CHEMICALS_DB_PATH = os.path.join(DATA_DIR, 'chemicals.db')
-USER_DB_PATH = os.path.join(DATA_DIR, 'user.db')
+USER_DB_PATH = os.path.join(DATA_DIR, 'user.db')  # Legacy fallback
+AUTH_DB_PATH = os.path.join(DATA_DIR, 'global_auth.db')
 
 # Store paths in app config for blueprints
 app.config['CHEMICALS_DB_PATH'] = CHEMICALS_DB_PATH
 app.config['USER_DB_PATH'] = USER_DB_PATH
+app.config['AUTH_DB_PATH'] = AUTH_DB_PATH
+app.config['DATA_DIR'] = DATA_DIR
 
 # Initialize Reactivity Engine
 reactivity_engine = ReactivityEngine(CHEMICALS_DB_PATH)
 
-# Register blueprints
+# ═══════════════════════════════════════════════════════
+#  Initialize Auth Database
+# ═══════════════════════════════════════════════════════
+os.makedirs(DATA_DIR, exist_ok=True)
+init_auth_db(AUTH_DB_PATH)
+default_pw_hash = hash_password('Admin@123')  # Default password for seeded users
+seed_default_company_and_admin(AUTH_DB_PATH, default_pw_hash)
+logger.info("Auth database initialized")
+
+# ═══════════════════════════════════════════════════════
+#  Register Blueprints
+# ═══════════════════════════════════════════════════════
 from routes.inventory import inventory_bp
 from routes.inventory_actions import inventory_actions_bp
 from routes.inventory_analysis import inventory_analysis_bp
+from routes.auth import auth_bp
+from routes.admin import admin_bp
+
 app.register_blueprint(inventory_bp)
 app.register_blueprint(inventory_actions_bp)
 app.register_blueprint(inventory_analysis_bp)
+app.register_blueprint(auth_bp)
+app.register_blueprint(admin_bp)
+
+
+# ═══════════════════════════════════════════════════════
+#  Tenant Router (before_request middleware)
+# ═══════════════════════════════════════════════════════
+
+# Paths that bypass authentication
+AUTH_EXEMPT_PREFIXES = (
+    '/auth/',
+    '/api/auth/',
+    '/static/',
+)
+
+
+@app.before_request
+def tenant_router():
+    """
+    Multi-tenant request middleware.
+
+    For every request:
+    1. Check if path is auth-exempt
+    2. Validate session cookie
+    3. Load user data into g.user
+    4. Set g.tenant_db_path for tenant isolation
+    5. Redirect to login if unauthenticated
+
+    Super Admin blind spot: g.tenant_db_path = None
+    """
+    g.user = None
+    g.tenant_db_path = None
+
+    # Skip auth for exempt paths
+    for prefix in AUTH_EXEMPT_PREFIXES:
+        if request.path.startswith(prefix):
+            return None
+
+    # Validate session
+    session_id = request.cookies.get('session_id')
+    if not session_id:
+        # Not authenticated — redirect to login
+        if request.path.startswith('/api/'):
+            return jsonify({'error': 'Authentication required', 'code': 'AUTH_REQUIRED'}), 401
+        return redirect('/auth/login')
+
+    user = validate_session(session_id, AUTH_DB_PATH)
+    if not user:
+        # Invalid/expired session
+        if request.path.startswith('/api/'):
+            return jsonify({'error': 'Session expired', 'code': 'SESSION_EXPIRED'}), 401
+        response = redirect('/auth/login')
+        response.delete_cookie('session_id', path='/')
+        return response
+
+    # Set user in request context
+    g.user = user
+
+    # ── Tenant Routing ──
+    if user['role'] == 'super_admin':
+        # 🔴 BLIND SPOT: Super Admin has NO access to tenant data
+        g.tenant_db_path = None
+    else:
+        # Build tenant DB path: data/{company_id}_user.db
+        company_id = user['company_id']
+        tenant_filename = f"{company_id}_user.db"
+        g.tenant_db_path = os.path.join(DATA_DIR, tenant_filename)
+
+        # Initialize tenant DB if it doesn't exist
+        if not os.path.exists(g.tenant_db_path):
+            _init_tenant_db(g.tenant_db_path)
+
+    return None  # Continue to the route handler
+
+
+def _init_tenant_db(tenant_path: str):
+    """Initialize a tenant's user.db with required tables."""
+    from etl.pipeline import init_inventory_tables
+    init_inventory_tables(tenant_path)
+    # Also create favorites table
+    conn = sqlite3.connect(tenant_path)
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS favorites (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            chemical_id INTEGER NOT NULL,
+            added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            note TEXT
+        )
+    ''')
+    conn.commit()
+    conn.close()
+    logger.info(f"Tenant database initialized: {tenant_path}")
+
+
+@app.context_processor
+def inject_user():
+    """Make user data available in all Jinja templates."""
+    return {
+        'current_user': g.get('user', None),
+    }
+
+
+from flask import redirect
 
 def get_chemicals_db_connection():
     conn = sqlite3.connect(CHEMICALS_DB_PATH)
@@ -43,11 +174,17 @@ def get_chemicals_db_connection():
     return conn
 
 def get_user_db_connection():
-    # Initialize user.db if it doesn't exist
-    if not os.path.exists(USER_DB_PATH):
-        init_user_db()
-    
-    conn = sqlite3.connect(USER_DB_PATH)
+    """
+    Get connection to the current tenant's user database.
+    Uses g.tenant_db_path for multi-tenant isolation.
+    Falls back to legacy USER_DB_PATH if no tenant context.
+    """
+    db_path = getattr(g, 'tenant_db_path', None) or USER_DB_PATH
+
+    if not os.path.exists(db_path):
+        _init_tenant_db(db_path)
+
+    conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     return conn
 

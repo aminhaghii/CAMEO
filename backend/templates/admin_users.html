@@ -179,87 +179,85 @@
             allUsers: [],
             toast: null,
             toastType: 'success',
-            currentUserId: {{ current_user.id if current_user else 0 }
-    },
-        },
+            currentUserId: {{ current_user.id if current_user else 0 }},
 
-        async init() {
-        await Promise.all([this.loadPending(), this.loadAll()]);
-    },
+            async init() {
+                await Promise.all([this.loadPending(), this.loadAll()]);
+            },
 
-        async loadPending() {
-        try {
-            const resp = await fetch('/api/admin/pending-users');
-            if (resp.ok) {
-                const data = await resp.json();
-                this.pendingUsers = data.map(u => ({ ...u, _assignRole: 'viewer' }));
+            async loadPending() {
+                try {
+                    const resp = await fetch('/api/admin/pending-users');
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        this.pendingUsers = data.map(u => ({ ...u, _assignRole: 'viewer' }));
+                    }
+                } catch (e) { console.error(e); }
+            },
+
+            async loadAll() {
+                try {
+                    const resp = await fetch('/api/admin/users');
+                    if (resp.ok) this.allUsers = await resp.json();
+                } catch (e) { console.error(e); }
+            },
+
+            async approveUser(user) {
+                try {
+                    const resp = await fetch('/api/admin/approve-user', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ user_id: user.id, role: user._assignRole })
+                    });
+                    const data = await resp.json();
+                    if (data.success) {
+                        this.showToast(`${user.full_name} approved as ${user._assignRole}`, 'success');
+                        await this.init();
+                    } else {
+                        this.showToast(data.error, 'error');
+                    }
+                } catch (e) { this.showToast('Network error', 'error'); }
+            },
+
+            async suspendUser(user) {
+                if (!confirm(`Suspend ${user.full_name}? They will lose access immediately.`)) return;
+                try {
+                    const resp = await fetch('/api/admin/suspend-user', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ user_id: user.id })
+                    });
+                    const data = await resp.json();
+                    if (data.success) {
+                        this.showToast(`${user.full_name} suspended`, 'success');
+                        await this.init();
+                    } else {
+                        this.showToast(data.error, 'error');
+                    }
+                } catch (e) { this.showToast('Network error', 'error'); }
+            },
+
+            async reactivateUser(user) {
+                try {
+                    const resp = await fetch('/api/admin/approve-user', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ user_id: user.id, role: user.role })
+                    });
+                    const data = await resp.json();
+                    if (data.success) {
+                        this.showToast(`${user.full_name} reactivated`, 'success');
+                        await this.init();
+                    }
+                } catch (e) { this.showToast('Network error', 'error'); }
+            },
+
+            showToast(msg, type = 'success') {
+                this.toast = msg;
+                this.toastType = type;
+                setTimeout(() => this.toast = null, 4000);
             }
-        } catch (e) { console.error(e); }
-    },
-
-        async loadAll() {
-        try {
-            const resp = await fetch('/api/admin/users');
-            if (resp.ok) this.allUsers = await resp.json();
-        } catch (e) { console.error(e); }
-    },
-
-        async approveUser(user) {
-        try {
-            const resp = await fetch('/api/admin/approve-user', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id: user.id, role: user._assignRole })
-            });
-            const data = await resp.json();
-            if (data.success) {
-                this.showToast(`${user.full_name} approved as ${user._assignRole}`, 'success');
-                await this.init();
-            } else {
-                this.showToast(data.error, 'error');
-            }
-        } catch (e) { this.showToast('Network error', 'error'); }
-    },
-
-        async suspendUser(user) {
-        if (!confirm(`Suspend ${user.full_name}? They will lose access immediately.`)) return;
-        try {
-            const resp = await fetch('/api/admin/suspend-user', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id: user.id })
-            });
-            const data = await resp.json();
-            if (data.success) {
-                this.showToast(`${user.full_name} suspended`, 'success');
-                await this.init();
-            } else {
-                this.showToast(data.error, 'error');
-            }
-        } catch (e) { this.showToast('Network error', 'error'); }
-    },
-
-        async reactivateUser(user) {
-        try {
-            const resp = await fetch('/api/admin/approve-user', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id: user.id, role: user.role })
-            });
-            const data = await resp.json();
-            if (data.success) {
-                this.showToast(`${user.full_name} reactivated`, 'success');
-                await this.init();
-            }
-        } catch (e) { this.showToast('Network error', 'error'); }
-    },
-
-    showToast(msg, type = 'success') {
-        this.toast = msg;
-        this.toastType = type;
-        setTimeout(() => this.toast = null, 4000);
+        };
     }
-    }
-}
 </script>
 {% endblock %}

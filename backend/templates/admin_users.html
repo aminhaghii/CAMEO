@@ -40,7 +40,7 @@
                                 <p class="text-xs text-slate-400 mt-0.5">
                                     Registered: <span x-text="new Date(user.created_at).toLocaleDateString()"></span>
                                     <template x-if="user.company_name">
-                                        <span> · <span x-text="user.company_name"></span></span>
+                                        <span> &middot; <span x-text="user.company_name"></span></span>
                                     </template>
                                 </p>
                             </div>
@@ -179,9 +179,7 @@
             allUsers: [],
             toast: null,
             toastType: 'success',
-            currentUserId: {{ current_user.id if current_user else 0 }
-    },
-        },
+            currentUserId: {{ current_user.id if current_user else 0 }},
 
         async init() {
         await Promise.all([this.loadPending(), this.loadAll()]);
@@ -216,7 +214,7 @@
                 this.showToast(`${user.full_name} approved as ${user._assignRole}`, 'success');
                 await this.init();
             } else {
-                this.showToast(data.error, 'error');
+                this.showToast(data.error || 'Error approving user', 'error');
             }
         } catch (e) { this.showToast('Network error', 'error'); }
     },
@@ -234,7 +232,7 @@
                 this.showToast(`${user.full_name} suspended`, 'success');
                 await this.init();
             } else {
-                this.showToast(data.error, 'error');
+                this.showToast(data.error || 'Error suspending user', 'error');
             }
         } catch (e) { this.showToast('Network error', 'error'); }
     },

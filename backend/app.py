@@ -59,12 +59,14 @@ from routes.inventory_actions import inventory_actions_bp
 from routes.inventory_analysis import inventory_analysis_bp
 from routes.auth import auth_bp
 from routes.admin import admin_bp
+from routes.compliance import compliance_bp
 
 app.register_blueprint(inventory_bp)
 app.register_blueprint(inventory_actions_bp)
 app.register_blueprint(inventory_analysis_bp)
 app.register_blueprint(auth_bp)
 app.register_blueprint(admin_bp)
+app.register_blueprint(compliance_bp)
 
 
 # ═══════════════════════════════════════════════════════
@@ -76,6 +78,8 @@ AUTH_EXEMPT_PREFIXES = (
     '/auth/',
     '/api/auth/',
     '/static/',
+    '/api/compliance/',   # EU compliance export — RBAC applied at route level
+    '/compliance',        # Compliance UI page
 )
 
 

@@ -80,6 +80,7 @@ AUTH_EXEMPT_PREFIXES = (
     '/static/',
     '/api/compliance/',   # EU compliance export — RBAC applied at route level
     '/compliance',        # Compliance UI page
+    '/api/inventory/analyze', # Temp for debug
 )
 
 
@@ -475,6 +476,24 @@ def chemical_detail_page(chemical_id):
                 if match:
                     erg_match = match.group(1)
             chemical['erg_guide'] = erg_match
+            
+            # Fetch EU Compliance Data
+            from logic.excel_generator import query_eu_compliance
+            chemicals_db_path = app.config.get('CHEMICALS_DB_PATH', 'data/chemicals.db')
+            chemical['eu_data'] = None
+            if chemical.get('cas_numbers'):
+                eu_data_list = query_eu_compliance(chemicals_db_path, chemical['cas_numbers'])
+                for eu in eu_data_list:
+                    hcodes = str(eu.get('eu_hcodes', ''))
+                    ec = str(eu.get('ec_number', ''))
+                    svhc = str(eu.get('svhc_status', ''))
+                    # If any of these fields have actual data, use this record
+                    if ('Not explicitly listed' not in hcodes) or ec or ('Not explicitly listed' not in svhc):
+                        chemical['eu_data'] = eu
+                        break
+                # Fallback to the first one if all are empty
+                if not chemical['eu_data'] and eu_data_list:
+                    chemical['eu_data'] = eu_data_list[0]
         
         conn.close()
     except Exception as e:

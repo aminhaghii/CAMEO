@@ -1,38 +1,104 @@
-# Dependencies
+# ==========================================
+# CAMEO Project .gitignore
+# Clean, professional, and secure
+# ==========================================
+
+# --- Environment & Secrets ---
+# Crucial: Never commit API keys, passwords, or configuration secrets!
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*
+!.env.example
+
+# --- Frontend (Node / Vite / React / TypeScript) ---
 node_modules/
+/dist
+/dist-ssr
+/build
+/out
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.eslintcache
+.parcel-cache
+.vite
+.next
+.nuxt
+.tsbuildinfo
+
+# --- Backend (Python) ---
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-
-# Python virtual environments
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.noseids
+nosetests.xml
+.hypothesis/
+.ipynb_checkpoints
+*.egg-info/
+.python-version
+pip-log.txt
+pip-delete-this-directory.txt
+.venv/
 venv/
 env/
 ENV/
+pyvenv.cfg
+.mypy_cache/
+.pyre/
 
-# IDE
+# --- Database & Storage (Generated at runtime) ---
+# SQLite and database files (preventing large binaries from bloating the repo)
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
+backend/data/user.db
+backend/data/2_user.db
+backend/data/global_auth.db
+backend/data/chemicals.db
+
+# --- Project Uploads & Temp Files ---
+# Ignore uploaded files, but keep the directory (using .gitkeep)
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Temporary files and backups
+*.tmp
+*.bak
+*.temp
+.cache/
+sass-cache/
+
+# --- Editor / IDE & OS Files ---
+# IDE specific files
 .vscode/
+!.vscode/extensions.json
+!.vscode/launch.json
 .idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
 *.swp
 *.swo
 *~
 
-# OS
+# Operating system files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
-
-# Build outputs
-dist/
-build/
-*.egg-info/
-
-# Logs
-*.log
-
-# User database (generated at runtime)
-backend/data/user.db
-
-# Temporary files
-*.tmp
-*.bak
-.cache/

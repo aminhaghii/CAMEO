@@ -70,6 +70,45 @@ app.register_blueprint(compliance_bp)
 
 
 # ═══════════════════════════════════════════════════════
+#  Auto-download Static Assets (if not exist)
+# ═══════════════════════════════════════════════════════
+def ensure_static_assets():
+    """Check va download-e static assets agar vojud nadarand."""
+    static_dir = os.path.join(BASE_DIR, 'static')
+    js_dir = os.path.join(static_dir, 'js')
+    fonts_dir = os.path.join(static_dir, 'fonts')
+    
+    assets = {
+        os.path.join(js_dir, 'tailwind.min.js'): 'https://cdn.tailwindcss.com/3.4.17',
+        os.path.join(js_dir, 'alpine.min.js'): 'https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js',
+    }
+    
+    import urllib.request
+    import ssl
+    
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    
+    os.makedirs(js_dir, exist_ok=True)
+    os.makedirs(fonts_dir, exist_ok=True)
+    
+    for filepath, url in assets.items():
+        if not os.path.exists(filepath):
+            try:
+                logger.info(f"Downloading {os.path.basename(filepath)} az CDN...")
+                urllib.request.urlretrieve(url, filepath)
+                logger.info(f"✓ Download shod: {os.path.basename(filepath)}")
+            except Exception as e:
+                logger.error(f"✗ Error dar download {os.path.basename(filepath)}: {e}")
+        else:
+            logger.info(f"✓ {os.path.basename(filepath)}")
+
+# Run asset check dar startup
+ensure_static_assets()
+
+
+# ═══════════════════════════════════════════════════════
 #  Tenant Router (before_request middleware)
 # ═══════════════════════════════════════════════════════
 

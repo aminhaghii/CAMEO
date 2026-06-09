@@ -1,222 +1,401 @@
 {% extends "base.html" %}
-{% block title %}Warehouse Overview - SAFEWARE{% endblock %}
-{% block breadcrumb %}Warehouse Overview{% endblock %}
+{% block title %}Warehouse Visual Planner - SAFEWARE{% endblock %}
+{% block breadcrumb %}Warehouse Planner{% endblock %}
+
+{% block extra_head %}
+<style>
+    [x-cloak] { display: none !important; }
+    
+    .warehouse-layout {
+        display: flex;
+        height: calc(100vh - 120px);
+        overflow: hidden;
+        gap: 24px;
+    }
+    
+    /* Sidebar styling */
+    .chemical-pool-sidebar {
+        width: 320px;
+        flex-shrink: 0;
+        background: rgba(15, 23, 42, 0.03);
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        border-radius: 16px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .chem-card {
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        cursor: grab;
+    }
+    
+    .chem-card:active {
+        cursor: grabbing;
+    }
+    
+    .chem-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+    }
+    
+    /* Sections Grid styling */
+    .sections-grid {
+        flex: 1;
+        overflow-y: auto;
+        padding-right: 8px;
+    }
+    
+    .section-drop-zone {
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+    }
+    
+    /* Drag over states */
+    .drag-valid {
+        border-color: #10b981 !important;
+        background-color: rgba(16, 185, 129, 0.05) !important;
+        box-shadow: 0 0 15px rgba(16, 185, 129, 0.15) !important;
+    }
+    
+    .drag-caution {
+        border-color: #f59e0b !important;
+        background-color: rgba(245, 158, 11, 0.05) !important;
+        box-shadow: 0 0 15px rgba(245, 158, 11, 0.15) !important;
+    }
+    
+    .drag-invalid {
+        border-color: #ef4444 !important;
+        background-color: rgba(239, 68, 68, 0.05) !important;
+        box-shadow: 0 0 15px rgba(239, 68, 68, 0.15) !important;
+        cursor: no-drop !important;
+    }
+    
+    /* Ghost suggestions */
+    .ghost-item {
+        opacity: 0.5;
+        border-style: dashed !important;
+    }
+    
+    /* Slide out panel */
+    .slide-panel {
+        position: fixed;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        width: 420px;
+        background: white;
+        box-shadow: -10px 0 30px rgba(15, 23, 42, 0.15);
+        z-index: 100;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    /* Live custom tooltip */
+    .drag-tooltip {
+        position: fixed;
+        pointer-events: none;
+        background: #0f172a;
+        color: white;
+        padding: 8px 12px;
+        border-radius: 8px;
+        font-size: 12px;
+        max-width: 280px;
+        z-index: 1000;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+        opacity: 0;
+        transition: opacity 0.1s ease;
+    }
+    
+    .drag-tooltip.visible {
+        opacity: 1;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div x-data="warehouseApp()" x-init="init()" class="space-y-6 animate-fade-in">
-
-    <!-- Page Header -->
-    <div class="flex items-center justify-between">
-        <div>
-            <h1 class="text-2xl font-bold text-slate-900">Warehouse Overview</h1>
-            <p class="text-sm text-slate-500 mt-1">Monitor chemical storage locations and safety status</p>
-        </div>
-        <div class="flex items-center gap-3">
-            <!-- Legend -->
-            <div class="flex items-center gap-3 text-xs font-medium text-slate-500">
-                <span class="flex items-center gap-1.5"><span
-                        class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>Safe</span>
-                <span class="flex items-center gap-1.5"><span
-                        class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>Warning</span>
-                <span class="flex items-center gap-1.5"><span
-                        class="w-2.5 h-2.5 rounded-full bg-red-500"></span>Critical</span>
-            </div>
-        </div>
-    </div>
-
-    <!-- Summary Bar -->
-    <div class="grid grid-cols-3 gap-4">
-        <div class="content-card border border-emerald-100 bg-emerald-50 !py-4 text-center">
-            <p class="text-3xl font-black text-emerald-600" x-text="safeCount">0</p>
-            <p class="text-xs font-semibold text-emerald-700 mt-1 uppercase tracking-wider">Safe Locations</p>
-        </div>
-        <div class="content-card border border-amber-100 bg-amber-50 !py-4 text-center">
-            <p class="text-3xl font-black text-amber-500" x-text="warningCount">0</p>
-            <p class="text-xs font-semibold text-amber-700 mt-1 uppercase tracking-wider">Warning</p>
-        </div>
-        <div class="content-card border border-red-100 bg-red-50 !py-4 text-center">
-            <p class="text-3xl font-black text-red-600" x-text="dangerCount">0</p>
-            <p class="text-xs font-semibold text-red-700 mt-1 uppercase tracking-wider">Critical</p>
-        </div>
-    </div>
-
-    <!-- Filter Tabs -->
-    <div class="flex gap-2">
-        <button @click="activeFilter = 'ALL'" class="px-4 py-2 text-sm font-semibold rounded-full transition"
-            :class="activeFilter === 'ALL' ? 'bg-slate-800 text-white shadow' : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300'">
-            All Locations
-        </button>
-        <button @click="activeFilter = 'safe'" class="px-4 py-2 text-sm font-semibold rounded-full transition"
-            :class="activeFilter === 'safe' ? 'bg-emerald-600 text-white shadow' : 'bg-white text-emerald-700 border border-emerald-200'">
-            Safe
-        </button>
-        <button @click="activeFilter = 'warning'" class="px-4 py-2 text-sm font-semibold rounded-full transition"
-            :class="activeFilter === 'warning' ? 'bg-amber-500 text-white shadow' : 'bg-white text-amber-700 border border-amber-200'">
-            Warning
-        </button>
-        <button @click="activeFilter = 'danger'" class="px-4 py-2 text-sm font-semibold rounded-full transition"
-            :class="activeFilter === 'danger' ? 'bg-red-600 text-white shadow' : 'bg-white text-red-700 border border-red-200'">
-            Critical
-        </button>
-    </div>
-
-    <!-- Warehouse Cards Grid -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
-        <template x-for="w in filteredWarehouses" :key="w.name">
-            <div class="content-card border border-slate-100 cursor-pointer transition hover:shadow-lg hover:-translate-y-0.5 group relative overflow-hidden"
-                @click="openDetail(w)">
-
-                <!-- Color accent top bar -->
-                <div class="absolute top-0 left-0 right-0 h-1 rounded-t-2xl transition"
-                    :class="{'bg-emerald-500': w.status === 'safe', 'bg-amber-400': w.status === 'warning', 'bg-red-500': w.status === 'danger'}">
-                </div>
-
-                <!-- Header -->
-                <div class="flex items-start justify-between mb-4 pt-1">
-                    <div class="flex-1 min-w-0 pr-3">
-                        <h3 class="font-bold text-slate-900 text-base truncate" x-text="w.name"></h3>
-                        <p class="text-xs text-slate-500 mt-0.5" x-text="'Updated: ' + formatDate(w.last_updated)"></p>
-                    </div>
-                    <!-- Status dot -->
-                    <span
-                        class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold flex-shrink-0"
-                        :class="{
-                            'bg-emerald-100 text-emerald-700': w.status === 'safe',
-                            'bg-amber-100 text-amber-700': w.status === 'warning',
-                            'bg-red-100 text-red-700': w.status === 'danger'
-                          }">
-                        <span class="w-1.5 h-1.5 rounded-full" :class="{
-                                'bg-emerald-500': w.status === 'safe',
-                                'bg-amber-500': w.status === 'warning',
-                                'bg-red-500': w.status === 'danger'
-                              }"></span>
-                        <span
-                            x-text="w.status === 'safe' ? 'Safe' : w.status === 'warning' ? 'Warning' : 'Critical'"></span>
-                    </span>
-                </div>
-
-                <!-- Stats Row -->
-                <div class="flex items-center gap-4 mb-5">
-                    <div class="text-center">
-                        <p class="text-2xl font-black text-slate-800" x-text="w.chemical_count"></p>
-                        <p class="text-xs text-slate-500">Chemicals</p>
-                    </div>
-                    <div class="w-px h-8 bg-slate-200"></div>
-                    <div class="text-center">
-                        <p class="text-2xl font-black text-slate-800" x-text="w.matched"></p>
-                        <p class="text-xs text-slate-500">Identified</p>
-                    </div>
-                    <div class="w-px h-8 bg-slate-200"></div>
-                    <div class="text-center">
-                        <p class="text-2xl font-black"
-                            :class="{'text-emerald-600': w.safety_pct > 80, 'text-amber-500': w.safety_pct > 50 && w.safety_pct <= 80, 'text-red-600': w.safety_pct <= 50}"
-                            x-text="w.safety_pct + '%'"></p>
-                        <p class="text-xs text-slate-500">Coverage</p>
-                    </div>
-                </div>
-
-                <!-- Mini Progress Bar -->
-                <div class="space-y-1.5">
-                    <div class="flex justify-between text-xs text-slate-500">
-                        <span>ID Coverage</span>
-                        <span x-text="w.matched + ' / ' + w.chemical_count"></span>
-                    </div>
-                    <div class="h-2 bg-slate-100 rounded-full overflow-hidden">
-                        <div class="h-full rounded-full transition-all duration-700"
-                            :class="{'bg-emerald-500': w.status === 'safe', 'bg-amber-400': w.status === 'warning', 'bg-red-500': w.status === 'danger'}"
-                            :style="'width:' + w.safety_pct + '%'"></div>
-                    </div>
-                </div>
-
-                <!-- Hover Overlay -->
-                <div
-                    class="absolute inset-0 bg-gradient-to-t from-slate-900/5 to-transparent opacity-0 group-hover:opacity-100 transition rounded-2xl pointer-events-none">
-                </div>
-            </div>
-        </template>
-
-        <!-- Empty State -->
-        <template x-if="filteredWarehouses.length === 0 && !loading">
-            <div class="col-span-full flex flex-col items-center justify-center py-20 text-slate-400">
-                <svg class="w-14 h-14 mb-4 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                        d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1" />
-                </svg>
-                <p class="font-semibold text-slate-500">No locations found</p>
-                <p class="text-sm mt-1">Import inventory with storage locations to populate this view</p>
-            </div>
-        </template>
-
-        <!-- Loading Skeleton -->
-        <template x-if="loading">
-            <template x-for="i in 6" :key="i">
-                <div class="content-card border border-slate-100 animate-pulse">
-                    <div class="h-4 bg-slate-200 rounded w-3/4 mb-3"></div>
-                    <div class="h-3 bg-slate-100 rounded w-1/2 mb-6"></div>
-                    <div class="flex gap-4 mb-4">
-                        <div class="h-8 w-12 bg-slate-200 rounded"></div>
-                        <div class="h-8 w-12 bg-slate-200 rounded"></div>
-                        <div class="h-8 w-12 bg-slate-200 rounded"></div>
-                    </div>
-                    <div class="h-2 bg-slate-200 rounded-full"></div>
-                </div>
-            </template>
-        </template>
-    </div>
-
-    <!-- Detail Side Panel / Modal -->
-    <div x-show="detailOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0"
-        x-transition:enter-end="opacity-100" class="fixed inset-0 z-50 flex items-center justify-center p-4"
-        style="display:none;">
-        <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" @click="detailOpen = false"></div>
-        <div class="relative w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 border border-slate-100"
-            x-show="selectedWarehouse" @click.stop>
-            <div class="flex items-start justify-between mb-4">
-                <div>
-                    <h3 class="text-xl font-bold text-slate-900" x-text="selectedWarehouse?.name"></h3>
-                    <p class="text-sm text-slate-500 mt-0.5"
-                        x-text="'Last updated: ' + formatDate(selectedWarehouse?.last_updated)"></p>
-                </div>
-                <button @click="detailOpen = false"
-                    class="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M6 18L18 6M6 6l12 12" />
+<div x-data="warehouseApp()" x-init="init()" class="space-y-6 animate-fade-in" x-cloak>
+    
+    <!-- Auto-Arrange Proposed Layout Banner -->
+    <template x-if="suggestedLayout">
+        <div class="bg-gradient-to-r from-amber-500/10 to-amber-600/20 border-2 border-amber-400 rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 shadow-md">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-amber-500/20 rounded-xl text-amber-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
                     </svg>
-                </button>
-            </div>
-
-            <!-- Big Safety Score -->
-            <div class="flex items-center justify-center p-8 rounded-xl mb-4"
-                :class="{'bg-emerald-50': selectedWarehouse?.status === 'safe', 'bg-amber-50': selectedWarehouse?.status === 'warning', 'bg-red-50': selectedWarehouse?.status === 'danger'}">
-                <div class="text-center">
-                    <p class="text-6xl font-black"
-                        :class="{'text-emerald-600': selectedWarehouse?.status === 'safe', 'text-amber-500': selectedWarehouse?.status === 'warning', 'text-red-600': selectedWarehouse?.status === 'danger'}"
-                        x-text="selectedWarehouse?.safety_pct + '%'"></p>
-                    <p class="text-sm font-semibold mt-2"
-                        :class="{'text-emerald-700': selectedWarehouse?.status === 'safe', 'text-amber-700': selectedWarehouse?.status === 'warning', 'text-red-700': selectedWarehouse?.status === 'danger'}"
-                        x-text="selectedWarehouse?.status === 'safe' ? '✓ All Clear — Safe Storage' : selectedWarehouse?.status === 'warning' ? '⚠ Partially Identified' : '✗ Critical — Review Required'">
+                </div>
+                <div>
+                    <h4 class="font-bold text-amber-900 text-sm">چیدمان پیشنهادی آماده بررسی (Proposed Layout Preview)</h4>
+                    <p class="text-xs text-amber-800 mt-0.5 leading-relaxed">
+                        <strong>توجه مهم:</strong> الگوریتم پیشنهادی صرفاً جنبه راهنمایی دارد. سیستم هیچ‌گونه مسئولیت حقوقی یا فنی در قبال عدم تایید نهایی چیدمان نمی‌پذیرد و تایید نهایی بر عهده کاربر است.
                     </p>
                 </div>
             </div>
+            <div class="flex items-center gap-2">
+                <span class="text-xs font-bold text-amber-700 bg-white/50 px-2 py-1 rounded" x-text="`امتیاز بهینگی: ${suggestedScore}%`"></span>
+                <button @click="saveSuggestedLayout()" class="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 transition shadow">تایید چیدمان (Accept)</button>
+                <button @click="cancelSuggestedLayout()" class="px-4 py-2 bg-slate-200 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-300 transition">انصراف (Cancel)</button>
+            </div>
+        </div>
+    </template>
 
-            <div class="grid grid-cols-2 gap-3 mb-4">
-                <div class="bg-slate-50 rounded-xl p-3 text-center">
-                    <p class="text-2xl font-bold text-slate-800" x-text="selectedWarehouse?.chemical_count"></p>
-                    <p class="text-xs text-slate-500 mt-0.5">Total Chemicals</p>
-                </div>
-                <div class="bg-slate-50 rounded-xl p-3 text-center">
-                    <p class="text-2xl font-bold text-slate-800" x-text="selectedWarehouse?.matched"></p>
-                    <p class="text-xs text-slate-500 mt-0.5">Identified</p>
+    <!-- Page Header -->
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+            <div class="flex flex-wrap items-center gap-3">
+                <h1 class="text-2xl font-bold text-slate-900">Warehouse Visual Planner</h1>
+                
+                <!-- Warehouse Selector & Management -->
+                <div class="flex items-center gap-2 bg-slate-100 border border-slate-200 rounded-xl px-2 py-1">
+                    <select x-model="selectedWarehouseId" @change="switchWarehouse()" class="bg-transparent text-sm font-semibold text-slate-700 focus:outline-none border-none py-1 cursor-pointer">
+                        <template x-for="wh in warehouses" :key="wh.id">
+                            <option :value="wh.id" x-text="wh.name" :selected="wh.id === selectedWarehouseId"></option>
+                        </template>
+                    </select>
+                    <div class="h-4 w-[1px] bg-slate-300 mx-1"></div>
+                    <button @click="promptCreateWarehouse()" title="Create Warehouse" class="p-1 text-slate-500 hover:text-indigo-600 transition hover:bg-slate-200 rounded-md">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                        </svg>
+                    </button>
+                    <button @click="promptRenameWarehouse()" title="Rename Warehouse" class="p-1 text-slate-500 hover:text-indigo-600 transition hover:bg-slate-200 rounded-md">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                        </svg>
+                    </button>
+                    <button @click="promptDeleteWarehouse()" title="Delete Warehouse" class="p-1 text-slate-500 hover:text-rose-600 transition hover:bg-slate-200 rounded-md">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                        </svg>
+                    </button>
                 </div>
             </div>
+            <p class="text-sm text-slate-500 mt-1">Drag chemicals into storage sections to evaluate reactive safety in real-time.</p>
+        </div>
+        
+        <div class="flex items-center gap-3">
+            <button @click="openInitModal()" class="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-100 border border-slate-200 text-slate-700 text-sm font-semibold rounded-lg hover:bg-slate-200 transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                </svg>
+                Configure Sections
+            </button>
+            <button @click="triggerAutoArrange()" class="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition shadow">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 9.172V5L8 4z" />
+                </svg>
+                Auto-Arrange (AI Proposal)
+            </button>
+        </div>
+    </div>
 
-            <div class="flex gap-3">
-                <a href="/inventory"
-                    class="flex-1 text-center px-4 py-2.5 bg-slate-100 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-200 transition">View
-                    Inventory</a>
-                <a href="/mixer"
-                    class="flex-1 text-center px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition">Analyze</a>
+    <!-- Main Workspace -->
+    <div class="warehouse-layout">
+        
+        <!-- SIDEBAR: Draggable Inventory Pool -->
+        <div class="chemical-pool-sidebar">
+            <div class="p-4 border-b border-slate-200 bg-white">
+                <h3 class="font-bold text-slate-800 text-sm">Chemical Pool</h3>
+                <p class="text-[11px] text-slate-500 mt-0.5" x-text="`${filteredPool.length} unplaced chemicals ready`"></p>
+                <div class="mt-3 relative">
+                    <input type="text" x-model="searchQuery" placeholder="Filter chemicals..." class="w-full pl-8 pr-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 bg-slate-50">
+                    <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                </div>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto p-3 space-y-2 bg-slate-50/50">
+                <template x-for="item in filteredPool" :key="item.id">
+                    <div draggable="true"
+                         @dragstart="handleDragStart($event, item)"
+                         @dragend="handleDragEnd()"
+                         class="chem-card p-3 bg-white border border-slate-200 rounded-xl shadow-sm text-xs flex flex-col gap-1.5 hover:border-blue-400">
+                        <div class="font-semibold text-slate-800 break-words" x-text="item.chemical_name"></div>
+                        <div class="flex justify-between items-center text-[10px] text-slate-500">
+                            <span class="font-mono" x-text="item.cas_number || 'No CAS'"></span>
+                            <span class="font-bold text-indigo-600" x-text="`${item.quantity_kg} kg`"></span>
+                        </div>
+                        <template x-if="item.reactive_groups && item.reactive_groups.length > 0">
+                            <div class="flex flex-wrap gap-1">
+                                <template x-for="grp in item.reactive_groups" :key="grp">
+                                    <span class="bg-indigo-50 text-indigo-700 px-1 py-0.5 rounded font-mono text-[9px]" x-text="`Group ${grp}`"></span>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+                <template x-if="filteredPool.length === 0">
+                    <div class="text-center py-12 text-slate-400 text-xs">
+                        <svg class="w-8 h-8 mx-auto mb-2 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                        </svg>
+                        No chemicals available. Add them using the "Add to Ware" option in the analysis page.
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- MAIN AREA: Section Drag Targets -->
+        <div class="sections-grid bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                <template x-for="sec in sections" :key="sec.id">
+                    <div class="section-drop-zone content-card border-2 border-slate-200/80 rounded-2xl p-5 hover:border-slate-300 bg-slate-50/30 flex flex-col min-h-[180px]"
+                         :class="getDragOverClass(sec)"
+                         @dragover.prevent="handleDragOver($event, sec)"
+                         @dragenter.prevent="handleDragEnter(sec)"
+                         @dragleave="handleDragLeave(sec)"
+                         @drop="handleDrop($event, sec)"
+                         @click="openDetailPanel(sec)">
+                        
+                        <!-- Header -->
+                        <div class="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
+                            <h3 class="font-bold text-slate-900 text-sm tracking-wide" x-text="sec.name"></h3>
+                            <span class="text-[10px] bg-slate-100 font-bold px-2 py-0.5 rounded text-slate-600" x-text="`${sec.chemicals.length} items`"></span>
+                        </div>
+                        
+                        <!-- Chemicals inside Section -->
+                        <div class="flex-1 space-y-2">
+                            <template x-for="placement in getMergedPlacements(sec)" :key="placement.id">
+                                <div draggable="true"
+                                     @dragstart="handleDragStart($event, placement)"
+                                     @dragend="handleDragEnd()"
+                                     @click.stop
+                                     class="p-2 border rounded-lg text-[11px] flex flex-col gap-1 transition"
+                                     :class="placement.status === 'ghost' ? 'bg-amber-50/50 border-amber-300 shadow-sm ghost-item' : 'bg-white border-slate-100 shadow-sm hover:border-slate-200'">
+                                    <div class="flex justify-between items-start gap-1">
+                                        <span class="font-semibold text-slate-800 truncate flex-1" x-text="placement.chemical_name"></span>
+                                        <button @click.stop="handleUnplace(placement)" class="text-slate-400 hover:text-red-500 font-black text-xs px-1" title="Unplace chemical">✕</button>
+                                    </div>
+                                    <div class="flex justify-between text-[9px] text-slate-400">
+                                        <span x-text="placement.cas_number || 'No CAS'"></span>
+                                        <span class="font-semibold text-indigo-500" x-text="`${placement.quantity_kg} kg`"></span>
+                                    </div>
+                                </div>
+                            </template>
+                            
+                            <template x-if="sec.chemicals.length === 0 && (!suggestedLayout || !hasSuggestionFor(sec))">
+                                <div class="h-full flex items-center justify-center py-6 text-slate-300 text-xs border border-dashed border-slate-200 rounded-xl">
+                                    Drop chemical here
+                                </div>
+                            </template>
+                        </div>
+                        
+                        <!-- Special Quarantine Badge -->
+                        <template x-if="sec.name.toLowerCase().includes('quarantine')">
+                            <div class="mt-3 bg-red-100 text-red-800 text-[10px] font-bold px-2.5 py-1 rounded-lg text-center tracking-wide uppercase">
+                                Default Quarantine Zone
+                            </div>
+                        </template>
+                    </div>
+                </template>
+            </div>
+        </div>
+        
+    </div>
+
+    <!-- Live Tooltip during drag -->
+    <div id="drag-tooltip" class="drag-tooltip"></div>
+
+    <!-- SLIDE-OUT DETAIL PANEL -->
+    <div x-show="panelOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0" class="slide-panel border-l border-slate-200" style="display:none;" @click.away="panelOpen = false">
+        <!-- Panel Header -->
+        <div class="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-900 text-white">
+            <div>
+                <input type="text" x-model="selectedSectionName" @blur="renameSection()" @keyup.enter="renameSection()" class="bg-transparent border-b border-dashed border-white/50 focus:border-white font-bold text-base text-white focus:outline-none py-0.5">
+                <p class="text-[10px] text-slate-400 mt-1">Section Details & Matrix Analysis</p>
+            </div>
+            <button @click="panelOpen = false" class="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 transition">✕</button>
+        </div>
+        
+        <!-- Panel Body -->
+        <div class="flex-1 overflow-y-auto p-5 space-y-6">
+            <!-- Chemicals List -->
+            <div>
+                <h4 class="font-bold text-slate-800 text-xs uppercase tracking-wider mb-3">Stored Chemicals</h4>
+                <div class="space-y-2">
+                    <template x-for="item in selectedSection?.chemicals" :key="item.id">
+                        <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-4">
+                            <div>
+                                <p class="font-bold text-xs text-slate-800" x-text="item.chemical_name"></p>
+                                <p class="text-[10px] text-slate-500 mt-1" x-text="`CAS: ${item.cas_number || '—'} • ${item.quantity_kg} kg`"></p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button @click="moveBackToSidebar(item.id)" title="Move to pool" class="p-1.5 hover:bg-slate-200 text-slate-500 rounded bg-white border border-slate-200 transition">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                                    </svg>
+                                </button>
+                                <template x-if="!suggestedLayout">
+                                    <button @click="deletePlacement(item.id)" title="Delete completely" class="p-1.5 hover:bg-red-50 text-red-600 rounded bg-white border border-slate-200 transition">
+                                        🗑
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                    <template x-if="!selectedSection || selectedSection.chemicals.length === 0">
+                        <p class="text-xs text-slate-400 text-center py-6">No chemicals placed in this section.</p>
+                    </template>
+                </div>
+            </div>
+            
+            <!-- Compatibility Matrix -->
+            <template x-if="selectedSection && selectedSection.chemicals.length >= 2">
+                <div>
+                    <h4 class="font-bold text-slate-800 text-xs uppercase tracking-wider mb-3">Internal Reactivity Matrix</h4>
+                    <div class="border border-slate-200 rounded-xl overflow-hidden bg-slate-50 p-3">
+                        <table class="w-full text-[10px] text-left border-collapse">
+                            <thead>
+                                <tr>
+                                    <th class="p-1"></th>
+                                    <template x-for="(chem, i) in selectedSection.chemicals" :key="chem.id">
+                                        <th class="p-1 font-bold text-slate-500 truncate max-w-[80px]" x-text="`#${i+1}`" :title="chem.chemical_name"></th>
+                                    </template>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="(rowChem, rIdx) in selectedSection.chemicals" :key="rowChem.id">
+                                    <tr>
+                                        <td class="p-1 font-semibold text-slate-700 truncate max-w-[90px]" x-text="`#${rIdx+1} ${rowChem.chemical_name.slice(0, 10)}…`" :title="rowChem.chemical_name"></td>
+                                        <template x-for="(colChem, cIdx) in selectedSection.chemicals" :key="colChem.id">
+                                            <td class="p-1 text-center font-bold">
+                                                <template x-if="rIdx === cIdx">
+                                                    <span class="text-slate-300">—</span>
+                                                </template>
+                                                <template x-if="rIdx !== cIdx">
+                                                    <span class="px-1.5 py-0.5 rounded text-[9px]" 
+                                                          :class="getPairStatusClass(rowChem, colChem)"
+                                                          x-text="getPairStatusLabel(rowChem, colChem)"></span>
+                                                </template>
+                                            </td>
+                                        </template>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- CONFIG SECTIONS MODAL -->
+    <div x-show="initModalOpen" x-transition class="fixed inset-0 z-50 flex items-center justify-center p-4" style="display:none;">
+        <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" @click="initModalOpen = false"></div>
+        <div class="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl p-6 border border-slate-100" @click.stop>
+            <h3 class="text-base font-bold text-slate-900 mb-2">Configure Warehouse Sections</h3>
+            <p class="text-xs text-slate-500 mb-4 leading-relaxed">
+                Enter the number of sections in your warehouse. Setting this will clear all current sections and reset placements.
+            </p>
+            <div class="mb-4">
+                <label class="block text-xs font-semibold text-slate-500 mb-1">Number of Sections (1-50)</label>
+                <input type="number" min="1" max="50" x-model="initCount" class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm">
+            </div>
+            <div class="flex justify-end gap-2 text-xs font-semibold">
+                <button @click="initModalOpen = false" class="px-4 py-2 border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition">Cancel</button>
+                <button @click="saveSectionsInit()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">Confirm Reset</button>
             </div>
         </div>
     </div>
@@ -227,39 +406,551 @@
     function warehouseApp() {
         return {
             warehouses: [],
+            selectedWarehouseId: null,
+            sections: [],
+            inventory: [],
+            chemicalGroups: {},
+            reactiveRules: {},
+            
+            searchQuery: '',
             loading: true,
-            activeFilter: 'ALL',
-            detailOpen: false,
-            selectedWarehouse: null,
+            panelOpen: false,
+            initModalOpen: false,
+            initCount: 10,
+            
+            selectedSection: null,
+            selectedSectionName: '',
+            
+            // Drag states
+            draggedItem: null,
+            dragOverSection: null,
+            
+            // Auto Arrange Suggestion Layout mapping (placement_id -> section_id)
+            suggestedLayout: null,
+            suggestedScore: 100,
 
-            get filteredWarehouses() {
-                if (this.activeFilter === 'ALL') return this.warehouses;
-                return this.warehouses.filter(w => w.status === this.activeFilter);
+            get activePool() {
+                const allWarehousePlacements = [...this.inventory, ...this.sections.flatMap(s => s.chemicals)];
+                if (!this.suggestedLayout) {
+                    return this.inventory;
+                }
+                return allWarehousePlacements.filter(p => !this.suggestedLayout[p.id]);
             },
 
-            get safeCount() { return this.warehouses.filter(w => w.status === 'safe').length; },
-            get warningCount() { return this.warehouses.filter(w => w.status === 'warning').length; },
-            get dangerCount() { return this.warehouses.filter(w => w.status === 'danger').length; },
+            get filteredPool() {
+                const pool = this.activePool;
+                if (!this.searchQuery) return pool;
+                const q = this.searchQuery.toLowerCase();
+                return pool.filter(item => 
+                    item.chemical_name.toLowerCase().includes(q) ||
+                    (item.cas_number || '').toLowerCase().includes(q)
+                );
+            },
 
             async init() {
+                await this.loadWarehouses();
+                await this.loadData();
+            },
+
+            async loadWarehouses() {
                 try {
-                    const res = await fetch('/api/warehouse');
+                    const res = await fetch('/api/warehouse/list');
                     const data = await res.json();
-                    if (data.success) this.warehouses = data.data;
-                } catch (e) { console.error(e); }
-                this.loading = false;
+                    if (data.success) {
+                        this.warehouses = data.warehouses || [];
+                        if (this.warehouses.length > 0) {
+                            if (!this.selectedWarehouseId) {
+                                this.selectedWarehouseId = this.warehouses[0].id;
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error("Load warehouses error:", e);
+                }
             },
 
-            openDetail(w) {
-                this.selectedWarehouse = w;
-                this.detailOpen = true;
-            },
-
-            formatDate(dateStr) {
-                if (!dateStr) return 'N/A';
+            async loadData() {
+                this.loading = true;
                 try {
-                    return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                } catch { return dateStr; }
+                    const url = this.selectedWarehouseId 
+                        ? `/api/warehouse/data?warehouse_id=${this.selectedWarehouseId}` 
+                        : '/api/warehouse/data';
+                    const res = await fetch(url);
+                    const data = await res.json();
+                    if (data.success) {
+                        this.sections = data.sections || [];
+                        this.inventory = data.inventory || [];
+                        this.chemicalGroups = data.chemical_groups || {};
+                        this.reactiveRules = data.reactive_rules || {};
+                        this.selectedWarehouseId = data.warehouse_id;
+                    }
+                } catch (e) {
+                    console.error("Load warehouse data error:", e);
+                } finally {
+                    this.loading = false;
+                }
+            },
+
+            async switchWarehouse() {
+                this.suggestedLayout = null;
+                await this.loadData();
+            },
+
+            async promptCreateWarehouse() {
+                const name = prompt("Enter new warehouse name:");
+                if (!name || !name.trim()) return;
+                try {
+                    const res = await fetch('/api/warehouse/create', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ name: name.trim() })
+                    });
+                    const data = await res.json();
+                    if (res.ok && data.success) {
+                        this.selectedWarehouseId = data.warehouse_id;
+                        await this.loadWarehouses();
+                        await this.loadData();
+                    } else {
+                        alert(data.error || 'Failed to create warehouse');
+                    }
+                } catch (e) {
+                    alert('Error creating warehouse: ' + e);
+                }
+            },
+
+            async promptRenameWarehouse() {
+                const currentWH = this.warehouses.find(w => w.id == this.selectedWarehouseId);
+                const currentName = currentWH ? currentWH.name : '';
+                const name = prompt("Enter new name for the warehouse:", currentName);
+                if (!name || !name.trim() || name.trim() === currentName) return;
+                try {
+                    const res = await fetch('/api/warehouse/rename', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ warehouse_id: this.selectedWarehouseId, name: name.trim() })
+                    });
+                    const data = await res.json();
+                    if (res.ok && data.success) {
+                        await this.loadWarehouses();
+                    } else {
+                        alert(data.error || 'Failed to rename warehouse');
+                    }
+                } catch (e) {
+                    alert('Error renaming warehouse: ' + e);
+                }
+            },
+
+            async promptDeleteWarehouse() {
+                const currentWH = this.warehouses.find(w => w.id == this.selectedWarehouseId);
+                const currentName = currentWH ? currentWH.name : '';
+                if (!confirm(`Are you sure you want to delete the warehouse "${currentName}"? This will delete all its sections and placements. This action cannot be undone.`)) return;
+                try {
+                    const res = await fetch(`/api/warehouse/delete/${this.selectedWarehouseId}`, {
+                        method: 'DELETE'
+                    });
+                    const data = await res.json();
+                    if (res.ok && data.success) {
+                        this.selectedWarehouseId = data.next_warehouse_id;
+                        await this.loadWarehouses();
+                        await this.loadData();
+                    } else {
+                        alert(data.error || 'Failed to delete warehouse');
+                    }
+                } catch (e) {
+                    alert('Error deleting warehouse: ' + e);
+                }
+            },
+
+            openInitModal() {
+                this.initCount = this.sections.length || 10;
+                this.initModalOpen = true;
+            },
+
+            async saveSectionsInit() {
+                try {
+                    const res = await fetch('/api/warehouse/sections/init', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ count: this.initCount, warehouse_id: this.selectedWarehouseId })
+                    });
+                    const data = await res.json();
+                    if (res.ok && data.success) {
+                        this.initModalOpen = false;
+                        await this.loadData();
+                    } else {
+                        alert(data.error || 'Failed to initialize sections');
+                    }
+                } catch (e) {
+                    alert('Error: ' + e);
+                }
+            },
+
+            openDetailPanel(sec) {
+                this.selectedSection = {
+                    ...sec,
+                    chemicals: this.getMergedPlacements(sec)
+                };
+                this.selectedSectionName = sec.name;
+                this.panelOpen = true;
+            },
+
+            async renameSection() {
+                if (!this.selectedSectionName.trim()) return;
+                try {
+                    const res = await fetch('/api/warehouse/sections/update', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ section_id: this.selectedSection.id, name: this.selectedSectionName })
+                    });
+                    if (res.ok) {
+                        this.selectedSection.name = this.selectedSectionName;
+                    }
+                } catch (e) {
+                    console.error(e);
+                }
+            },
+
+            // ── DRAG AND DROP ZERO-LATENCY IMPLEMENTATION ──
+            handleDragStart(e, item) {
+                this.draggedItem = item;
+                // Add class for styling
+                e.target.style.opacity = '0.4';
+                e.dataTransfer.setData('text/plain', item.id);
+            },
+            
+            handleDragEnd() {
+                this.draggedItem = null;
+                this.dragOverSection = null;
+                // Reset styling
+                const cards = document.querySelectorAll('.chem-card');
+                cards.forEach(c => c.style.opacity = '1');
+                
+                // Hide tooltip
+                const tip = document.getElementById('drag-tooltip');
+                if (tip) tip.classList.remove('visible');
+            },
+
+            handleDragOver(e, sec) {
+                this.dragOverSection = sec;
+                
+                // Update live custom tooltip position
+                const tip = document.getElementById('drag-tooltip');
+                if (tip && this.draggedItem) {
+                    const status = this.evalCompatibility(this.draggedItem, sec);
+                    let text = 'Safe to store here ✅';
+                    if (status === 'INCOMPATIBLE') {
+                        text = '❌ Incompatible! Severe reaction with items in section.';
+                    } else if (status === 'CAUTION') {
+                        text = '⚠️ Caution: Check SDS. separation suggested.';
+                    } else if (status === 'NO_DATA') {
+                        text = '🍊 Unknown: No reactivity data available (Quarantine).';
+                    }
+                    tip.innerHTML = text;
+                    tip.style.left = (e.clientX + 12) + 'px';
+                    tip.style.top = (e.clientY + 12) + 'px';
+                    tip.classList.add('visible');
+                }
+            },
+
+            handleDragEnter(sec) {
+                this.dragOverSection = sec;
+            },
+
+            handleDragLeave(sec) {
+                if (this.dragOverSection === sec) {
+                    this.dragOverSection = null;
+                }
+            },
+
+            getDragOverClass(sec) {
+                if (!this.draggedItem || this.dragOverSection !== sec) return '';
+                
+                // Check compatibility
+                const status = this.evalCompatibility(this.draggedItem, sec);
+                if (status === 'INCOMPATIBLE') return 'drag-invalid';
+                if (status === 'CAUTION') return 'drag-caution';
+                if (status === 'NO_DATA') return 'drag-caution';
+                return 'drag-valid';
+            },
+
+            evalCompatibility(item, sec) {
+                const chemicals = this.getMergedPlacements(sec);
+                if (!chemicals || chemicals.length === 0) return 'COMPATIBLE';
+                
+                const draggedGroups = item.reactive_groups || [];
+                if (!draggedGroups || draggedGroups.length === 0) return 'NO_DATA';
+                
+                let worstStatus = 'COMPATIBLE';
+                
+                for (const existing of chemicals) {
+                    // Skip self comparison
+                    if (existing.id === item.id) continue;
+                    
+                    const existingGroups = existing.reactive_groups || [];
+                    if (!existingGroups || existingGroups.length === 0) {
+                        if (worstStatus !== 'INCOMPATIBLE') worstStatus = 'NO_DATA';
+                        continue;
+                    }
+                    
+                    for (const dg of draggedGroups) {
+                        for (const eg of existingGroups) {
+                            const compat = this.reactiveRules[`${dg}|${eg}`] || this.reactiveRules[`${eg}|${dg}`];
+                            if (compat === 'Incompatible' || compat === 'I') {
+                                return 'INCOMPATIBLE'; // Short-circuit worse outcome
+                            }
+                            if (compat === 'Caution' || compat === 'I-C') {
+                                if (worstStatus !== 'INCOMPATIBLE') worstStatus = 'CAUTION';
+                            }
+                            if (!compat || compat === 'N' || compat === 'No Data') {
+                                if (worstStatus !== 'INCOMPATIBLE') worstStatus = 'NO_DATA';
+                            }
+                        }
+                    }
+                }
+                return worstStatus;
+            },
+
+            async handleDrop(e, sec) {
+                if (!this.draggedItem) return;
+                
+                const placementId = this.draggedItem.id;
+                const targetSecId = sec.id;
+                
+                // Enforce Stop Hard for INCOMPATIBLE (client-side block)
+                const compatStatus = this.evalCompatibility(this.draggedItem, sec);
+                if (compatStatus === 'INCOMPATIBLE') {
+                    alert('خطای ایمنی شدید: این ماده با مواد موجود در این بخش سازگاری ندارد و قرارگیری آن ممنوع است!');
+                    return;
+                }
+                
+                if (this.suggestedLayout) {
+                    // Ghost Mode: edit proposed layout in-memory
+                    this.suggestedLayout[placementId] = targetSecId;
+                    this.suggestedLayout = {...this.suggestedLayout};
+                    this.recalculateSuggestedScore();
+                    
+                    // Update active detail panel if open
+                    if (this.selectedSection && this.selectedSection.id === sec.id) {
+                        this.selectedSection.chemicals = this.getMergedPlacements(sec);
+                    }
+                    return;
+                }
+                
+                // Call API to persist movement
+                try {
+                    const res = await fetch('/api/warehouse/placements/move', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ placement_id: placementId, section_id: targetSecId })
+                    });
+                    const data = await res.json();
+                    
+                    if (res.ok && data.success) {
+                        // Success - reload layout
+                        await this.loadData();
+                    } else {
+                        alert(data.error || 'Failed to move chemical');
+                    }
+                } catch (e) {
+                    alert('Error: ' + e);
+                }
+            },
+
+            handleUnplace(placement) {
+                if (this.suggestedLayout) {
+                    this.suggestedLayout[placement.id] = null;
+                    this.suggestedLayout = {...this.suggestedLayout};
+                    this.recalculateSuggestedScore();
+                    if (this.selectedSection) {
+                        this.selectedSection.chemicals = this.selectedSection.chemicals.filter(c => c.id !== placement.id);
+                    }
+                } else {
+                    this.moveBackToSidebar(placement.id);
+                }
+            },
+
+            async moveBackToSidebar(placementId) {
+                if (this.suggestedLayout) {
+                    this.suggestedLayout[placementId] = null;
+                    this.suggestedLayout = {...this.suggestedLayout};
+                    this.recalculateSuggestedScore();
+                    if (this.selectedSection) {
+                        this.selectedSection.chemicals = this.selectedSection.chemicals.filter(c => c.id !== placementId);
+                    }
+                    return;
+                }
+                try {
+                    const res = await fetch('/api/warehouse/placements/move', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ placement_id: placementId, section_id: null })
+                    });
+                    if (res.ok) {
+                        if (this.selectedSection) {
+                            this.selectedSection.chemicals = this.selectedSection.chemicals.filter(c => c.id !== placementId);
+                        }
+                        await this.loadData();
+                    }
+                } catch (e) {
+                    console.error(e);
+                }
+            },
+
+            async deletePlacement(placementId) {
+                if (!confirm('Are you sure you want to remove this chemical placement completely from the warehouse?')) return;
+                try {
+                    const res = await fetch(`/api/warehouse/placements/remove/${placementId}`, {
+                        method: 'DELETE'
+                    });
+                    if (res.ok) {
+                        if (this.selectedSection) {
+                            this.selectedSection.chemicals = this.selectedSection.chemicals.filter(c => c.id !== placementId);
+                        }
+                        await this.loadData();
+                    }
+                } catch (e) {
+                    console.error(e);
+                }
+            },
+
+            // ── AUTO-ARRANGE IMPLEMENTATION ──
+            async triggerAutoArrange() {
+                try {
+                    const res = await fetch('/api/warehouse/auto_arrange', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ warehouse_id: this.selectedWarehouseId })
+                    });
+                    const data = await res.json();
+                    if (res.ok && data.success) {
+                        this.suggestedLayout = data.suggested_layout;
+                        this.suggestedScore = data.confidence_score;
+                    } else {
+                        alert(data.error || 'Failed to calculate Auto-Arrange');
+                    }
+                } catch (e) {
+                    alert('Error: ' + e);
+                }
+            },
+
+            hasSuggestionFor(sec) {
+                if (!this.suggestedLayout) return false;
+                return Object.values(this.suggestedLayout).includes(sec.id);
+            },
+
+            getMergedPlacements(sec) {
+                // If no suggested layout, return normal placed chemicals
+                if (!this.suggestedLayout) return sec.chemicals;
+                
+                // Return suggestions as Ghost placements
+                // Generate layout suggestions in memory
+                const ghosts = [];
+                
+                // Placements that should go in this section
+                const allWarehousePlacements = [...this.inventory, ...this.sections.flatMap(s => s.chemicals)];
+                
+                for (const p of allWarehousePlacements) {
+                    const suggSecId = this.suggestedLayout[p.id];
+                    if (suggSecId === sec.id) {
+                        ghosts.push({
+                            ...p,
+                            status: 'ghost' // Mark as ghost/suggested
+                        });
+                    }
+                }
+                return ghosts;
+            },
+
+            recalculateSuggestedScore() {
+                const allWarehousePlacements = [...this.inventory, ...this.sections.flatMap(s => s.chemicals)];
+                const sectionOccupants = {};
+                for (const sec of this.sections) {
+                    sectionOccupants[sec.id] = [];
+                }
+                
+                for (const p of allWarehousePlacements) {
+                    const suggSecId = this.suggestedLayout[p.id];
+                    if (suggSecId && sectionOccupants[suggSecId]) {
+                        sectionOccupants[suggSecId].push(p);
+                    }
+                }
+                
+                let totalPairsChecked = 0;
+                let cautionCount = 0;
+                
+                for (const secId in sectionOccupants) {
+                    const occupants = sectionOccupants[secId];
+                    const nOcc = occupants.length;
+                    if (nOcc >= 2) {
+                        totalPairsChecked += (nOcc * (nOcc - 1)) / 2;
+                        for (let i = 0; i < nOcc; i++) {
+                            for (let j = i + 1; j < nOcc; j++) {
+                                const status = this.getPairStatus(occupants[i], occupants[j]);
+                                if (status === 'CAUTION' || status === 'NO_DATA') {
+                                    cautionCount++;
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                if (totalPairsChecked > 0) {
+                    this.suggestedScore = Math.round(((totalPairsChecked - cautionCount) / totalPairsChecked) * 100);
+                } else {
+                    this.suggestedScore = 100;
+                }
+            },
+
+            async saveSuggestedLayout() {
+                try {
+                    const res = await fetch('/api/warehouse/layout/save', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ layout: this.suggestedLayout })
+                    });
+                    if (res.ok) {
+                        this.suggestedLayout = null;
+                        await this.loadData();
+                    }
+                } catch (e) {
+                    console.error(e);
+                }
+            },
+
+            cancelSuggestedLayout() {
+                this.suggestedLayout = null;
+            },
+
+            // ── MINI MATRIX HELPERS ──
+            getPairStatus(c1, c2) {
+                const grps1 = c1.reactive_groups || [];
+                const grps2 = c2.reactive_groups || [];
+                
+                let worst = 'COMPATIBLE';
+                for (const g1 of grps1) {
+                    for (const g2 of grps2) {
+                        const rule = this.reactiveRules[`${g1}|${g2}`] || this.reactiveRules[`${g2}|${g1}`];
+                        if (rule === 'Incompatible' || rule === 'I') return 'INCOMPATIBLE';
+                        if (rule === 'Caution' || rule === 'I-C') {
+                            if (worst !== 'INCOMPATIBLE') worst = 'CAUTION';
+                        }
+                    }
+                }
+                return worst;
+            },
+
+            getPairStatusClass(c1, c2) {
+                const s = this.getPairStatus(c1, c2);
+                if (s === 'INCOMPATIBLE') return 'bg-rose-100 text-rose-700';
+                if (s === 'CAUTION') return 'bg-amber-100 text-amber-700';
+                return 'bg-emerald-100 text-emerald-700';
+            },
+
+            getPairStatusLabel(c1, c2) {
+                const s = this.getPairStatus(c1, c2);
+                if (s === 'INCOMPATIBLE') return 'I';
+                if (s === 'CAUTION') return 'C';
+                return '✓';
             }
         }
     }

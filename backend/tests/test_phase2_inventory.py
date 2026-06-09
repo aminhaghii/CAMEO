@@ -122,12 +122,25 @@ def _cleanup_batch(user_db_path: str, batch_id: str):
 
 @pytest.fixture
 def client():
+    from unittest.mock import patch
     user_db = app.config['USER_DB_PATH']
     init_inventory_tables(user_db)
     _ensure_phase2_tables(user_db)
     app.testing = True
-    with app.test_client() as c:
-        yield c
+    mock_user = {
+        'id': 1,
+        'email': 'super@cameo.com',
+        'full_name': 'Super Admin',
+        'role': 'super_admin',
+        'status': 'ACTIVE',
+        'company_id': 1,
+        'company_name': 'Global Corp',
+        'tenant_db_path': user_db
+    }
+    with patch('app.validate_session', return_value=mock_user):
+        with app.test_client() as c:
+            c.set_cookie('session_id', 'mock_test_session')
+            yield c
 
 
 def test_inventory_actions_flow(client):

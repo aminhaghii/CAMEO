@@ -287,6 +287,14 @@
                     </p>
                 </div>
                 <div class="flex items-center gap-3">
+                    <button @click="openAddToWareModal()"
+                        class="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition shadow-sm">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M8 4H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-2m-4-1v8m0 0l3-3m-3 3L9 8" />
+                        </svg>
+                        Add to Warehouse
+                    </button>
                     <button @click="openMatrixOverlay()"
                         class="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-300 text-sm font-semibold hover:bg-slate-200 transition">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -517,6 +525,53 @@
             </div>
         </div>
         <div class="mat-tip" id="mat-tip"></div>
+    </div>
+
+    <!-- Add to Warehouse Modal -->
+    <div x-show="showAddToWareModal" x-transition class="fixed inset-0 z-50 flex items-center justify-center p-4"
+        style="display:none;">
+        <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" @click="showAddToWareModal = false"></div>
+        <div class="relative w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 border border-slate-100 animate-fade-in" @click.stop>
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-bold text-slate-900">Add Batch to Warehouse Pool</h3>
+                <button @click="showAddToWareModal = false"
+                    class="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            
+            <p class="text-sm text-slate-500 mb-5">
+                This will copy all confirmed matched chemicals from this batch into the warehouse unplaced chemical pool.
+            </p>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Warehouse Name / ID</label>
+                    <input type="text" x-model="wareForm.name"
+                        class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Date Added</label>
+                    <input type="date" x-model="wareForm.date"
+                        class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm">
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3 mt-6">
+                <button @click="showAddToWareModal = false"
+                    class="px-4 py-2 border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 text-sm font-medium transition">Cancel</button>
+                <button @click="importToWarehouse()"
+                    class="px-5 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-semibold transition shadow-sm flex items-center gap-1.5">
+                    <template x-if="importing">
+                        <span class="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-1"></span>
+                    </template>
+                    Confirm Import
+                </button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -755,6 +810,9 @@
             matrixRenderer: null, matrixOpen: false, matrixFilter: 'ALL',
             filterCounts: { 'Compatible': 0, 'Caution': 0, 'Incompatible': 0 },
             selectedPair: null, pairModalOpen: false,
+            showAddToWareModal: false,
+            wareForm: { name: 'Main Warehouse', date: new Date().toISOString().split('T')[0] },
+            importing: false,
 
             async init() {
                 try {
@@ -838,7 +896,36 @@
             setMatrixFilter(f) { this.matrixFilter = f; if (this.matrixRenderer) this.matrixRenderer.setFilter(f); },
             matrixZoomIn() { if (this.matrixRenderer) { this.matrixRenderer.scale *= 1.3; this.matrixRenderer.render(); } },
             matrixZoomOut() { if (this.matrixRenderer) { this.matrixRenderer.scale /= 1.3; this.matrixRenderer.render(); } },
-            matrixResetView() { if (this.matrixRenderer) this.matrixRenderer.resetView(); }
+            matrixResetView() { if (this.matrixRenderer) this.matrixRenderer.resetView(); },
+            
+            openAddToWareModal() {
+                this.showAddToWareModal = true;
+            },
+            async importToWarehouse() {
+                this.importing = true;
+                try {
+                    const res = await fetch('/api/warehouse/add_from_batch', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            batch_id: this.batchId,
+                            warehouse_name: this.wareForm.name
+                        })
+                    });
+                    const data = await res.json();
+                    if (res.ok && data.success) {
+                        alert(data.message);
+                        window.location.href = '/warehouse';
+                    } else {
+                        alert(data.error || 'Failed to import to warehouse');
+                    }
+                } catch(e) {
+                    alert('Error importing: ' + e);
+                } finally {
+                    this.importing = false;
+                    this.showAddToWareModal = false;
+                }
+            }
         }
     }
 </script>

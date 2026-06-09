@@ -111,7 +111,7 @@ class TestBugFixes:
         df_fixed = _fix_excel_date_corruption(df)
         
         # Check that datetime was converted back to string
-        assert df_fixed['CAS'].dtype == 'object'  # Should be string, not datetime
+        assert str(df_fixed['CAS'].dtype) in ('object', 'string', 'str')
         assert df_fixed['CAS'].iloc[0] == '2001-02-3'  # Converted to CAS-like format
     
     def test_column_mapping(self):

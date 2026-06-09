@@ -645,7 +645,7 @@ def _fix_excel_date_corruption(df: pd.DataFrame) -> pd.DataFrame:
         logger.debug(f"  {col}: dtype={df[col].dtype}, sample={sample}")
         
         # Case 1: Column is datetime type
-        if df[col].dtype == 'datetime64[ns]':
+        if str(df[col].dtype).startswith('datetime64'):
             logger.info(f"Converting datetime column '{col}' back to CAS format")
             # Convert back: "2001-02-03 00:00:00" → "2001-02-3"
             df[col] = df[col].apply(

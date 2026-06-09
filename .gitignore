@@ -80,6 +80,12 @@ backend/uploads/*
 .cache/
 sass-cache/
 
+# --- Graphify Code Graph ---
+graphify-out/
+.agents/
+agent_memory/
+data/
+
 # --- Editor / IDE & OS Files ---
 # IDE specific files
 .vscode/

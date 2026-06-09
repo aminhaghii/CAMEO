@@ -152,24 +152,30 @@ class TestUnifiedReport:
         gen = ComplianceExcelGenerator(test_db)
 
         inv = query_eu_compliance(test_db, ["67-64-1", "1333-82-0"])
+        chemicals = [{"name": "Acetone"}, {"name": "Chromium trioxide"}]
         pairs = [
             {"chemical_a_name": "Acetone", "chemical_b_name": "Chromium trioxide",
-             "compatibility": "INCOMPATIBLE", "risk_level": "DANGEROUS",
+             "status": "Incompatible", "risk_level": "DANGEROUS",
              "hazards": ["Oxidizer + flammable"], "explanation": "Strong oxidizer with flammable solvent"},
         ]
+        matrix = [
+            [{"status": "Self"}, {"status": "Empty"}],
+            [{"status": "Incompatible"}, {"status": "Self"}]
+        ]
 
-        gen.generate_unified(inv, pairs, output)
+        gen.generate_unified(inv, chemicals, pairs, matrix, output)
         wb = load_workbook(output)
-        assert len(wb.sheetnames) == 2
+        assert len(wb.sheetnames) == 3
         assert "Inventory & EU Compliance" in wb.sheetnames
-        assert "Reactivity Matrix" in wb.sheetnames
+        assert "Compatibility Matrix" in wb.sheetnames
+        assert "Pairwise Analysis" in wb.sheetnames
         wb.close()
 
     def test_both_sheets_locked(self, test_db, tmp_path):
         output = str(tmp_path / "unified.xlsx")
         gen = ComplianceExcelGenerator(test_db)
         inv = query_eu_compliance(test_db, ["67-64-1"])
-        gen.generate_unified(inv, [], output)
+        gen.generate_unified(inv, [{"name": "Acetone"}], [], [[{"status": "Self"}]], output)
 
         wb = load_workbook(output)
         for ws in wb.worksheets:
@@ -180,7 +186,7 @@ class TestUnifiedReport:
         output = str(tmp_path / "unified.xlsx")
         gen = ComplianceExcelGenerator(test_db)
         inv = query_eu_compliance(test_db, ["67-64-1"])
-        gen.generate_unified(inv, [], output)
+        gen.generate_unified(inv, [{"name": "Acetone"}], [], [[{"status": "Self"}]], output)
 
         wb = load_workbook(output)
         ws = wb["Inventory & EU Compliance"]
@@ -191,18 +197,24 @@ class TestUnifiedReport:
         output = str(tmp_path / "unified.xlsx")
         gen = ComplianceExcelGenerator(test_db)
         inv = query_eu_compliance(test_db, ["67-64-1"])
+        chemicals = [{"name": "A"}, {"name": "B"}]
         pairs = [
             {"chemical_a_name": "A", "chemical_b_name": "B",
-             "compatibility": "INCOMPATIBLE", "risk_level": "DANGEROUS",
+             "status": "Incompatible", "risk_level": "DANGEROUS",
              "hazards": ["Fire"], "explanation": "Fire hazard"},
         ]
-        gen.generate_unified(inv, pairs, output)
+        matrix = [
+            [{"status": "Self"}, {"status": "Empty"}],
+            [{"status": "Incompatible"}, {"status": "Self"}]
+        ]
+        gen.generate_unified(inv, chemicals, pairs, matrix, output)
 
         wb = load_workbook(output)
-        ws = wb["Reactivity Matrix"]
-        # Row 5 (first data row) should have DANGEROUS fill (#FCA5A5)
-        cell = ws.cell(row=5, column=1)
-        assert cell.fill.start_color.rgb is not None
+        ws = wb["Compatibility Matrix"]
+        # Row 6 (second chemical), Column 2 (first chemical cell) should have incompatible fill
+        cell = ws.cell(row=6, column=2)
+        assert cell.value == "X"
+        assert cell.fill.start_color.rgb in ("FFFCA5A5", "00FCA5A5")
         wb.close()
 
     def test_ec_number_in_output(self, test_db, tmp_path):
@@ -210,11 +222,11 @@ class TestUnifiedReport:
         output = str(tmp_path / "unified.xlsx")
         gen = ComplianceExcelGenerator(test_db)
         inv = query_eu_compliance(test_db, ["67-64-1"])
-        gen.generate_unified(inv, [], output)
+        gen.generate_unified(inv, [{"name": "Acetone"}], [], [[{"status": "Self"}]], output)
 
         wb = load_workbook(output)
         ws = wb["Inventory & EU Compliance"]
-        # EC Number is in column 3
-        ec_val = ws.cell(row=5, column=3).value
+        # EC Number is in column 4
+        ec_val = ws.cell(row=5, column=4).value
         assert ec_val == "200-662-2"
         wb.close()

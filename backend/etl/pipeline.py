@@ -143,9 +143,73 @@ def init_inventory_tables(user_db_path: str):
         )
     """)
 
+    # Warehouses
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS warehouses (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    # Warehouse Sections
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS warehouse_sections (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            warehouse_id INTEGER NOT NULL REFERENCES warehouses(id) ON DELETE CASCADE,
+            name TEXT NOT NULL,
+            position_index INTEGER NOT NULL,
+            color TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    # Chemical Placements in Sections
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS chemical_placements (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            warehouse_id INTEGER NOT NULL REFERENCES warehouses(id) ON DELETE CASCADE,
+            section_id INTEGER REFERENCES warehouse_sections(id) ON DELETE CASCADE,
+            chemical_id INTEGER NOT NULL,
+            chemical_name TEXT NOT NULL,
+            cas_number TEXT,
+            quantity_kg REAL,
+            reactive_groups TEXT,
+            status TEXT DEFAULT 'placed',
+            placed_by TEXT,
+            placed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    # Placement Compatibility Violations
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS placement_violations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            section_id INTEGER NOT NULL REFERENCES warehouse_sections(id) ON DELETE CASCADE,
+            chemical_a_id INTEGER NOT NULL,
+            chemical_b_id INTEGER NOT NULL,
+            violation_type TEXT NOT NULL,
+            severity TEXT,
+            detected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            resolved_at TIMESTAMP
+        )
+    """)
+
+    # ── Safe Column Migration for Existing DBs ──
+    _safe_add_column(cursor, 'warehouses', 'created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
+    _safe_add_column(cursor, 'warehouse_sections', 'warehouse_id', 'INTEGER REFERENCES warehouses(id) ON DELETE CASCADE')
+    _safe_add_column(cursor, 'chemical_placements', 'warehouse_id', 'INTEGER REFERENCES warehouses(id) ON DELETE CASCADE')
+
+    # Seed default warehouse if none exist and migrate existing data
+    cursor.execute("SELECT COUNT(*) FROM warehouses")
+    if cursor.fetchone()[0] == 0:
+        cursor.execute("INSERT INTO warehouses (id, name) VALUES (1, 'Main Warehouse')")
+        cursor.execute("UPDATE warehouse_sections SET warehouse_id = 1 WHERE warehouse_id IS NULL")
+        cursor.execute("UPDATE chemical_placements SET warehouse_id = 1 WHERE warehouse_id IS NULL")
+
     conn.commit()
     conn.close()
-    logger.info("Inventory tables initialized in user.db (v4 with Layer 5)")
+    logger.info("Inventory and warehouse tables initialized in user.db (v4 with Layer 5 and Warehouse MVP)")
 
 
 def _safe_add_column(cursor, table: str, column: str, col_type: str):

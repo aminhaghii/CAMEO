@@ -86,6 +86,11 @@ graphify-out/
 agent_memory/
 data/
 
+# --- Custom Untracked Assets ---
+PDF_Folder/
+resources/
+tests/
+
 # --- Editor / IDE & OS Files ---
 # IDE specific files
 .vscode/

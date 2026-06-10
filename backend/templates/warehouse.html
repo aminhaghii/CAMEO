@@ -972,18 +972,39 @@
 
             async saveSuggestedLayout() {
                 try {
-                    const res = await fetch('/api/warehouse/layout/save', {
+                    const recommendation = this.suggestedLayoutRecommendation;
+                    const canApplyRecommendation = recommendation &&
+                        recommendation.can_auto_create &&
+                        recommendation.virtual_layout &&
+                        Number(recommendation.add_sections_needed) > 0;
+
+                    const url = canApplyRecommendation
+                        ? '/api/warehouse/recommendation/apply'
+                        : '/api/warehouse/layout/save';
+                    const body = canApplyRecommendation
+                        ? {
+                            warehouse_id: this.selectedWarehouseId,
+                            extra_sections: recommendation.add_sections_needed,
+                            virtual_layout: recommendation.virtual_layout
+                        }
+                        : { layout: this.suggestedLayout };
+
+                    const res = await fetch(url, {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({ layout: this.suggestedLayout })
+                        body: JSON.stringify(body)
                     });
-                    if (res.ok) {
+                    const data = await res.json();
+                    if (res.ok && data.success) {
                         this.suggestedLayout = null;
                         this.suggestedLayoutRecommendation = null;
+                        await this.loadWarehouses();
                         await this.loadData();
+                    } else {
+                        alert(data.error || 'Failed to save suggested layout');
                     }
                 } catch (e) {
-                    console.error(e);
+                    alert('Error saving layout: ' + e);
                 }
             },
 
@@ -1002,8 +1023,11 @@
                     for (const g2 of grps2) {
                         const rule = this.reactiveRules[`${g1}|${g2}`] || this.reactiveRules[`${g2}|${g1}`];
                         if (rule === 'Incompatible' || rule === 'I') return 'INCOMPATIBLE';
+                        if (rule === 'N' || rule === 'No Data') {
+                            if (worst !== 'INCOMPATIBLE') worst = 'NO_DATA';
+                        }
                         if (rule === 'Caution' || rule === 'I-C') {
-                            if (worst !== 'INCOMPATIBLE') worst = 'CAUTION';
+                            if (worst !== 'INCOMPATIBLE' && worst !== 'NO_DATA') worst = 'CAUTION';
                         }
                     }
                 }
@@ -1013,6 +1037,7 @@
             getPairStatusClass(c1, c2) {
                 const s = this.getPairStatus(c1, c2);
                 if (s === 'INCOMPATIBLE') return 'bg-rose-100 text-rose-700';
+                if (s === 'NO_DATA') return 'bg-orange-100 text-orange-700';
                 if (s === 'CAUTION') return 'bg-amber-100 text-amber-700';
                 return 'bg-emerald-100 text-emerald-700';
             },
@@ -1020,6 +1045,7 @@
             getPairStatusLabel(c1, c2) {
                 const s = this.getPairStatus(c1, c2);
                 if (s === 'INCOMPATIBLE') return 'I';
+                if (s === 'NO_DATA') return 'N';
                 if (s === 'CAUTION') return 'C';
                 return '✓';
             }

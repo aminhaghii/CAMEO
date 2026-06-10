@@ -12,6 +12,13 @@ logger = logging.getLogger(__name__)
 
 warehouse_bp = Blueprint('warehouse', __name__)
 
+ADMIN_OVERRIDE_ROLES = {'company_admin', 'super_admin'}
+SECTION_BLOCKING_COMPATIBILITIES = {
+    Compatibility.INCOMPATIBLE,
+    Compatibility.CAUTION,
+    Compatibility.NO_DATA,
+}
+
 def _get_db_path():
     return getattr(g, 'tenant_db_path', None) or current_app.config['USER_DB_PATH']
 
@@ -22,6 +29,124 @@ def _get_db_connection():
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     return conn
+
+def _current_role() -> str:
+    return g.user.get('role', '') if (hasattr(g, 'user') and g.user) else ''
+
+def _current_user_id() -> str:
+    if not (hasattr(g, 'user') and g.user):
+        return 'system'
+    return str(g.user.get('email') or g.user.get('id') or 'unknown')
+
+def _write_access_error():
+    if _current_role() == 'viewer':
+        return jsonify({'error': 'Viewer role is read-only', 'code': 'READ_ONLY_ROLE'}), 403
+    return None
+
+def _parse_layout_mapping(layout: dict) -> dict:
+    """Return {placement_id: section_id_or_none}; reject malformed payloads."""
+    if not isinstance(layout, dict) or not layout:
+        raise ValueError('layout mapping is required')
+    parsed = {}
+    for p_id_raw, sec_id_raw in layout.items():
+        try:
+            p_id = int(p_id_raw)
+        except (TypeError, ValueError):
+            raise ValueError(f'invalid placement id: {p_id_raw}')
+        if sec_id_raw in (None, ''):
+            parsed[p_id] = None
+            continue
+        try:
+            parsed[p_id] = int(sec_id_raw)
+        except (TypeError, ValueError):
+            raise ValueError(f'invalid section id for placement {p_id}: {sec_id_raw}')
+    return parsed
+
+def _validate_layout_update(conn, updates: dict, actor_role: str):
+    """
+    Validate the final section state before persisting a move/layout.
+
+    Safety policy:
+    - INCOMPATIBLE pairs are always blocked.
+    - CAUTION/NO_DATA pairs require company_admin or super_admin override.
+    - Section targets must belong to the same warehouse as their placement.
+    """
+    cursor = conn.cursor()
+    placement_ids = list(updates.keys())
+    placeholders = ",".join(["?"] * len(placement_ids))
+    cursor.execute(
+        f"SELECT * FROM chemical_placements WHERE id IN ({placeholders})",
+        placement_ids
+    )
+    moving = {row['id']: row for row in cursor.fetchall()}
+    missing = sorted(set(placement_ids) - set(moving.keys()))
+    if missing:
+        return False, 404, {'error': f'Placement not found: {missing[0]}'}
+
+    target_section_ids = sorted({sid for sid in updates.values() if sid is not None})
+    sections_by_id = {}
+    if target_section_ids:
+        section_placeholders = ",".join(["?"] * len(target_section_ids))
+        cursor.execute(
+            f"SELECT id, name, warehouse_id FROM warehouse_sections WHERE id IN ({section_placeholders})",
+            target_section_ids
+        )
+        sections_by_id = {row['id']: row for row in cursor.fetchall()}
+        missing_sections = sorted(set(target_section_ids) - set(sections_by_id.keys()))
+        if missing_sections:
+            return False, 404, {'error': f'Target section not found: {missing_sections[0]}'}
+
+    affected_warehouse_ids = sorted({row['warehouse_id'] for row in moving.values()})
+    for p_id, target_section_id in updates.items():
+        if target_section_id is None:
+            continue
+        placement_warehouse_id = moving[p_id]['warehouse_id']
+        target_warehouse_id = sections_by_id[target_section_id]['warehouse_id']
+        if target_warehouse_id != placement_warehouse_id:
+            return False, 409, {
+                'error': 'Target section belongs to a different warehouse',
+                'code': 'WAREHOUSE_MISMATCH'
+            }
+
+    warehouse_placeholders = ",".join(["?"] * len(affected_warehouse_ids))
+    cursor.execute(
+        f"SELECT * FROM chemical_placements WHERE warehouse_id IN ({warehouse_placeholders}) AND status = 'placed'",
+        affected_warehouse_ids
+    )
+    final_by_section = {}
+    for row in cursor.fetchall():
+        final_section_id = updates.get(row['id'], row['section_id'])
+        if final_section_id is None:
+            continue
+        final_by_section.setdefault(final_section_id, []).append(row)
+
+    engine = ReactivityEngine(current_app.config['CHEMICALS_DB_PATH'])
+    caution_sections = []
+    for section_id, occupants in final_by_section.items():
+        if len(occupants) < 2:
+            continue
+        chem_ids = [row['chemical_id'] for row in occupants]
+        analysis = engine.analyze(chem_ids, include_water_check=True, save_audit=False)
+        if analysis.overall_compatibility == Compatibility.INCOMPATIBLE:
+            critical_desc = "; ".join(
+                f"{pair['chemicals'][0]} & {pair['chemicals'][1]}"
+                for pair in analysis.critical_pairs
+            )
+            return False, 409, {
+                'error': f"Safety Block: Incompatible chemicals in section ({critical_desc})",
+                'code': 'INCOMPATIBLE'
+            }
+        if analysis.overall_compatibility in (Compatibility.CAUTION, Compatibility.NO_DATA):
+            caution_sections.append(section_id)
+
+    if caution_sections and actor_role not in ADMIN_OVERRIDE_ROLES:
+        return False, 403, {
+            'error': 'Access Denied: Placement requires CAUTION/NO_DATA override',
+            'code': 'CAUTION_REQUIRES_ADMIN',
+            'sections': caution_sections
+        }
+
+    return True, 200, {'success': True}
 
 def _get_chem_groups(chemical_id: int) -> list:
     chemicals_db = current_app.config['CHEMICALS_DB_PATH']
@@ -36,26 +161,13 @@ def _get_compatibility_rules(group_ids: list) -> dict:
     """Fetch compatibility rules between the given list of group IDs."""
     if not group_ids:
         return {}
-    chemicals_db = current_app.config['CHEMICALS_DB_PATH']
-    conn = sqlite3.connect(chemicals_db)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    
-    # Generate placeholders
-    placeholders = ",".join(["?"] * len(group_ids))
-    cursor.execute(f"""
-        SELECT react1, react2, pair_compatibility
-        FROM reactivity
-        WHERE react1 IN ({placeholders}) AND react2 IN ({placeholders})
-    """, group_ids + group_ids)
-    
+    engine = ReactivityEngine(current_app.config['CHEMICALS_DB_PATH'])
     rules = {}
-    for row in cursor.fetchall():
-        g1, g2 = row['react1'], row['react2']
-        compat = row['pair_compatibility']
-        rules[f"{g1}|{g2}"] = compat
-        rules[f"{g2}|{g1}"] = compat
-    conn.close()
+    unique_group_ids = sorted({int(g) for g in group_ids})
+    for g1 in unique_group_ids:
+        for g2 in unique_group_ids:
+            rule = engine._get_rule(g1, g2)
+            rules[f"{g1}|{g2}"] = rule['compatibility'].value
     return rules
 
 @warehouse_bp.route('/api/warehouse/data', methods=['GET'])
@@ -82,6 +194,10 @@ def get_warehouse_data():
             except ValueError:
                 conn.close()
                 return jsonify({'error': 'warehouse_id must be integer'}), 400
+            cursor.execute("SELECT id FROM warehouses WHERE id = ?", (warehouse_id,))
+            if not cursor.fetchone():
+                conn.close()
+                return jsonify({'error': 'warehouse_id not found'}), 404
         
         # 1. Fetch sections
         cursor.execute("SELECT * FROM warehouse_sections WHERE warehouse_id = ? ORDER BY position_index", (warehouse_id,))
@@ -160,6 +276,10 @@ def get_warehouse_data():
 def init_sections():
     """Initialize warehouse sections."""
     try:
+        access_error = _write_access_error()
+        if access_error:
+            return access_error
+
         data = request.get_json(silent=True) or {}
         count = data.get('count', 10)
         warehouse_id = data.get('warehouse_id')
@@ -242,6 +362,10 @@ def init_sections():
 def update_section():
     """Rename a warehouse section."""
     try:
+        access_error = _write_access_error()
+        if access_error:
+            return access_error
+
         data = request.get_json(silent=True) or {}
         section_id = data.get('section_id')
         name = (data.get('name') or '').strip()
@@ -265,12 +389,20 @@ def move_placement():
     """Move a chemical placement to another section or to the sidebar pool (section_id=None)."""
     conn = None
     try:
+        access_error = _write_access_error()
+        if access_error:
+            return access_error
+
         data = request.get_json(silent=True) or {}
         placement_id = data.get('placement_id')
         section_id = data.get('section_id') # Can be None/null to move back to sidebar pool
         
         if placement_id is None:
             return jsonify({'error': 'placement_id is required'}), 400
+        try:
+            placement_id = int(placement_id)
+        except (TypeError, ValueError):
+            return jsonify({'error': 'placement_id must be integer'}), 400
             
         conn = _get_db_connection()
         conn.execute('BEGIN EXCLUSIVE')
@@ -288,55 +420,34 @@ def move_placement():
         chem_name = placement['chemical_name']
         
         if section_id is not None:
-            # Verify target section exists
-            cursor.execute("SELECT name FROM warehouse_sections WHERE id = ?", (section_id,))
-            sec = cursor.fetchone()
-            if not sec:
+            try:
+                section_id = int(section_id)
+            except (TypeError, ValueError):
                 conn.rollback()
                 conn.close()
-                return jsonify({'error': 'Target section not found'}), 404
-                
-            # Perform safety checks
-            cursor.execute(
-                "SELECT chemical_id, chemical_name FROM chemical_placements WHERE section_id = ? AND status = 'placed' AND id != ?",
-                (section_id, placement_id)
-            )
-            existing = cursor.fetchall()
-            
-            if existing:
-                chemicals_db = current_app.config['CHEMICALS_DB_PATH']
-                engine = ReactivityEngine(chemicals_db)
-                chem_ids = [r['chemical_id'] for r in existing] + [chem_id]
-                
-                analysis = engine.analyze(chem_ids, include_water_check=True)
-                overall = analysis.overall_compatibility
-                
-                # Stop Hard: Block INCOMPATIBLE completely
-                if overall == Compatibility.INCOMPATIBLE:
-                    conn.rollback()
-                    conn.close()
-                    critical_desc = "; ".join([f"{p['chemicals'][0]} & {p['chemicals'][1]}" for p in analysis.critical_pairs])
-                    return jsonify({
-                        'error': f"Safety Block: Incompatible chemicals in section ({critical_desc})",
-                        'code': 'INCOMPATIBLE'
-                    }), 409
-                    
-                # Admin Override for CAUTION / NO_DATA
-                if overall in (Compatibility.CAUTION, Compatibility.NO_DATA):
-                    role = g.user.get('role') if (hasattr(g, 'user') and g.user) else 'admin'
-                    if role not in ('admin', 'super_admin'):
-                        conn.rollback()
-                        conn.close()
-                        return jsonify({
-                            'error': "Access Denied: Placement requires CAUTION warning override (Admin privileges required)",
-                            'code': 'CAUTION_REQUIRES_ADMIN'
-                        }), 403
-                        
+                return jsonify({'error': 'section_id must be integer or null'}), 400
+
+            ok, status_code, payload = _validate_layout_update(conn, {placement_id: section_id}, _current_role())
+            if not ok:
+                conn.rollback()
+                conn.close()
+                return jsonify(payload), status_code
+
+            # Fetch target section after validation for audit output.
+            cursor.execute("SELECT name FROM warehouse_sections WHERE id = ?", (section_id,))
+            sec = cursor.fetchone()
+
             # Move placement to the section
             cursor.execute("UPDATE chemical_placements SET section_id = ? WHERE id = ?", (section_id, placement_id))
             action = 'place_chemical'
             out_data = json.dumps({'section_id': section_id, 'section_name': sec['name']})
         else:
+            ok, status_code, payload = _validate_layout_update(conn, {placement_id: None}, _current_role())
+            if not ok:
+                conn.rollback()
+                conn.close()
+                return jsonify(payload), status_code
+
             # Move placement back to sidebar pool (unplaced)
             cursor.execute("UPDATE chemical_placements SET section_id = NULL WHERE id = ?", (placement_id,))
             action = 'unplace_chemical'
@@ -354,7 +465,7 @@ def move_placement():
                 action,
                 json.dumps({'chemical_id': chem_id, 'chemical_name': chem_name}),
                 out_data,
-                g.user.get('username') if (hasattr(g, 'user') and g.user) else 'human'
+                _current_user_id()
             )
         )
         
@@ -378,6 +489,10 @@ def move_placement():
 def remove_placement(placement_id):
     """Delete a placement completely from the warehouse database."""
     try:
+        access_error = _write_access_error()
+        if access_error:
+            return access_error
+
         conn = _get_db_connection()
         cursor = conn.cursor()
         
@@ -401,7 +516,7 @@ def remove_placement(placement_id):
                 'remove_chemical',
                 json.dumps({'chemical_id': p['chemical_id'], 'chemical_name': p['chemical_name']}),
                 json.dumps({'deleted': True}),
-                g.user.get('username') if (hasattr(g, 'user') and g.user) else 'human'
+                _current_user_id()
             )
         )
         
@@ -416,6 +531,10 @@ def remove_placement(placement_id):
 def add_from_batch():
     """Import finalized batch rows to the warehouse available pool."""
     try:
+        access_error = _write_access_error()
+        if access_error:
+            return access_error
+
         data = request.get_json(silent=True) or {}
         batch_id = data.get('batch_id')
         warehouse_id = data.get('warehouse_id')
@@ -460,6 +579,10 @@ def add_from_batch():
             except ValueError:
                 conn.close()
                 return jsonify({'error': 'warehouse_id must be integer'}), 400
+            cursor.execute("SELECT id FROM warehouses WHERE id = ?", (warehouse_id,))
+            if not cursor.fetchone():
+                conn.close()
+                return jsonify({'error': 'warehouse_id not found'}), 404
             
         # Fetch matching rows from staging
         cursor.execute(
@@ -531,7 +654,7 @@ def add_from_batch():
                 'import_batch_to_warehouse',
                 json.dumps({'warehouse_name': warehouse_name}),
                 json.dumps({'chemicals_imported': imported_count}),
-                g.user.get('username') if (hasattr(g, 'user') and g.user) else 'human'
+                _current_user_id()
             )
         )
         
@@ -546,62 +669,142 @@ def add_from_batch():
         logger.error(f"Import batch to warehouse failed: {e}", exc_info=True)
         return jsonify({'error': str(e)}), 500
 
-def _run_greedy_placement(sections, placements, engine, chem_groups_map):
-    """
-    Distributes placements into sections greedily by sorting them by reactive groups count descending.
-    Avoids putting INCOMPATIBLE chemicals in the same section.
-    If a chemical cannot fit in any section safely, its suggested section ID is None.
-    """
-    # Sort placements by complexity (number of reactive groups) descending
-    sorted_placements = sorted(placements, key=lambda p: len(p['reactive_groups']), reverse=True)
-    
-    # Initialize occupants tracker
+def _groups_for_placement(placement):
+    groups = placement.get('reactive_groups') or []
+    try:
+        return [int(g) for g in groups]
+    except (TypeError, ValueError):
+        return []
+
+def _is_section_conflict(engine, placement_a, placement_b):
+    pair_res = engine._analyze_pair(
+        placement_a['chemical_id'],
+        placement_b['chemical_id'],
+        placement_a['chemical_name'],
+        placement_b['chemical_name'],
+        _groups_for_placement(placement_a),
+        _groups_for_placement(placement_b),
+    )
+    return pair_res.compatibility in SECTION_BLOCKING_COMPATIBILITIES
+
+def _build_conflict_graph(placements, engine):
+    """Build a graph where edges mean two placements must not share a section."""
+    adjacency = {p['placement_id']: set() for p in placements}
+    by_id = {p['placement_id']: p for p in placements}
+    for i, p_a in enumerate(placements):
+        for p_b in placements[i + 1:]:
+            if _is_section_conflict(engine, p_a, p_b):
+                adjacency[p_a['placement_id']].add(p_b['placement_id'])
+                adjacency[p_b['placement_id']].add(p_a['placement_id'])
+    return adjacency, by_id
+
+def _build_occupants_from_mapping(sections, placements, mapping):
     section_occupants = {s['id']: [] for s in sections}
-    suggested_mapping = {}
-    unplaced_placements = []
-    
-    section_index = 0
-    num_sections = len(sections)
-    
-    for p in sorted_placements:
-        placed = False
-        p_id = p['chemical_id']
-        p_name = p['chemical_name']
-        p_groups = chem_groups_map.get(str(p_id), [])
-        
-        # Try to place in one of the sections, starting from the current section_index
-        for attempt in range(num_sections):
-            target_sec = sections[(section_index + attempt) % num_sections]
-            target_id = target_sec['id']
-            
-            # Check compatibility of p with all current occupants of target_id
-            incompatible = False
-            for o in section_occupants[target_id]:
-                o_id = o['chemical_id']
-                o_name = o['chemical_name']
-                o_groups = chem_groups_map.get(str(o_id), [])
-                
-                # Perform the fast pair-wise check
-                pair_res = engine._analyze_pair(p_id, o_id, p_name, o_name, p_groups, o_groups)
-                if pair_res.compatibility == Compatibility.INCOMPATIBLE:
-                    incompatible = True
-                    break
-            
-            if not incompatible:
-                # Place chemical in this section
-                suggested_mapping[p['placement_id']] = target_id
-                section_occupants[target_id].append(p)
-                placed = True
-                # Update section index pointer to the next section
-                section_index = (section_index + attempt + 1) % num_sections
+    by_id = {p['placement_id']: p for p in placements}
+    for placement_id, section_id in mapping.items():
+        if section_id in section_occupants:
+            section_occupants[section_id].append(by_id[placement_id])
+    return section_occupants
+
+def _run_greedy_placement(sections, placements, adjacency):
+    """Deterministic partial fallback when exact graph coloring cannot finish."""
+    ordered = sorted(
+        placements,
+        key=lambda p: (-len(adjacency[p['placement_id']]), -len(_groups_for_placement(p)), str(p['chemical_name'] or ''), p['placement_id'])
+    )
+    section_occupants = {s['id']: [] for s in sections}
+    mapping = {}
+    unplaced = []
+    for placement in ordered:
+        placement_id = placement['placement_id']
+        candidate_sections = sorted(sections, key=lambda s: (len(section_occupants[s['id']]), str(s['id'])))
+        target_id = None
+        for section in candidate_sections:
+            section_id = section['id']
+            if all(occupant['placement_id'] not in adjacency[placement_id] for occupant in section_occupants[section_id]):
+                target_id = section_id
                 break
-        
-        if not placed:
-            # Cannot fit anywhere safely - set to None
-            suggested_mapping[p['placement_id']] = None
-            unplaced_placements.append(p)
-            
-    return suggested_mapping, section_occupants, unplaced_placements
+        mapping[placement_id] = target_id
+        if target_id is None:
+            unplaced.append(placement)
+        else:
+            section_occupants[target_id].append(placement)
+    return mapping, section_occupants, unplaced
+
+def _run_exact_coloring(sections, placements, adjacency, max_nodes=200000):
+    """DSATUR-style exact coloring into the provided warehouse sections."""
+    if not placements:
+        return {}, {s['id']: [] for s in sections}, []
+    if not sections:
+        return None
+
+    placement_by_id = {p['placement_id']: p for p in placements}
+    placement_ids = list(placement_by_id.keys())
+    section_ids = [s['id'] for s in sections]
+    mapping = {}
+    section_occupants = {section_id: [] for section_id in section_ids}
+    visits = 0
+
+    def pick_next():
+        unassigned = [pid for pid in placement_ids if pid not in mapping]
+        return max(
+            unassigned,
+            key=lambda pid: (
+                len({mapping[n] for n in adjacency[pid] if n in mapping}),
+                len(adjacency[pid]),
+                len(_groups_for_placement(placement_by_id[pid])),
+                str(placement_by_id[pid]['chemical_name']),
+            )
+        )
+
+    def section_candidates(pid):
+        blocked = {mapping[n] for n in adjacency[pid] if n in mapping}
+        candidates = [sid for sid in section_ids if sid not in blocked]
+        return sorted(candidates, key=lambda sid: (len(section_occupants[sid]), section_ids.index(sid)))
+
+    def search():
+        nonlocal visits
+        visits += 1
+        if visits > max_nodes:
+            return False
+        if len(mapping) == len(placement_ids):
+            return True
+
+        pid = pick_next()
+        tried_empty_slot = False
+        for sid in section_candidates(pid):
+            # Empty sections are symmetrical; trying the first empty one is enough.
+            if not section_occupants[sid]:
+                if tried_empty_slot:
+                    continue
+                tried_empty_slot = True
+
+            mapping[pid] = sid
+            section_occupants[sid].append(placement_by_id[pid])
+            if search():
+                return True
+            section_occupants[sid].pop()
+            del mapping[pid]
+        return False
+
+    if not search():
+        return None
+    return dict(mapping), section_occupants, []
+
+def _run_matrix_placement(sections, placements, engine):
+    """
+    Place chemicals by solving a conflict graph.
+
+    A conflict edge means two chemicals must not share a section under the
+    warehouse fail-safe policy: INCOMPATIBLE, CAUTION, and NO_DATA are separated.
+    """
+    adjacency, _ = _build_conflict_graph(placements, engine)
+    exact_result = _run_exact_coloring(sections, placements, adjacency)
+    if exact_result is not None:
+        return (*exact_result, True, adjacency)
+
+    mapping, section_occupants, unplaced = _run_greedy_placement(sections, placements, adjacency)
+    return mapping, section_occupants, unplaced, False, adjacency
 
 
 @warehouse_bp.route('/api/warehouse/auto_arrange', methods=['POST'])
@@ -667,19 +870,18 @@ def auto_arrange():
         chemicals_db = current_app.config['CHEMICALS_DB_PATH']
         engine = ReactivityEngine(chemicals_db)
         
-        # Build chem_groups_map mapping chemical_id -> list of reactive group IDs
-        chem_groups_map = {str(p['chemical_id']): p['reactive_groups'] for p in placements}
-        
-        # 1. Run greedy placement for actual sections
-        suggested_mapping, section_occupants, unplaced_placements = _run_greedy_placement(
-            sections, placements, engine, chem_groups_map
+        # 1. Run fail-safe graph placement for actual sections
+        suggested_mapping, section_occupants, unplaced_placements, exact_complete, adjacency = _run_matrix_placement(
+            sections, placements, engine
         )
         
         # 2. Dynamic Section Suggester (Simulation Loop)
         recommendation = {
             'has_recommendation': False,
             'add_sections_needed': 0,
-            'message': ''
+            'message': '',
+            'can_auto_create': False,
+            'virtual_layout': None,
         }
         
         total_placements = len(placements)
@@ -687,9 +889,12 @@ def auto_arrange():
             initial_unplaced_count = len(unplaced_placements)
             best_unplaced_count = initial_unplaced_count
             best_extra_sections = 0
+            best_virtual_layout = None
+            best_virtual_complete = False
             
-            # Try adding +1, +2, +3 virtual sections
-            for extra_count in range(1, 4):
+            max_extra_sections = min(max(total_placements - len(sections), 0), 25)
+            # Try enough virtual sections to avoid false "add N" promises.
+            for extra_count in range(1, max_extra_sections + 1):
                 sim_sections = list(sections)
                 for i in range(1, extra_count + 1):
                     sim_sections.append({
@@ -697,33 +902,46 @@ def auto_arrange():
                         'name': f'Virtual Section {i}'
                     })
                 
-                sim_mapping, sim_occupants, sim_unplaced = _run_greedy_placement(
-                    sim_sections, placements, engine, chem_groups_map
-                )
+                sim_exact = _run_exact_coloring(sim_sections, placements, adjacency)
+                if sim_exact is not None:
+                    sim_mapping, sim_occupants, sim_unplaced = sim_exact
+                    sim_complete = True
+                else:
+                    sim_mapping, sim_occupants, sim_unplaced = _run_greedy_placement(sim_sections, placements, adjacency)
+                    sim_complete = False
                 
                 sim_unplaced_count = len(sim_unplaced)
                 if sim_unplaced_count < best_unplaced_count:
                     best_unplaced_count = sim_unplaced_count
                     best_extra_sections = extra_count
+                    best_virtual_layout = sim_mapping
+                    best_virtual_complete = sim_complete
                     
-                if sim_unplaced_count == 0:
+                if sim_complete and sim_unplaced_count == 0:
                     break
             
             if best_extra_sections > 0:
                 recommendation['has_recommendation'] = True
                 recommendation['add_sections_needed'] = best_extra_sections
-                if best_unplaced_count == 0:
+                recommendation['can_auto_create'] = best_virtual_complete and best_unplaced_count == 0
+                recommendation['virtual_layout'] = best_virtual_layout if recommendation['can_auto_create'] else None
+                if recommendation['can_auto_create']:
                     recommendation['message'] = (
                         f"We left {initial_unplaced_count} chemicals unplaced to prevent hazards. "
-                        f"Adding {best_extra_sections} more sections will allow 100% safe placement for all inventory."
+                        f"Adding {best_extra_sections} more sections will allow a complete matrix-compatible layout."
                     )
                 else:
                     placed_percentage = int(((total_placements - best_unplaced_count) / total_placements) * 100)
                     recommendation['message'] = (
                         f"We left {initial_unplaced_count} chemicals unplaced to prevent hazards. "
-                        f"Adding {best_extra_sections} more sections will allow safe placement of "
+                        f"Adding {best_extra_sections} more sections may allow placement of "
                         f"{total_placements - best_unplaced_count} out of {total_placements} chemicals ({placed_percentage}%)."
                     )
+            else:
+                recommendation['message'] = (
+                    f"We left {initial_unplaced_count} chemicals unplaced. "
+                    f"No complete matrix-compatible layout was found with up to {max_extra_sections} extra sections."
+                )
                     
         # 3. Calculate Confidence Score (Percentage of compatible pairs in actual placement)
         caution_count = 0
@@ -760,7 +978,7 @@ def auto_arrange():
         if unplaced_placements:
             msg = (
                 f"Auto-Arrange computed. Safety level: {compatibility_score}%. "
-                f"We left {len(unplaced_placements)} incompatible chemicals unplaced to prevent safety hazards."
+                f"We left {len(unplaced_placements)} chemicals unplaced because they conflict with all available sections."
             )
         else:
             msg = f"Auto-Arrange computed successfully. Safety level: {compatibility_score}%."
@@ -770,6 +988,7 @@ def auto_arrange():
             'suggested_layout': suggested_mapping,
             'confidence_score': compatibility_score,
             'recommendation': recommendation,
+            'exact_complete': exact_complete,
             'message': msg
         })
     except Exception as e:
@@ -780,23 +999,31 @@ def auto_arrange():
 def save_layout():
     """Save the proposed layout mappings."""
     try:
+        access_error = _write_access_error()
+        if access_error:
+            return access_error
+
         data = request.get_json(silent=True) or {}
         layout = data.get('layout') # Dict mapping placement_id -> section_id
         
-        if not layout:
-            return jsonify({'error': 'layout mapping is required'}), 400
+        try:
+            parsed_layout = _parse_layout_mapping(layout)
+        except ValueError as exc:
+            return jsonify({'error': str(exc)}), 400
             
         conn = _get_db_connection()
+        conn.execute('BEGIN EXCLUSIVE')
         cursor = conn.cursor()
+
+        ok, status_code, payload = _validate_layout_update(conn, parsed_layout, _current_role())
+        if not ok:
+            conn.rollback()
+            conn.close()
+            return jsonify(payload), status_code
         
         # Update each placement
-        for p_id_str, sec_id in layout.items():
-            try:
-                p_id = int(p_id_str)
-                s_id = int(sec_id) if sec_id is not None else None
-                cursor.execute("UPDATE chemical_placements SET section_id = ? WHERE id = ?", (s_id, p_id))
-            except (ValueError, TypeError):
-                continue
+        for p_id, sec_id in parsed_layout.items():
+            cursor.execute("UPDATE chemical_placements SET section_id = ? WHERE id = ?", (sec_id, p_id))
                 
         # Log to audit trail
         cursor.execute(
@@ -808,9 +1035,9 @@ def save_layout():
                 'warehouse',
                 None,
                 'save_auto_arrange_layout',
-                json.dumps({'layout_size': len(layout)}),
+                json.dumps({'layout_size': len(parsed_layout)}),
                 json.dumps({'saved': True}),
-                g.user.get('username') if (hasattr(g, 'user') and g.user) else 'human'
+                _current_user_id()
             )
         )
         
@@ -819,6 +1046,124 @@ def save_layout():
         return jsonify({'success': True, 'message': 'Layout saved successfully.'})
     except Exception as e:
         logger.error(f"Save layout failed: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
+@warehouse_bp.route('/api/warehouse/recommendation/apply', methods=['POST'])
+def apply_recommended_layout():
+    """Create recommended extra sections and persist a complete virtual layout atomically."""
+    conn = None
+    try:
+        access_error = _write_access_error()
+        if access_error:
+            return access_error
+
+        data = request.get_json(silent=True) or {}
+        warehouse_id = data.get('warehouse_id')
+        extra_sections = data.get('extra_sections')
+        virtual_layout = data.get('virtual_layout')
+
+        try:
+            warehouse_id = int(warehouse_id)
+            extra_sections = int(extra_sections)
+        except (TypeError, ValueError):
+            return jsonify({'error': 'warehouse_id and extra_sections must be integers'}), 400
+        if extra_sections < 1 or extra_sections > 100:
+            return jsonify({'error': 'extra_sections must be between 1 and 100'}), 400
+        if not isinstance(virtual_layout, dict) or not virtual_layout:
+            return jsonify({'error': 'virtual_layout mapping is required'}), 400
+
+        conn = _get_db_connection()
+        conn.execute('BEGIN EXCLUSIVE')
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT id FROM warehouses WHERE id = ?", (warehouse_id,))
+        if not cursor.fetchone():
+            conn.rollback()
+            conn.close()
+            return jsonify({'error': 'warehouse_id not found'}), 404
+
+        cursor.execute(
+            "SELECT COALESCE(MAX(position_index), -1) FROM warehouse_sections WHERE warehouse_id = ?",
+            (warehouse_id,)
+        )
+        next_position = cursor.fetchone()[0] + 1
+        new_section_ids = []
+        for i in range(extra_sections):
+            cursor.execute(
+                "INSERT INTO warehouse_sections (warehouse_id, name, position_index, color) VALUES (?, ?, ?, ?)",
+                (warehouse_id, f"Section {next_position + i + 1}", next_position + i, 'slate')
+            )
+            new_section_ids.append(cursor.lastrowid)
+
+        parsed_layout = {}
+        for p_id_raw, sec_id_raw in virtual_layout.items():
+            try:
+                p_id = int(p_id_raw)
+            except (TypeError, ValueError):
+                conn.rollback()
+                conn.close()
+                return jsonify({'error': f'invalid placement id: {p_id_raw}'}), 400
+
+            if sec_id_raw in (None, ''):
+                parsed_layout[p_id] = None
+            elif isinstance(sec_id_raw, str) and sec_id_raw.startswith('virtual_'):
+                try:
+                    virtual_index = int(sec_id_raw.split('_', 1)[1]) - 1
+                    parsed_layout[p_id] = new_section_ids[virtual_index]
+                except (ValueError, IndexError):
+                    conn.rollback()
+                    conn.close()
+                    return jsonify({'error': f'invalid virtual section id: {sec_id_raw}'}), 400
+            else:
+                try:
+                    parsed_layout[p_id] = int(sec_id_raw)
+                except (TypeError, ValueError):
+                    conn.rollback()
+                    conn.close()
+                    return jsonify({'error': f'invalid section id: {sec_id_raw}'}), 400
+
+        ok, status_code, payload = _validate_layout_update(conn, parsed_layout, _current_role())
+        if not ok:
+            conn.rollback()
+            conn.close()
+            return jsonify(payload), status_code
+
+        for p_id, sec_id in parsed_layout.items():
+            cursor.execute("UPDATE chemical_placements SET section_id = ? WHERE id = ?", (sec_id, p_id))
+
+        cursor.execute(
+            """
+            INSERT INTO audit_trail (batch_id, row_index, action, input_data, output_data, confidence, method, user_id)
+            VALUES (?, ?, ?, ?, ?, 1.0, 'warehouse_auto_arrange', ?)
+            """,
+            (
+                'warehouse',
+                None,
+                'apply_recommended_layout',
+                json.dumps({'warehouse_id': warehouse_id, 'extra_sections': extra_sections}),
+                json.dumps({'saved': True, 'new_section_ids': new_section_ids}),
+                _current_user_id()
+            )
+        )
+
+        conn.commit()
+        conn.close()
+        return jsonify({
+            'success': True,
+            'message': f'Created {extra_sections} sections and applied the recommended layout.',
+            'new_section_ids': new_section_ids,
+        })
+    except Exception as e:
+        logger.error(f"Apply recommended layout failed: {e}", exc_info=True)
+        if conn is not None:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            try:
+                conn.close()
+            except Exception:
+                pass
         return jsonify({'error': str(e)}), 500
 
 @warehouse_bp.route('/api/warehouse/list', methods=['GET'])
@@ -842,6 +1187,10 @@ def list_warehouses():
 def create_warehouse():
     """Create a new warehouse and seed 10 default sections."""
     try:
+        access_error = _write_access_error()
+        if access_error:
+            return access_error
+
         data = request.get_json(silent=True) or {}
         name = (data.get('name') or '').strip()
         if not name:
@@ -877,6 +1226,10 @@ def create_warehouse():
 def rename_warehouse():
     """Rename an existing warehouse."""
     try:
+        access_error = _write_access_error()
+        if access_error:
+            return access_error
+
         data = request.get_json(silent=True) or {}
         warehouse_id = data.get('warehouse_id')
         name = (data.get('name') or '').strip()
@@ -887,6 +1240,10 @@ def rename_warehouse():
         conn = _get_db_connection()
         cursor = conn.cursor()
         cursor.execute("UPDATE warehouses SET name = ? WHERE id = ?", (name, warehouse_id))
+        if cursor.rowcount == 0:
+            conn.rollback()
+            conn.close()
+            return jsonify({'error': 'Warehouse not found'}), 404
         conn.commit()
         conn.close()
         
@@ -902,6 +1259,10 @@ def rename_warehouse():
 def delete_warehouse(warehouse_id):
     """Delete a warehouse and all its sections and placements."""
     try:
+        access_error = _write_access_error()
+        if access_error:
+            return access_error
+
         conn = _get_db_connection()
         cursor = conn.cursor()
         

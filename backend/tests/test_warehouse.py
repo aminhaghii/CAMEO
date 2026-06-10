@@ -81,7 +81,7 @@ def mock_user():
         'id': 1,
         'email': 'admin@cameo.com',
         'full_name': 'Test Admin',
-        'role': 'admin',
+        'role': 'company_admin',
         'status': 'ACTIVE',
         'company_id': 1,
         'company_name': 'Test Company',
@@ -373,9 +373,9 @@ def test_move_placements_and_safety_rules(client, mock_user, tenant_db_path):
     conn.commit()
     conn.close()
 
-    # As regular 'user' role (non-admin), attempting to place next to Acetone (Section 1)
+    # As regular operator role, attempting to place next to Acetone (Section 1)
     # should trigger CAUTION/NO_DATA check and return 403 Forbidden.
-    mock_user['role'] = 'user'
+    mock_user['role'] = 'operator'
     res = client.post('/api/warehouse/placements/move', json={
         'placement_id': no_group_placement_id,
         'section_id': sec1_id
@@ -383,8 +383,8 @@ def test_move_placements_and_safety_rules(client, mock_user, tenant_db_path):
     assert res.status_code == 403
     assert res.get_json()['code'] == 'CAUTION_REQUIRES_ADMIN'
 
-    # As 'admin' role, it should succeed
-    mock_user['role'] = 'admin'
+    # As company_admin role, it should succeed
+    mock_user['role'] = 'company_admin'
     res = client.post('/api/warehouse/placements/move', json={
         'placement_id': no_group_placement_id,
         'section_id': sec1_id
@@ -525,6 +525,76 @@ def test_auto_arrange_and_save_layout(client, tenant_db_path):
     conn.close()
 
 
+def test_save_layout_blocks_incompatible_payload(client, tenant_db_path):
+    client.post('/api/warehouse/sections/init', json={'count': 2})
+
+    conn = sqlite3.connect(tenant_db_path)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM warehouse_sections ORDER BY position_index LIMIT 1")
+    section_id = cursor.fetchone()[0]
+    acetone, sulfuric, _ = _get_chemicals_for_test(app.config['CHEMICALS_DB_PATH'])
+
+    def _get_groups(chem_id):
+        conn_chem = sqlite3.connect(app.config['CHEMICALS_DB_PATH'])
+        cursor_chem = conn_chem.cursor()
+        cursor_chem.execute("SELECT react_id FROM mm_chemical_react WHERE chem_id = ?", (chem_id,))
+        groups = [r[0] for r in cursor_chem.fetchall()]
+        conn_chem.close()
+        return groups
+
+    cursor.execute(
+        "INSERT INTO chemical_placements (warehouse_id, section_id, chemical_id, chemical_name, cas_number, quantity_kg, reactive_groups) "
+        "VALUES (1, NULL, ?, ?, ?, 10.0, ?)",
+        (acetone['id'], acetone['name'], acetone['cas_id'], json.dumps(_get_groups(acetone['id'])))
+    )
+    p1_id = cursor.lastrowid
+    cursor.execute(
+        "INSERT INTO chemical_placements (warehouse_id, section_id, chemical_id, chemical_name, cas_number, quantity_kg, reactive_groups) "
+        "VALUES (1, NULL, ?, ?, ?, 15.0, ?)",
+        (sulfuric['id'], sulfuric['name'], sulfuric['cas_id'], json.dumps(_get_groups(sulfuric['id'])))
+    )
+    p2_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+
+    res = client.post('/api/warehouse/layout/save', json={
+        'layout': {str(p1_id): section_id, str(p2_id): section_id}
+    })
+    assert res.status_code == 409
+    assert res.get_json()['code'] == 'INCOMPATIBLE'
+
+    conn = sqlite3.connect(tenant_db_path)
+    cursor = conn.cursor()
+    cursor.execute("SELECT section_id FROM chemical_placements WHERE id IN (?, ?) ORDER BY id", (p1_id, p2_id))
+    assert [row[0] for row in cursor.fetchall()] == [None, None]
+    conn.close()
+
+
+def test_save_layout_blocks_cross_warehouse_section(client, tenant_db_path):
+    client.post('/api/warehouse/create', json={'name': 'Second Warehouse'})
+
+    conn = sqlite3.connect(tenant_db_path)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM warehouses WHERE name = 'Second Warehouse'")
+    second_warehouse_id = cursor.fetchone()[0]
+    cursor.execute("SELECT id FROM warehouse_sections WHERE warehouse_id = ? ORDER BY position_index LIMIT 1", (second_warehouse_id,))
+    foreign_section_id = cursor.fetchone()[0]
+
+    cursor.execute(
+        "INSERT INTO chemical_placements (warehouse_id, section_id, chemical_id, chemical_name, cas_number, quantity_kg, reactive_groups) "
+        "VALUES (1, NULL, 1, 'Acetone', '67-64-1', 10.0, '[]')"
+    )
+    placement_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+
+    res = client.post('/api/warehouse/layout/save', json={
+        'layout': {str(placement_id): foreign_section_id}
+    })
+    assert res.status_code == 409
+    assert res.get_json()['code'] == 'WAREHOUSE_MISMATCH'
+
+
 def test_multiple_warehouses(client, tenant_db_path):
     # 1. Create a warehouse
     res = client.post('/api/warehouse/create', json={'name': 'North Store'})
@@ -638,6 +708,8 @@ def test_auto_arrange_recommendation(client, tenant_db_path):
     recommendation = payload['recommendation']
     assert recommendation['has_recommendation'] is True
     assert recommendation['add_sections_needed'] == 1
+    assert recommendation['can_auto_create'] is True
+    assert recommendation['virtual_layout'] is not None
     assert "Adding 1 more sections" in recommendation['message']
     
     # Check that in suggested_layout, one of them has None as section_id
@@ -646,6 +718,26 @@ def test_auto_arrange_recommendation(client, tenant_db_path):
     s2 = suggested.get(str(p2_id))
     assert s1 is None or s2 is None
     assert s1 != s2
+
+    # Apply the recommendation atomically: create the missing section and save the complete layout.
+    apply_res = client.post('/api/warehouse/recommendation/apply', json={
+        'warehouse_id': 1,
+        'extra_sections': recommendation['add_sections_needed'],
+        'virtual_layout': recommendation['virtual_layout'],
+    })
+    assert apply_res.status_code == 200
+    assert apply_res.get_json()['success'] is True
+
+    conn = sqlite3.connect(tenant_db_path)
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM warehouse_sections WHERE warehouse_id = 1")
+    assert cursor.fetchone()[0] == 2
+    cursor.execute("SELECT COUNT(*) FROM chemical_placements WHERE warehouse_id = 1 AND section_id IS NULL")
+    assert cursor.fetchone()[0] == 0
+    cursor.execute("SELECT section_id FROM chemical_placements WHERE id IN (?, ?) ORDER BY id", (p1_id, p2_id))
+    placed_sections = [row[0] for row in cursor.fetchall()]
+    assert placed_sections[0] != placed_sections[1]
+    conn.close()
 
 
 def test_init_sections_preserves_layout(client, tenant_db_path):

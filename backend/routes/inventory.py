@@ -10,8 +10,8 @@ import json
 import hashlib
 import sqlite3
 import logging
-from datetime import datetime
-from flask import Blueprint, request, jsonify, render_template, current_app
+from datetime import datetime, timezone
+from flask import Blueprint, request, jsonify, render_template, current_app, g
 
 from etl.pipeline import (
     init_inventory_tables, create_batch, get_batch_status,
@@ -24,6 +24,107 @@ inventory_bp = Blueprint('inventory', __name__)
 
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'uploads')
 ALLOWED_EXTENSIONS = {'csv', 'xlsx', 'xls', 'json', 'txt', 'tsv'}
+
+
+def _get_db_path() -> str:
+    return getattr(g, 'tenant_db_path', None) or current_app.config['USER_DB_PATH']
+
+
+@inventory_bp.route('/api/inventory/batches', methods=['GET'])
+def list_inventory_batches():
+    """List all inventory batches for the inventory management page."""
+    try:
+        user_db = _get_db_path()
+        if not os.path.exists(user_db):
+            return jsonify({'batches': []})
+        conn = sqlite3.connect(user_db)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT id, filename, status, created_at, total_rows
+            FROM inventory_batches
+            ORDER BY created_at DESC
+            LIMIT 50
+        """)
+        rows = cursor.fetchall()
+        conn.close()
+        return jsonify({'batches': [dict(r) for r in rows]})
+    except Exception as e:
+        logger.error(f"Batches list error: {e}", exc_info=True)
+        return jsonify({'batches': []})
+
+
+@inventory_bp.route('/api/inventory/batches/create', methods=['POST'])
+def create_manual_batch():
+    """Create a new manual inventory batch with a custom name."""
+    try:
+        data = request.get_json(silent=True) or {}
+        name = (data.get('name') or '').strip()
+        if not name:
+            return jsonify({'error': 'Name is required'}), 400
+
+        user_db = _get_db_path()
+        init_inventory_tables(user_db)
+
+        import uuid
+        batch_id = f"manual-{uuid.uuid4()}"
+
+        conn = sqlite3.connect(user_db)
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO inventory_batches (id, filename, status, total_rows, processed, created_at, completed_at)
+            VALUES (?, ?, 'completed', 0, 0, ?, ?)
+            """,
+            (batch_id, name, datetime.now(timezone.utc).isoformat(), datetime.now(timezone.utc).isoformat())
+        )
+        conn.commit()
+        conn.close()
+
+        logger.info(f"Created manual inventory batch: {batch_id} - {name}")
+        return jsonify({
+            'success': True,
+            'batch': {
+                'id': batch_id,
+                'filename': name,
+                'status': 'completed',
+                'total_rows': 0,
+                'created_at': datetime.now(timezone.utc).isoformat()
+            }
+        })
+    except Exception as e:
+        logger.error(f"Failed to create manual batch: {e}", exc_info=True)
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@inventory_bp.route('/api/inventory/batches/delete/<batch_id>', methods=['DELETE'])
+def delete_inventory_batch(batch_id):
+    """Delete a batch and all its associated staging rows, review queue, and audit trail."""
+    try:
+        user_db = _get_db_path()
+        conn = sqlite3.connect(user_db)
+        cursor = conn.cursor()
+
+        # Check if exists
+        cursor.execute("SELECT 1 FROM inventory_batches WHERE id = ?", (batch_id,))
+        if not cursor.fetchone():
+            conn.close()
+            return jsonify({'error': 'Batch not found'}), 404
+
+        # Delete related data
+        cursor.execute("DELETE FROM review_queue WHERE batch_id = ?", (batch_id,))
+        cursor.execute("DELETE FROM audit_trail WHERE batch_id = ?", (batch_id,))
+        cursor.execute("DELETE FROM inventory_staging WHERE batch_id = ?", (batch_id,))
+        cursor.execute("DELETE FROM inventory_batches WHERE id = ?", (batch_id,))
+
+        conn.commit()
+        conn.close()
+
+        logger.info(f"Deleted inventory batch: {batch_id}")
+        return jsonify({'success': True, 'deleted_batch_id': batch_id})
+    except Exception as e:
+        logger.error(f"Failed to delete batch {batch_id}: {e}", exc_info=True)
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 def _allowed_file(filename: str) -> bool:
@@ -68,15 +169,44 @@ def upload_inventory():
     file.save(filepath)
 
     # Get DB paths from app config
-    user_db = current_app.config['USER_DB_PATH']
+    user_db = _get_db_path()
     chemicals_db = current_app.config['CHEMICALS_DB_PATH']
 
     # Ensure tables exist
     init_inventory_tables(user_db)
 
-    # Create batch
-    batch_id = create_batch(user_db, file.filename)
-    logger.info(f"Created batch {batch_id[:8]} for file: {file.filename}")
+    # Create batch or reuse existing
+    batch_id = request.args.get('batch_id') or request.form.get('batch_id')
+    if batch_id:
+        conn = sqlite3.connect(user_db)
+        cursor = conn.cursor()
+        cursor.execute("SELECT 1 FROM inventory_batches WHERE id = ?", (batch_id,))
+        exists = cursor.fetchone()
+        if not exists:
+            conn.close()
+            return jsonify({'error': 'Target inventory list not found'}), 404
+
+        # Reset existing batch record status and clear old rows
+        cursor.execute(
+            """
+            UPDATE inventory_batches
+            SET status = 'pending', total_rows = 0, processed = 0,
+                completed_at = NULL, summary_json = NULL, error_msg = NULL,
+                ingestion_meta = NULL, column_mapping = NULL
+            WHERE id = ?
+            """,
+            (batch_id,)
+        )
+        cursor.execute("DELETE FROM review_queue WHERE batch_id = ?", (batch_id,))
+        cursor.execute("DELETE FROM audit_trail WHERE batch_id = ?", (batch_id,))
+        cursor.execute("DELETE FROM inventory_staging WHERE batch_id = ?", (batch_id,))
+        conn.commit()
+        conn.close()
+        logger.info(f"Reusing existing batch {batch_id[:8]} for file: {file.filename}")
+    else:
+        # Create batch
+        batch_id = create_batch(user_db, file.filename)
+        logger.info(f"Created batch {batch_id[:8]} for file: {file.filename}")
 
     # Start pipeline in background thread
     run_async(user_db, chemicals_db, batch_id, filepath)
@@ -87,7 +217,7 @@ def upload_inventory():
 @inventory_bp.route('/api/inventory/status/<batch_id>')
 def inventory_status(batch_id):
     """Poll batch processing status."""
-    user_db = current_app.config['USER_DB_PATH']
+    user_db = _get_db_path()
     status = get_batch_status(user_db, batch_id)
     return jsonify(status)
 
@@ -95,7 +225,7 @@ def inventory_status(batch_id):
 @inventory_bp.route('/api/inventory/rows/<batch_id>')
 def inventory_rows(batch_id):
     """Get all staging rows for interactive inventory management UI."""
-    user_db = current_app.config['USER_DB_PATH']
+    user_db = _get_db_path()
     conn = sqlite3.connect(user_db)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -148,7 +278,7 @@ def inventory_rows(batch_id):
 @inventory_bp.route('/api/inventory/review/<batch_id>')
 def review_rows(batch_id):
     """Get all rows that need human review (REVIEW_REQUIRED + UNIDENTIFIED)."""
-    user_db = current_app.config['USER_DB_PATH']
+    user_db = _get_db_path()
     rows = get_review_rows(user_db, batch_id)
     return jsonify({'rows': rows, 'count': len(rows)})
 
@@ -182,7 +312,7 @@ def confirm_match():
     if not chem:
         return jsonify({'error': f'chemical_id {chemical_id} does not exist in database'}), 400
 
-    user_db = current_app.config['USER_DB_PATH']
+    user_db = _get_db_path()
     success = confirm_row(user_db, staging_id, chemical_id, chem['name'])
 
     if success:
@@ -243,7 +373,7 @@ def get_column_mapping(batch_id):
     Get the column mapping result for a batch.
     Returns the full Layer 2 analysis including confidence scores.
     """
-    user_db = current_app.config['USER_DB_PATH']
+    user_db = _get_db_path()
     conn = sqlite3.connect(user_db)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -284,7 +414,7 @@ def get_review_queue(batch_id):
     Get prioritized review queue for a batch.
     Returns rows sorted by priority (critical → high → medium → low).
     """
-    user_db = current_app.config['USER_DB_PATH']
+    user_db = _get_db_path()
     conn = sqlite3.connect(user_db)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -366,7 +496,7 @@ def resolve_review():
     if not chem:
         return jsonify({'error': f'chemical_id {chemical_id} not found'}), 400
 
-    user_db = current_app.config['USER_DB_PATH']
+    user_db = _get_db_path()
     conn = sqlite3.connect(user_db)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -433,7 +563,7 @@ def resolve_review():
 @inventory_bp.route('/api/inventory/audit/<batch_id>')
 def get_audit_trail(batch_id):
     """Get audit trail for a batch."""
-    user_db = current_app.config['USER_DB_PATH']
+    user_db = _get_db_path()
     conn = sqlite3.connect(user_db)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()

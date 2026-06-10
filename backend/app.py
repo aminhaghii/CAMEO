@@ -632,28 +632,6 @@ def logs_page():
     return render_template('logs.html')
 
 
-@app.route('/api/inventory/batches', methods=['GET'])
-def list_inventory_batches():
-    """List all uploaded inventory batches for the inventory management page."""
-    try:
-        if not os.path.exists(USER_DB_PATH):
-            return jsonify({'batches': []})
-        conn = sqlite3.connect(USER_DB_PATH)
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT id, filename, status, created_at, total_rows, matched_rows
-            FROM inventory_batches
-            ORDER BY created_at DESC
-            LIMIT 50
-        """)
-        rows = cursor.fetchall()
-        conn.close()
-        return jsonify({'batches': [dict(r) for r in rows]})
-    except Exception as e:
-        logger.error(f"Batches list error: {e}")
-        return jsonify({'batches': []})
-
 
 @app.route('/api/matrix/data', methods=['GET'])
 def matrix_data():

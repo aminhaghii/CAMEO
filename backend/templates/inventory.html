@@ -27,7 +27,12 @@
             </div>
         </template>
         <div class="flex items-center gap-3">
-            <a href="/admin/import"
+            <button @click="openCreateBatchModal()"
+                class="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 transition shadow-sm">
+                <span class="text-base font-bold">+</span>
+                Create Custom List
+            </button>
+            <a :href="'/admin/import' + (selectedBatch ? '?batch_id=' + selectedBatch : '')"
                 class="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition shadow-sm">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -49,16 +54,24 @@
     <!-- Batch Selector -->
     <div class="content-card border border-slate-100">
         <div class="flex flex-col sm:flex-row sm:items-center gap-4">
-            <div class="flex-1">
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Import
-                    Batch</label>
-                <select x-model="selectedBatch" @change="loadRows()"
-                    class="w-full sm:w-auto px-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
-                    <option value="">— Select an uploaded batch —</option>
-                    <template x-for="b in batches" :key="b.id">
-                        <option :value="b.id" x-text="b.filename + ' (' + (b.total_rows || 0) + ' rows)'"></option>
-                    </template>
-                </select>
+            <div class="flex-1 flex items-end gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Import Batch</label>
+                    <select x-model="selectedBatch" @change="loadRows(); localStorage.setItem('safeware_last_batch', selectedBatch);"
+                        class="w-full sm:w-auto px-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
+                        <option value="">— Select an uploaded batch —</option>
+                        <template x-for="b in batches" :key="b.id">
+                            <option :value="b.id" x-text="b.filename + ' (' + (b.total_rows || 0) + ' rows)'"></option>
+                        </template>
+                    </select>
+                </div>
+                <template x-if="selectedBatch">
+                    <button @click="deleteBatch()"
+                        class="px-3 py-2 border border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 rounded-lg text-sm font-semibold transition"
+                        title="Delete selected inventory list">
+                        🗑️ Delete List
+                    </button>
+                </template>
             </div>
             <div class="flex gap-3 text-sm text-slate-500" x-show="selectedBatch">
                 <span
@@ -115,6 +128,11 @@
                     d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
         </div>
+
+        <button @click="openAddModal()"
+            class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-full hover:bg-blue-700 transition shadow-sm ml-2">
+            <span>+</span> Add Chemical
+        </button>
 
         <p class="text-sm text-slate-500 ml-auto"><span class="font-semibold text-slate-700"
                 x-text="filteredRows.length"></span> rows</p>
@@ -268,7 +286,7 @@
         <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" @click="showEditModal = false"></div>
         <div class="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl p-6 border border-slate-100" @click.stop>
             <div class="flex items-center justify-between mb-5">
-                <h3 class="text-lg font-bold text-slate-900">Edit Chemical Row</h3>
+                <h3 class="text-lg font-bold text-slate-900" x-text="editMode === 'add' ? 'Add Chemical' : 'Edit Chemical Row'"></h3>
                 <button @click="showEditModal = false"
                     class="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -278,42 +296,50 @@
                 </button>
             </div>
             <div class="grid grid-cols-2 gap-4">
+                <div class="col-span-2" x-show="editMode === 'add'">
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Search Chemical</label>
+                    <input type="text" x-model="chemicalSearchQuery" @input.debounce.250ms="searchChemicals()"
+                        placeholder="Search by name, CAS, etc..."
+                        class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm">
+                    <div x-show="chemicalSearchResults.length > 0" class="mt-1 border border-slate-100 rounded-lg max-h-40 overflow-y-auto bg-white shadow-lg relative z-50">
+                        <template x-for="res in chemicalSearchResults" :key="res.chemical_id">
+                            <button @click="selectChemical(res)" class="w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-slate-50 last:border-b-0 text-xs text-slate-700">
+                                <div class="font-semibold" x-text="res.chemical_name"></div>
+                                <div class="text-slate-400" x-text="(res.cas ? 'CAS: ' + res.cas : '') + (res.formula ? ' | ' + res.formula : '')"></div>
+                            </button>
+                        </template>
+                    </div>
+                </div>
                 <div class="col-span-2">
-                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Chemical
-                        Name</label>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Chemical Name</label>
                     <input type="text" x-model="editForm.name"
                         class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm bg-slate-50"
                         readonly>
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">CAS
-                        #</label>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">CAS #</label>
                     <input type="text" x-model="editForm.cas"
                         class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm bg-slate-50"
                         readonly>
                 </div>
                 <div>
-                    <label
-                        class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Quantity</label>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Quantity</label>
                     <input type="text" x-model="editForm.quantity"
                         class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm">
                 </div>
                 <div>
-                    <label
-                        class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Unit</label>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Unit</label>
                     <input type="text" x-model="editForm.unit"
                         class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm"
                         placeholder="L, kg, mol...">
                 </div>
                 <div>
-                    <label
-                        class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Location</label>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Location</label>
                     <input type="text" x-model="editForm.location"
                         class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm">
                 </div>
                 <div class="col-span-2">
-                    <label
-                        class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Notes</label>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Notes</label>
                     <textarea x-model="editForm.notes" rows="2"
                         class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm resize-none"></textarea>
                 </div>
@@ -322,8 +348,31 @@
                 <button @click="showEditModal = false"
                     class="px-4 py-2 border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 text-sm font-medium transition">Cancel</button>
                 <button @click="saveEdit()"
-                    class="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-semibold transition shadow-sm">Save
-                    Changes</button>
+                    class="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-semibold transition shadow-sm">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Custom List Modal -->
+    <div x-show="showCreateBatchModal" x-transition class="fixed inset-0 z-50 flex items-center justify-center p-4" style="display:none;">
+        <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" @click="showCreateBatchModal = false"></div>
+        <div class="relative w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 border border-slate-100" @click.stop>
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-bold text-slate-900">Create Custom Inventory List</h3>
+                <button @click="showCreateBatchModal = false" class="text-slate-400 hover:text-slate-700">✕</button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Inventory List Name</label>
+                    <input type="text" x-model="newBatchName" placeholder="e.g., Lab Staging Shelf A"
+                        class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm">
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 mt-6">
+                <button @click="showCreateBatchModal = false"
+                    class="px-4 py-2 border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 text-sm font-medium transition">Cancel</button>
+                <button @click="createBatch()"
+                    class="px-5 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-semibold transition shadow-sm">Create</button>
             </div>
         </div>
     </div>
@@ -342,6 +391,13 @@
             showEditModal: false,
             editForm: {},
             statusCounts: { confirmed: 0, review: 0, rejected: 0 },
+
+            // Phase 4 Manual Persistence additions
+            showCreateBatchModal: false,
+            newBatchName: '',
+            editMode: 'edit',
+            chemicalSearchQuery: '',
+            chemicalSearchResults: [],
 
             get filteredRows() {
                 let rows = this.allRows;
@@ -370,23 +426,25 @@
 
             async loadBatches() {
                 try {
-                    // Get batches from existing API - try fetching status from a known batch list
                     const res = await fetch('/api/inventory/batches');
                     if (res.ok) {
                         const data = await res.json();
                         this.batches = data.batches || [];
-                        if (this.batches.length > 0) {
+                        const lastBatch = localStorage.getItem('safeware_last_batch');
+                        if (lastBatch && this.batches.some(b => b.id === lastBatch)) {
+                            this.selectedBatch = lastBatch;
+                        } else if (this.batches.length > 0) {
                             this.selectedBatch = this.batches[0].id;
+                        } else {
+                            this.selectedBatch = '';
+                            this.allRows = [];
+                        }
+                        if (this.selectedBatch) {
                             await this.loadRows();
                         }
                     }
                 } catch (e) {
-                    // If no batches endpoint, check localStorage for last batch
-                    const lastBatch = localStorage.getItem('safeware_last_batch');
-                    if (lastBatch) {
-                        this.selectedBatch = lastBatch;
-                        await this.loadRows();
-                    }
+                    console.error(e);
                 }
             },
 
@@ -420,22 +478,194 @@
                 return s || '—';
             },
 
-            openEditModal(row) {
-                this.editForm = { ...row };
+            openCreateBatchModal() {
+                this.newBatchName = '';
+                this.showCreateBatchModal = true;
+            },
+
+            async createBatch() {
+                const name = (this.newBatchName || '').trim();
+                if (!name) {
+                    alert('Please enter a name for the inventory list.');
+                    return;
+                }
+                try {
+                    const res = await fetch('/api/inventory/batches/create', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name })
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.success) {
+                            this.showCreateBatchModal = false;
+                            this.newBatchName = '';
+                            localStorage.setItem('safeware_last_batch', data.batch.id);
+                            await this.loadBatches();
+                        } else {
+                            alert(data.error || 'Failed to create list.');
+                        }
+                    }
+                } catch (e) {
+                    console.error(e);
+                    alert('An error occurred.');
+                }
+            },
+
+            async deleteBatch() {
+                if (!this.selectedBatch) return;
+                const batchName = (this.batches.find(b => b.id === this.selectedBatch) || {}).filename || 'this list';
+                if (!confirm(`Are you sure you want to delete "${batchName}" and all its chemicals? This action cannot be undone.`)) return;
+                try {
+                    const res = await fetch(`/api/inventory/batches/delete/${this.selectedBatch}`, {
+                        method: 'DELETE'
+                    });
+                    if (res.ok) {
+                        localStorage.removeItem('safeware_last_batch');
+                        await this.loadBatches();
+                    } else {
+                        alert('Failed to delete inventory list.');
+                    }
+                } catch (e) {
+                    console.error(e);
+                }
+            },
+
+            openAddModal() {
+                this.editMode = 'add';
+                this.editForm = {
+                    staging_id: null,
+                    row_version: '',
+                    chemical_id: null,
+                    name: '',
+                    cas: '',
+                    quantity: '',
+                    unit: '',
+                    location: '',
+                    notes: '',
+                };
+                this.chemicalSearchQuery = '';
+                this.chemicalSearchResults = [];
                 this.showEditModal = true;
             },
 
-            saveEdit() {
-                // Update local array optimistically
-                const idx = this.allRows.findIndex(r => r.staging_id === this.editForm.staging_id);
-                if (idx > -1) this.allRows[idx] = { ...this.editForm };
-                this.showEditModal = false;
+            openEditModal(row) {
+                this.editMode = 'edit';
+                this.editForm = {
+                    staging_id: row.staging_id,
+                    row_version: row.row_version || '',
+                    chemical_id: row.chemical_id || null,
+                    name: row.name || '',
+                    cas: row.cas || '',
+                    quantity: row.quantity || '',
+                    unit: row.unit || '',
+                    location: row.location || '',
+                    notes: row.notes || '',
+                };
+                this.chemicalSearchQuery = '';
+                this.chemicalSearchResults = [];
+                this.showEditModal = true;
             },
 
-            deleteRow(row) {
+            async searchChemicals() {
+                const query = (this.chemicalSearchQuery || '').trim();
+                if (query.length < 2) {
+                    this.chemicalSearchResults = [];
+                    return;
+                }
+                try {
+                    const res = await fetch(`/api/inventory/search_chemicals?q=${encodeURIComponent(query)}`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        this.chemicalSearchResults = data.results || [];
+                    }
+                } catch (e) {
+                    console.error('Chemical search error:', e);
+                }
+            },
+
+            selectChemical(result) {
+                this.editForm.chemical_id = result.chemical_id;
+                this.editForm.name = result.chemical_name || '';
+                this.editForm.cas = result.cas || '';
+                this.chemicalSearchQuery = result.chemical_name || '';
+                this.chemicalSearchResults = [];
+            },
+
+            async saveEdit() {
+                if (this.editMode === 'add') {
+                    if (!this.editForm.chemical_id) {
+                        alert('Please search and select a chemical.');
+                        return;
+                    }
+                    try {
+                        const res = await fetch('/api/inventory/add', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                batch_id: this.selectedBatch,
+                                chemical_id: this.editForm.chemical_id,
+                                quantity: this.editForm.quantity,
+                                unit: this.editForm.unit,
+                                location: this.editForm.location,
+                                notes: this.editForm.notes
+                            })
+                        });
+                        const data = await res.json();
+                        if (res.ok && !data.error) {
+                            await this.loadRows();
+                            this.showEditModal = false;
+                        } else {
+                            alert(data.error || 'Failed to add chemical.');
+                        }
+                    } catch (e) {
+                        console.error(e);
+                        alert('Error adding chemical.');
+                    }
+                } else {
+                    try {
+                        const res = await fetch('/api/inventory/edit', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                batch_id: this.selectedBatch,
+                                staging_id: this.editForm.staging_id,
+                                row_version: this.editForm.row_version,
+                                chemical_id: this.editForm.chemical_id,
+                                quantity: this.editForm.quantity,
+                                unit: this.editForm.unit,
+                                location: this.editForm.location,
+                                notes: this.editForm.notes
+                            })
+                        });
+                        const data = await res.json();
+                        if (res.ok && !data.error) {
+                            await this.loadRows();
+                            this.showEditModal = false;
+                        } else {
+                            alert(data.error || 'Failed to update chemical.');
+                        }
+                    } catch (e) {
+                        console.error(e);
+                        alert('Error updating chemical.');
+                    }
+                }
+            },
+
+            async deleteRow(row) {
                 if (!confirm(`Delete "${row.name}"?`)) return;
-                this.allRows = this.allRows.filter(r => r.staging_id !== row.staging_id);
-                this.updateStatusCounts();
+                try {
+                    const res = await fetch(`/api/inventory/delete/${row.staging_id}?batch_id=${encodeURIComponent(this.selectedBatch)}`, {
+                        method: 'DELETE'
+                    });
+                    if (res.ok) {
+                        await this.loadRows();
+                    } else {
+                        alert('Failed to delete chemical row.');
+                    }
+                } catch (e) {
+                    console.error(e);
+                }
             },
 
             updateStatusCounts() {

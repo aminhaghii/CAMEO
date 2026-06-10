@@ -223,3 +223,127 @@ def test_inventory_analysis_flow(client):
 
     finally:
         _cleanup_batch(user_db, batch_id)
+
+
+def test_manual_batch_crud_and_counts(client):
+    user_db = app.config['USER_DB_PATH']
+    chemicals = _get_test_chemicals(app.config['CHEMICALS_DB_PATH'])
+
+    # 1. Create a custom manual list/batch
+    create_res = client.post('/api/inventory/batches/create', json={'name': 'Custom Unit Test Inventory'})
+    assert create_res.status_code == 200
+    create_payload = create_res.get_json()
+    assert create_payload['success'] is True
+    batch_id = create_payload['batch']['id']
+    assert create_payload['batch']['filename'] == 'Custom Unit Test Inventory'
+    assert create_payload['batch']['total_rows'] == 0
+
+    try:
+        # 2. Check that it is listed in /api/inventory/batches
+        list_res = client.get('/api/inventory/batches')
+        assert list_res.status_code == 200
+        batches_list = list_res.get_json()['batches']
+        assert any(b['id'] == batch_id for b in batches_list)
+
+        # 3. Add a chemical to this custom manual list
+        add_res = client.post(
+            '/api/inventory/add',
+            json={
+                'batch_id': batch_id,
+                'chemical_id': chemicals[0]['id'],
+                'quantity': '25',
+                'unit': 'kg',
+                'location': 'Shelf-Z',
+                'notes': 'Manually added to custom list',
+            }
+        )
+        assert add_res.status_code == 200
+        add_payload = add_res.get_json()
+        assert add_payload['success'] is True
+        staging_id = add_payload['row']['staging_id']
+
+        # Verify row count updated in the batch
+        list_res2 = client.get('/api/inventory/batches')
+        batches_list2 = list_res2.get_json()['batches']
+        target_batch = next(b for b in batches_list2 if b['id'] == batch_id)
+        assert target_batch['total_rows'] == 1
+
+        # 4. Edit the manually added chemical row
+        edit_res = client.post(
+            '/api/inventory/edit',
+            json={
+                'batch_id': batch_id,
+                'staging_id': staging_id,
+                'row_version': add_payload['row']['row_version'],
+                'quantity': '30',
+                'unit': 'kg',
+                'location': 'Shelf-Y',
+                'notes': 'Manually updated details',
+            }
+        )
+        assert edit_res.status_code == 200
+        assert edit_res.get_json()['row']['quantity'] == '30'
+
+        # 5. Delete the chemical row
+        delete_row_res = client.delete(f"/api/inventory/delete/{staging_id}?batch_id={batch_id}")
+        assert delete_row_res.status_code == 200
+
+        # Verify row count decremented back to 0
+        list_res3 = client.get('/api/inventory/batches')
+        batches_list3 = list_res3.get_json()['batches']
+        target_batch_dec = next(b for b in batches_list3 if b['id'] == batch_id)
+        assert target_batch_dec['total_rows'] == 0
+
+    finally:
+        # 6. Clean up / delete the batch list
+        delete_batch_res = client.delete(f"/api/inventory/batches/delete/{batch_id}")
+        assert delete_batch_res.status_code == 200
+        assert delete_batch_res.get_json()['success'] is True
+
+
+def test_upload_to_existing_batch(client):
+    user_db = app.config['USER_DB_PATH']
+
+    # 1. Create a custom manual list/batch
+    create_res = client.post('/api/inventory/batches/create', json={'name': 'List to Upload Into'})
+    assert create_res.status_code == 200
+    batch_id = create_res.get_json()['batch']['id']
+
+    # Pre-populate it with one row manually
+    conn = sqlite3.connect(user_db)
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        INSERT INTO inventory_staging (batch_id, row_index, raw_data, cleaned_data, match_status)
+        VALUES (?, 1, '{}', '{}', 'MATCHED')
+        """,
+        (batch_id,)
+    )
+    conn.commit()
+    conn.close()
+
+    try:
+        # 2. Upload a file using the existing batch_id
+        import io
+        excel_data = io.BytesIO(b"dummy excel data")
+        upload_res = client.post(
+            f"/api/inventory/upload?batch_id={batch_id}",
+            data={
+                'file': (excel_data, 'test.xlsx')
+            },
+            content_type='multipart/form-data'
+        )
+        assert upload_res.status_code == 200
+        assert upload_res.get_json()['batch_id'] == batch_id
+
+        # Verify that the staging row we pre-populated is deleted (cleared)
+        conn = sqlite3.connect(user_db)
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM inventory_staging WHERE batch_id = ?", (batch_id,))
+        count = cursor.fetchone()[0]
+        conn.close()
+        assert count == 0
+
+    finally:
+        # Clean up the batch
+        client.delete(f"/api/inventory/batches/delete/{batch_id}")

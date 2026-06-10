@@ -190,14 +190,45 @@ def init_sections():
                 conn.close()
                 return jsonify({'error': 'warehouse_id must be integer'}), 400
             
-        # Delete only placements and sections belonging to this warehouse
-        cursor.execute("DELETE FROM chemical_placements WHERE warehouse_id = ?", (warehouse_id,))
-        cursor.execute("DELETE FROM warehouse_sections WHERE warehouse_id = ?", (warehouse_id,))
+        # 1. Fetch current sections in this warehouse, sorted by position_index
+        cursor.execute(
+            "SELECT id, name, position_index FROM warehouse_sections WHERE warehouse_id = ? ORDER BY position_index",
+            (warehouse_id,)
+        )
+        current_sections = [dict(r) for r in cursor.fetchall()]
+        current_count = len(current_sections)
         
-        for i in range(1, count + 1):
+        if current_count == 0:
+            # First time initialization: just insert count sections
+            for i in range(1, count + 1):
+                cursor.execute(
+                    "INSERT INTO warehouse_sections (warehouse_id, name, position_index, color) VALUES (?, ?, ?, ?)",
+                    (warehouse_id, f"Section {i}", i - 1, 'slate')
+                )
+        elif count > current_count:
+            # We are ADDING sections. Keep all existing ones, and add new ones.
+            max_pos = max(s['position_index'] for s in current_sections) if current_sections else -1
+            for i in range(current_count + 1, count + 1):
+                pos = max_pos + (i - current_count)
+                cursor.execute(
+                    "INSERT INTO warehouse_sections (warehouse_id, name, position_index, color) VALUES (?, ?, ?, ?)",
+                    (warehouse_id, f"Section {i}", pos, 'slate')
+                )
+        elif count < current_count:
+            # We are REMOVING sections. Keep the first 'count' sections, delete the rest.
+            sections_to_delete = current_sections[count:]
+            delete_ids = [s['id'] for s in sections_to_delete]
+            placeholders = ",".join(["?"] * len(delete_ids))
+            
+            # Return placed chemicals in deleted sections to the available pool
             cursor.execute(
-                "INSERT INTO warehouse_sections (warehouse_id, name, position_index, color) VALUES (?, ?, ?, ?)",
-                (warehouse_id, f"Section {i}", i - 1, 'slate')
+                f"UPDATE chemical_placements SET section_id = NULL WHERE section_id IN ({placeholders})",
+                delete_ids
+            )
+            # Delete the sections
+            cursor.execute(
+                f"DELETE FROM warehouse_sections WHERE id IN ({placeholders})",
+                delete_ids
             )
             
         conn.commit()
@@ -232,6 +263,7 @@ def update_section():
 @warehouse_bp.route('/api/warehouse/placements/move', methods=['POST'])
 def move_placement():
     """Move a chemical placement to another section or to the sidebar pool (section_id=None)."""
+    conn = None
     try:
         data = request.get_json(silent=True) or {}
         placement_id = data.get('placement_id')
@@ -241,12 +273,14 @@ def move_placement():
             return jsonify({'error': 'placement_id is required'}), 400
             
         conn = _get_db_connection()
+        conn.execute('BEGIN EXCLUSIVE')
         cursor = conn.cursor()
         
         # Verify placement exists
         cursor.execute("SELECT * FROM chemical_placements WHERE id = ?", (placement_id,))
         placement = cursor.fetchone()
         if not placement:
+            conn.rollback()
             conn.close()
             return jsonify({'error': 'Placement not found'}), 404
             
@@ -258,6 +292,7 @@ def move_placement():
             cursor.execute("SELECT name FROM warehouse_sections WHERE id = ?", (section_id,))
             sec = cursor.fetchone()
             if not sec:
+                conn.rollback()
                 conn.close()
                 return jsonify({'error': 'Target section not found'}), 404
                 
@@ -273,11 +308,12 @@ def move_placement():
                 engine = ReactivityEngine(chemicals_db)
                 chem_ids = [r['chemical_id'] for r in existing] + [chem_id]
                 
-                analysis = engine.analyze(chem_ids, include_water_check=False)
+                analysis = engine.analyze(chem_ids, include_water_check=True)
                 overall = analysis.overall_compatibility
                 
                 # Stop Hard: Block INCOMPATIBLE completely
                 if overall == Compatibility.INCOMPATIBLE:
+                    conn.rollback()
                     conn.close()
                     critical_desc = "; ".join([f"{p['chemicals'][0]} & {p['chemicals'][1]}" for p in analysis.critical_pairs])
                     return jsonify({
@@ -289,6 +325,7 @@ def move_placement():
                 if overall in (Compatibility.CAUTION, Compatibility.NO_DATA):
                     role = g.user.get('role') if (hasattr(g, 'user') and g.user) else 'admin'
                     if role not in ('admin', 'super_admin'):
+                        conn.rollback()
                         conn.close()
                         return jsonify({
                             'error': "Access Denied: Placement requires CAUTION warning override (Admin privileges required)",
@@ -326,6 +363,15 @@ def move_placement():
         return jsonify({'success': True, 'message': 'Chemical moved successfully'})
     except Exception as e:
         logger.error(f"Move placement failed: {e}", exc_info=True)
+        if conn is not None:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            try:
+                conn.close()
+            except Exception:
+                pass
         return jsonify({'error': 'Internal server error'}), 500
 
 @warehouse_bp.route('/api/warehouse/placements/remove/<int:placement_id>', methods=['DELETE'])
@@ -500,11 +546,71 @@ def add_from_batch():
         logger.error(f"Import batch to warehouse failed: {e}", exc_info=True)
         return jsonify({'error': str(e)}), 500
 
+def _run_greedy_placement(sections, placements, engine, chem_groups_map):
+    """
+    Distributes placements into sections greedily by sorting them by reactive groups count descending.
+    Avoids putting INCOMPATIBLE chemicals in the same section.
+    If a chemical cannot fit in any section safely, its suggested section ID is None.
+    """
+    # Sort placements by complexity (number of reactive groups) descending
+    sorted_placements = sorted(placements, key=lambda p: len(p['reactive_groups']), reverse=True)
+    
+    # Initialize occupants tracker
+    section_occupants = {s['id']: [] for s in sections}
+    suggested_mapping = {}
+    unplaced_placements = []
+    
+    section_index = 0
+    num_sections = len(sections)
+    
+    for p in sorted_placements:
+        placed = False
+        p_id = p['chemical_id']
+        p_name = p['chemical_name']
+        p_groups = chem_groups_map.get(str(p_id), [])
+        
+        # Try to place in one of the sections, starting from the current section_index
+        for attempt in range(num_sections):
+            target_sec = sections[(section_index + attempt) % num_sections]
+            target_id = target_sec['id']
+            
+            # Check compatibility of p with all current occupants of target_id
+            incompatible = False
+            for o in section_occupants[target_id]:
+                o_id = o['chemical_id']
+                o_name = o['chemical_name']
+                o_groups = chem_groups_map.get(str(o_id), [])
+                
+                # Perform the fast pair-wise check
+                pair_res = engine._analyze_pair(p_id, o_id, p_name, o_name, p_groups, o_groups)
+                if pair_res.compatibility == Compatibility.INCOMPATIBLE:
+                    incompatible = True
+                    break
+            
+            if not incompatible:
+                # Place chemical in this section
+                suggested_mapping[p['placement_id']] = target_id
+                section_occupants[target_id].append(p)
+                placed = True
+                # Update section index pointer to the next section
+                section_index = (section_index + attempt + 1) % num_sections
+                break
+        
+        if not placed:
+            # Cannot fit anywhere safely - set to None
+            suggested_mapping[p['placement_id']] = None
+            unplaced_placements.append(p)
+            
+    return suggested_mapping, section_occupants, unplaced_placements
+
+
 @warehouse_bp.route('/api/warehouse/auto_arrange', methods=['POST'])
 def auto_arrange():
     """
     Greedy Auto-Arrange Algorithm:
-    Clustered reactive groups are distributed proportionally across Sections.
+    Placements sorted by reactive group complexity descending are distributed
+    proportionally across Sections, avoiding incompatible conflicts.
+    Runs virtual section recommendation simulation if needed.
     """
     try:
         data = request.get_json(silent=True) or {}
@@ -557,132 +663,89 @@ def auto_arrange():
         if not placements:
             return jsonify({'error': 'No chemicals in the warehouse pool to arrange.'}), 400
             
-        # ── Greedy Grouping Algorithm ──
-        # 1. Cluster placements by their first reactive group (or a representative group)
-        clusters = {}
-        no_data_placements = []
-        
-        for p in placements:
-            grps = p['reactive_groups']
-            if not grps:
-                no_data_placements.append(p)
-                continue
-                
-            # Use the first group as primary cluster key
-            primary_grp = grps[0]
-            if primary_grp not in clusters:
-                clusters[primary_grp] = []
-            clusters[primary_grp].append(p)
-            
-        # Sort clusters by size (largest first)
-        sorted_clusters = sorted(clusters.items(), key=lambda x: len(x[1]), reverse=True)
-        
-        # 2. Assign clusters to sections proportionally, avoiding INCOMPATIBLE conflicts
-        # Initialize empty section occupants tracker
-        section_occupants = {s['id']: [] for s in sections}
-        
-        # Find Quarantine section: we nominate the last section or one with name "quarantine"
-        quarantine_section = sections[-1]
-        for s in sections:
-            if 'quarantine' in s['name'].lower():
-                quarantine_section = s
-                break
-                
-        # Move NO_DATA chemicals to Quarantine
-        suggested_mapping = {}
-        for p in no_data_placements:
-            suggested_mapping[p['placement_id']] = quarantine_section['id']
-            section_occupants[quarantine_section['id']].append(p)
-            
         # Instantiate ReactivityEngine
         chemicals_db = current_app.config['CHEMICALS_DB_PATH']
         engine = ReactivityEngine(chemicals_db)
         
-        # Distribute clusters
-        section_index = 0
-        num_sections = len(sections)
+        # Build chem_groups_map mapping chemical_id -> list of reactive group IDs
+        chem_groups_map = {str(p['chemical_id']): p['reactive_groups'] for p in placements}
         
-        for grp, cluster_placements in sorted_clusters:
-            # We want to place the whole cluster in a section if possible
-            # We try sections starting from the current section_index
-            for attempt in range(num_sections):
-                target_sec = sections[(section_index + attempt) % num_sections]
-                target_id = target_sec['id']
-                
-                # Check if adding this cluster to target section causes any INCOMPATIBLE reaction
-                current_chem_ids = [o['chemical_id'] for o in section_occupants[target_id]]
-                cluster_chem_ids = [p['chemical_id'] for p in cluster_placements]
-                
-                incompatible_found = False
-                # Try placing one by one and check
-                test_list = list(current_chem_ids)
-                for c_id in cluster_chem_ids:
-                    test_list.append(c_id)
-                    if len(test_list) >= 2:
-                        analysis = engine.analyze(test_list, include_water_check=False)
-                        if analysis.overall_compatibility == Compatibility.INCOMPATIBLE:
-                            incompatible_found = True
-                            break
-                            
-                if not incompatible_found:
-                    # Successfully found a safe section for this cluster!
-                    for p in cluster_placements:
-                        suggested_mapping[p['placement_id']] = target_id
-                        section_occupants[target_id].append(p)
-                    # Advance target section pointer
-                    section_index = (section_index + attempt + 1) % num_sections
-                    break
-            else:
-                # If no section is compatible for the whole cluster, distribute items individually
-                for p in cluster_placements:
-                    placed = False
-                    for s in sections:
-                        s_id = s['id']
-                        current_chem_ids = [o['chemical_id'] for o in section_occupants[s_id]]
-                        test_list = current_chem_ids + [p['chemical_id']]
-                        
-                        if len(test_list) < 2:
-                            suggested_mapping[p['placement_id']] = s_id
-                            section_occupants[s_id].append(p)
-                            placed = True
-                            break
-                            
-                        analysis = engine.analyze(test_list, include_water_check=False)
-                        if analysis.overall_compatibility != Compatibility.INCOMPATIBLE:
-                            suggested_mapping[p['placement_id']] = s_id
-                            section_occupants[s_id].append(p)
-                            placed = True
-                            break
-                            
-                    if not placed:
-                        # Fallback to Quarantine section if absolutely incompatible everywhere
-                        suggested_mapping[p['placement_id']] = quarantine_section['id']
-                        section_occupants[quarantine_section['id']].append(p)
-                        
-        # 3. Calculate Confidence Score (Percentage of compatible pairs)
+        # 1. Run greedy placement for actual sections
+        suggested_mapping, section_occupants, unplaced_placements = _run_greedy_placement(
+            sections, placements, engine, chem_groups_map
+        )
+        
+        # 2. Dynamic Section Suggester (Simulation Loop)
+        recommendation = {
+            'has_recommendation': False,
+            'add_sections_needed': 0,
+            'message': ''
+        }
+        
         total_placements = len(placements)
+        if unplaced_placements:
+            initial_unplaced_count = len(unplaced_placements)
+            best_unplaced_count = initial_unplaced_count
+            best_extra_sections = 0
+            
+            # Try adding +1, +2, +3 virtual sections
+            for extra_count in range(1, 4):
+                sim_sections = list(sections)
+                for i in range(1, extra_count + 1):
+                    sim_sections.append({
+                        'id': f'virtual_{i}',
+                        'name': f'Virtual Section {i}'
+                    })
+                
+                sim_mapping, sim_occupants, sim_unplaced = _run_greedy_placement(
+                    sim_sections, placements, engine, chem_groups_map
+                )
+                
+                sim_unplaced_count = len(sim_unplaced)
+                if sim_unplaced_count < best_unplaced_count:
+                    best_unplaced_count = sim_unplaced_count
+                    best_extra_sections = extra_count
+                    
+                if sim_unplaced_count == 0:
+                    break
+            
+            if best_extra_sections > 0:
+                recommendation['has_recommendation'] = True
+                recommendation['add_sections_needed'] = best_extra_sections
+                if best_unplaced_count == 0:
+                    recommendation['message'] = (
+                        f"We left {initial_unplaced_count} chemicals unplaced to prevent hazards. "
+                        f"Adding {best_extra_sections} more sections will allow 100% safe placement for all inventory."
+                    )
+                else:
+                    placed_percentage = int(((total_placements - best_unplaced_count) / total_placements) * 100)
+                    recommendation['message'] = (
+                        f"We left {initial_unplaced_count} chemicals unplaced to prevent hazards. "
+                        f"Adding {best_extra_sections} more sections will allow safe placement of "
+                        f"{total_placements - best_unplaced_count} out of {total_placements} chemicals ({placed_percentage}%)."
+                    )
+                    
+        # 3. Calculate Confidence Score (Percentage of compatible pairs in actual placement)
         caution_count = 0
         total_pairs_checked = 0
-        incompat_resolved_flag = True
         
         for s_id, occupants in section_occupants.items():
             if len(occupants) >= 2:
                 ids = [o['chemical_id'] for o in occupants]
-                analysis = engine.analyze(ids, include_water_check=False)
-                if analysis.overall_compatibility == Compatibility.INCOMPATIBLE:
-                    incompat_resolved_flag = False
+                analysis = engine.analyze(ids, include_water_check=True, save_audit=False)
                 
-                # Count pairs
                 n_occ = len(occupants)
                 total_pairs_checked += (n_occ * (n_occ - 1)) // 2
                 
-                # Find Caution pairs
+                # Find Caution / NO_DATA pairs
                 for i in range(n_occ):
                     for j in range(i + 1, n_occ):
+                        p_a = occupants[i]
+                        p_b = occupants[j]
                         pair_analysis = engine._analyze_pair(
-                            occupants[i]['chemical_id'], occupants[j]['chemical_id'],
-                            occupants[i]['chemical_name'], occupants[j]['chemical_name'],
-                            occupants[i]['reactive_groups'], occupants[j]['reactive_groups']
+                            p_a['chemical_id'], p_b['chemical_id'],
+                            p_a['chemical_name'], p_b['chemical_name'],
+                            p_a['reactive_groups'], p_b['reactive_groups']
                         )
                         if pair_analysis.compatibility in (Compatibility.CAUTION, Compatibility.NO_DATA):
                             caution_count += 1
@@ -693,11 +756,21 @@ def auto_arrange():
         else:
             compatibility_score = 100
             
+        # Build human readable message
+        if unplaced_placements:
+            msg = (
+                f"Auto-Arrange computed. Safety level: {compatibility_score}%. "
+                f"We left {len(unplaced_placements)} incompatible chemicals unplaced to prevent safety hazards."
+            )
+        else:
+            msg = f"Auto-Arrange computed successfully. Safety level: {compatibility_score}%."
+            
         return jsonify({
             'success': True,
             'suggested_layout': suggested_mapping,
             'confidence_score': compatibility_score,
-            'message': f"Auto-Arrange computed successfully. Safety level: {compatibility_score}%."
+            'recommendation': recommendation,
+            'message': msg
         })
     except Exception as e:
         logger.error(f"Auto-Arrange failed: {e}", exc_info=True)

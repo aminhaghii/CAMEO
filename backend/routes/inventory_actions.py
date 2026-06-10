@@ -10,13 +10,17 @@ import re
 import sqlite3
 from datetime import datetime, timezone
 
-from flask import Blueprint, current_app, jsonify, request
+from flask import Blueprint, current_app, jsonify, request, g
 
 logger = logging.getLogger(__name__)
 
 inventory_actions_bp = Blueprint('inventory_actions', __name__)
 
 _QUANTITY_REGEX = re.compile(r'^\s*\d+(?:\.\d+)?\s*$')
+
+
+def _get_db_path() -> str:
+    return getattr(g, 'tenant_db_path', None) or current_app.config['USER_DB_PATH']
 
 
 def _row_version_hash(row: sqlite3.Row) -> str:
@@ -72,7 +76,7 @@ def edit_inventory_row():
         if not _validate_quantity(quantity):
             return jsonify({'error': 'Quantity must be numeric (e.g., 10 or 10.5)'}), 400
 
-        user_db = current_app.config['USER_DB_PATH']
+        user_db = _get_db_path()
         conn = sqlite3.connect(user_db)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -226,7 +230,7 @@ def delete_inventory_row(staging_id):
         if not batch_id:
             return jsonify({'error': 'batch_id query param is required'}), 400
 
-        user_db = current_app.config['USER_DB_PATH']
+        user_db = _get_db_path()
         conn = sqlite3.connect(user_db)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -258,6 +262,11 @@ def delete_inventory_row(staging_id):
                 json.dumps({'deleted': True}),
                 datetime.now(timezone.utc).isoformat(),
             )
+        )
+
+        cursor.execute(
+            "UPDATE inventory_batches SET total_rows = CASE WHEN total_rows > 0 THEN total_rows - 1 ELSE 0 END WHERE id = ?",
+            (batch_id,)
         )
 
         conn.commit()
@@ -298,7 +307,7 @@ def add_inventory_row():
         if not chem:
             return jsonify({'error': 'chemical_id does not exist in CAMEO DB'}), 400
 
-        user_db = current_app.config['USER_DB_PATH']
+        user_db = _get_db_path()
         conn = sqlite3.connect(user_db)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -374,6 +383,10 @@ def add_inventory_row():
             )
         )
 
+        cursor.execute(
+            "UPDATE inventory_batches SET total_rows = total_rows + 1 WHERE id = ?",
+            (batch_id,)
+        )
         conn.commit()
 
         cursor.execute(

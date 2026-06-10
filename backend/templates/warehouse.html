@@ -4,30 +4,56 @@
 
 {% block extra_head %}
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+    
     [x-cloak] { display: none !important; }
+    
+    body {
+        font-family: 'Outfit', sans-serif !important;
+    }
+    
+    /* Modern Scrollbars */
+    ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+        background: rgba(100, 116, 139, 0.25);
+        border-radius: 999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: rgba(100, 116, 139, 0.4);
+    }
     
     .warehouse-layout {
         display: flex;
-        height: calc(100vh - 120px);
+        height: calc(100vh - 130px);
         overflow: hidden;
-        gap: 24px;
+        gap: 28px;
     }
     
-    /* Sidebar styling */
+    /* Sidebar styling with glassmorphism */
     .chemical-pool-sidebar {
-        width: 320px;
+        width: 340px;
         flex-shrink: 0;
-        background: rgba(15, 23, 42, 0.03);
+        background: rgba(255, 255, 255, 0.75);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
         border: 1px solid rgba(226, 232, 240, 0.8);
-        border-radius: 16px;
+        border-radius: 24px;
         display: flex;
         flex-direction: column;
         overflow: hidden;
+        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.03);
     }
 
     .chem-card {
-        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
         cursor: grab;
+        border: 1px solid rgba(226, 232, 240, 0.7);
     }
     
     .chem-card:active {
@@ -35,8 +61,9 @@
     }
     
     .chem-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+        transform: translateY(-3px) scale(1.01);
+        border-color: rgba(99, 102, 241, 0.5);
+        box-shadow: 0 10px 20px -10px rgba(99, 102, 241, 0.25);
     }
     
     /* Sections Grid styling */
@@ -44,37 +71,64 @@
         flex: 1;
         overflow-y: auto;
         padding-right: 8px;
+        background: rgba(255, 255, 255, 0.6);
+        backdrop-filter: blur(8px);
+        border-radius: 24px;
     }
     
     .section-drop-zone {
-        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
         position: relative;
+        background: rgba(255, 255, 255, 0.5);
+        border: 2px dashed rgba(226, 232, 240, 1);
+        border-radius: 20px;
     }
     
-    /* Drag over states */
+    .section-drop-zone:hover {
+        border-color: rgba(99, 102, 241, 0.3);
+        background: rgba(255, 255, 255, 0.8);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px -8px rgba(15, 23, 42, 0.05);
+    }
+    
+    /* Drag over states with glowing borders & keyframes */
+    @keyframes pulse-emerald {
+        0%, 100% { border-color: rgba(16, 185, 129, 0.4); box-shadow: 0 0 10px rgba(16, 185, 129, 0.1); }
+        50% { border-color: rgba(16, 185, 129, 1); box-shadow: 0 0 20px rgba(16, 185, 129, 0.3); }
+    }
+    
+    @keyframes pulse-amber {
+        0%, 100% { border-color: rgba(245, 158, 11, 0.4); box-shadow: 0 0 10px rgba(245, 158, 11, 0.1); }
+        50% { border-color: rgba(245, 158, 11, 1); box-shadow: 0 0 20px rgba(245, 158, 11, 0.3); }
+    }
+    
+    @keyframes pulse-rose {
+        0%, 100% { border-color: rgba(239, 68, 68, 0.4); box-shadow: 0 0 10px rgba(239, 68, 68, 0.1); }
+        50% { border-color: rgba(239, 68, 68, 1); box-shadow: 0 0 20px rgba(239, 68, 68, 0.3); }
+    }
+    
     .drag-valid {
-        border-color: #10b981 !important;
-        background-color: rgba(16, 185, 129, 0.05) !important;
-        box-shadow: 0 0 15px rgba(16, 185, 129, 0.15) !important;
+        background-color: rgba(16, 185, 129, 0.04) !important;
+        animation: pulse-emerald 1.5s infinite ease-in-out;
     }
     
     .drag-caution {
-        border-color: #f59e0b !important;
-        background-color: rgba(245, 158, 11, 0.05) !important;
-        box-shadow: 0 0 15px rgba(245, 158, 11, 0.15) !important;
+        background-color: rgba(245, 158, 11, 0.04) !important;
+        animation: pulse-amber 1.5s infinite ease-in-out;
     }
     
     .drag-invalid {
-        border-color: #ef4444 !important;
-        background-color: rgba(239, 68, 68, 0.05) !important;
-        box-shadow: 0 0 15px rgba(239, 68, 68, 0.15) !important;
+        background-color: rgba(239, 68, 68, 0.04) !important;
+        animation: pulse-rose 1.5s infinite ease-in-out;
         cursor: no-drop !important;
     }
     
     /* Ghost suggestions */
     .ghost-item {
-        opacity: 0.5;
+        opacity: 0.65;
         border-style: dashed !important;
+        background-color: rgba(245, 158, 11, 0.02) !important;
+        border-color: rgba(245, 158, 11, 0.5) !important;
     }
     
     /* Slide out panel */
@@ -83,32 +137,39 @@
         right: 0;
         top: 0;
         bottom: 0;
-        width: 420px;
-        background: white;
-        box-shadow: -10px 0 30px rgba(15, 23, 42, 0.15);
+        width: 440px;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(16px);
+        box-shadow: -10px 0 40px rgba(15, 23, 42, 0.12);
         z-index: 100;
         display: flex;
         flex-direction: column;
+        border-left: 1px solid rgba(226, 232, 240, 0.8);
     }
     
     /* Live custom tooltip */
     .drag-tooltip {
         position: fixed;
         pointer-events: none;
-        background: #0f172a;
+        background: rgba(15, 23, 42, 0.95);
+        backdrop-filter: blur(4px);
         color: white;
-        padding: 8px 12px;
-        border-radius: 8px;
-        font-size: 12px;
-        max-width: 280px;
+        padding: 10px 14px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 500;
+        max-width: 300px;
         z-index: 1000;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
         opacity: 0;
-        transition: opacity 0.1s ease;
+        transition: opacity 0.15s ease, transform 0.15s ease;
+        transform: scale(0.95);
+        border: 1px solid rgba(255, 255, 255, 0.1);
     }
     
     .drag-tooltip.visible {
         opacity: 1;
+        transform: scale(1);
     }
 </style>
 {% endblock %}
@@ -126,16 +187,22 @@
                     </svg>
                 </div>
                 <div>
-                    <h4 class="font-bold text-amber-900 text-sm">چیدمان پیشنهادی آماده بررسی (Proposed Layout Preview)</h4>
+                    <h4 class="font-bold text-amber-900 text-sm">Proposed Layout Preview</h4>
                     <p class="text-xs text-amber-800 mt-0.5 leading-relaxed">
-                        <strong>توجه مهم:</strong> الگوریتم پیشنهادی صرفاً جنبه راهنمایی دارد. سیستم هیچ‌گونه مسئولیت حقوقی یا فنی در قبال عدم تایید نهایی چیدمان نمی‌پذیرد و تایید نهایی بر عهده کاربر است.
+                        <strong>Important Note:</strong> The auto-arrange algorithm is for guidance only. The system assumes no liability for the safety of the layout. The final approval is the sole responsibility of the user.
                     </p>
+                    <template x-if="suggestedLayoutRecommendation && suggestedLayoutRecommendation.has_recommendation">
+                        <div class="mt-2 text-xs font-bold text-indigo-900 bg-indigo-50 border border-indigo-200 rounded-lg p-2.5 flex items-center gap-2">
+                            <span class="p-1 bg-indigo-100 rounded-md text-indigo-700">💡 Recommendation</span>
+                            <span x-text="suggestedLayoutRecommendation.message"></span>
+                        </div>
+                    </template>
                 </div>
             </div>
             <div class="flex items-center gap-2">
-                <span class="text-xs font-bold text-amber-700 bg-white/50 px-2 py-1 rounded" x-text="`امتیاز بهینگی: ${suggestedScore}%`"></span>
-                <button @click="saveSuggestedLayout()" class="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 transition shadow">تایید چیدمان (Accept)</button>
-                <button @click="cancelSuggestedLayout()" class="px-4 py-2 bg-slate-200 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-300 transition">انصراف (Cancel)</button>
+                <span class="text-xs font-bold text-amber-700 bg-white/50 px-2 py-1 rounded" x-text="`Optimization Score: ${suggestedScore}%`"></span>
+                <button @click="saveSuggestedLayout()" class="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 transition shadow">Accept Layout</button>
+                <button @click="cancelSuggestedLayout()" class="px-4 py-2 bg-slate-200 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-300 transition">Cancel</button>
             </div>
         </div>
     </template>
@@ -428,6 +495,7 @@
             // Auto Arrange Suggestion Layout mapping (placement_id -> section_id)
             suggestedLayout: null,
             suggestedScore: 100,
+            suggestedLayoutRecommendation: null,
 
             get activePool() {
                 const allWarehousePlacements = [...this.inventory, ...this.sections.flatMap(s => s.chemicals)];
@@ -719,7 +787,7 @@
                 // Enforce Stop Hard for INCOMPATIBLE (client-side block)
                 const compatStatus = this.evalCompatibility(this.draggedItem, sec);
                 if (compatStatus === 'INCOMPATIBLE') {
-                    alert('خطای ایمنی شدید: این ماده با مواد موجود در این بخش سازگاری ندارد و قرارگیری آن ممنوع است!');
+                    alert('Severe Safety Warning: This chemical is incompatible with other chemicals in this section. Placement is strictly prohibited!');
                     return;
                 }
                 
@@ -825,6 +893,7 @@
                     if (res.ok && data.success) {
                         this.suggestedLayout = data.suggested_layout;
                         this.suggestedScore = data.confidence_score;
+                        this.suggestedLayoutRecommendation = data.recommendation;
                     } else {
                         alert(data.error || 'Failed to calculate Auto-Arrange');
                     }
@@ -910,6 +979,7 @@
                     });
                     if (res.ok) {
                         this.suggestedLayout = null;
+                        this.suggestedLayoutRecommendation = null;
                         await this.loadData();
                     }
                 } catch (e) {
@@ -919,6 +989,7 @@
 
             cancelSuggestedLayout() {
                 this.suggestedLayout = null;
+                this.suggestedLayoutRecommendation = null;
             },
 
             // ── MINI MATRIX HELPERS ──

@@ -9,7 +9,7 @@ import sqlite3
 from datetime import datetime, timezone
 from io import BytesIO
 
-from flask import Blueprint, current_app, jsonify, render_template, request, send_file
+from flask import Blueprint, current_app, jsonify, render_template, request, send_file, g
 
 from logic.reactivity_engine import ReactivityEngine
 from logic.constants import Compatibility
@@ -224,7 +224,7 @@ def analyze_inventory():
         if not batch_id:
             return jsonify({'error': 'batch_id is required'}), 400
 
-        user_db = current_app.config['USER_DB_PATH']
+        user_db = getattr(g, 'tenant_db_path', None) or current_app.config['USER_DB_PATH']
         chemicals_db = current_app.config['CHEMICALS_DB_PATH']
 
         inventory_rows, unresolved_count = _fetch_inventory_rows_for_analysis(user_db, batch_id)
@@ -354,7 +354,7 @@ def inventory_analysis_page(batch_id):
 def get_inventory_analysis(batch_id):
     """Fetch latest saved analysis payload for a batch, enriched with EU data."""
     try:
-        user_db = current_app.config['USER_DB_PATH']
+        user_db = getattr(g, 'tenant_db_path', None) or current_app.config['USER_DB_PATH']
         conn = sqlite3.connect(user_db)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -455,7 +455,7 @@ def export_inventory_analysis_excel(batch_id):
         except Exception:
             return jsonify({'error': 'Excel export requires pandas/openpyxl'}), 501
 
-        user_db = current_app.config['USER_DB_PATH']
+        user_db = getattr(g, 'tenant_db_path', None) or current_app.config['USER_DB_PATH']
         conn = sqlite3.connect(user_db)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -505,7 +505,7 @@ def export_inventory_analysis_pdf(batch_id):
         except Exception:
             return jsonify({'error': 'PDF export requires reportlab. Install with: pip install reportlab'}), 501
 
-        user_db = current_app.config['USER_DB_PATH']
+        user_db = getattr(g, 'tenant_db_path', None) or current_app.config['USER_DB_PATH']
         conn = sqlite3.connect(user_db)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()

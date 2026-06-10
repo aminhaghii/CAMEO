@@ -14,6 +14,14 @@ function importApp() {
         columnMappingResult: null,
         ingestionMeta: null,
 
+        init() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlBatchId = urlParams.get('batch_id');
+            if (urlBatchId) {
+                this.batchId = urlBatchId;
+            }
+        },
+
         // Phase 2 interactive inventory state
         inventoryRows: [],
         activeFilter: 'TOTAL',
@@ -153,7 +161,11 @@ function importApp() {
             formData.append('file', this.selectedFile);
 
             try {
-                const res = await fetch('/api/inventory/upload', { method: 'POST', body: formData });
+                let url = '/api/inventory/upload';
+                if (this.batchId) {
+                    url += `?batch_id=${encodeURIComponent(this.batchId)}`;
+                }
+                const res = await fetch(url, { method: 'POST', body: formData });
                 const data = await res.json();
                 if (!res.ok || data.error) {
                     this.uploadError = data.error || 'Upload failed';

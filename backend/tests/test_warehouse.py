@@ -136,13 +136,29 @@ def test_init_sections(client, tenant_db_path):
     assert cursor.fetchone()[0] == 5
     conn.close()
 
-    # Re-initialize to ensure it cleans and re-creates
+    # Seed a placement in DB first
+    conn = sqlite3.connect(tenant_db_path)
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO chemical_placements (warehouse_id, section_id, chemical_id, chemical_name, cas_number, quantity_kg, reactive_groups) "
+        "VALUES (1, NULL, 1, 'Acetone', '67-64-1', 10.0, '[]')"
+    )
+    conn.commit()
+    conn.close()
+
+    # Re-initialize to ensure it cleans and re-creates sections but PRESERVES placements (setting section_id = NULL)
     res = client.post('/api/warehouse/sections/init', json={'count': 3})
     assert res.status_code == 200
     conn = sqlite3.connect(tenant_db_path)
     cursor = conn.cursor()
     cursor.execute("SELECT COUNT(*) FROM warehouse_sections")
     assert cursor.fetchone()[0] == 3
+
+    # Verify placement STILL exists and section_id is NULL
+    cursor.execute("SELECT COUNT(*), section_id FROM chemical_placements")
+    row = cursor.fetchone()
+    assert row[0] == 1
+    assert row[1] is None
     conn.close()
 
     # Test bad count validations
@@ -565,3 +581,113 @@ def test_multiple_warehouses(client, tenant_db_path):
     names = [w['name'] for w in res.get_json()['warehouses']]
     assert 'North Store Updated' not in names
     assert 'South Store' in names
+
+
+def test_auto_arrange_recommendation(client, tenant_db_path):
+    # Setup ONLY 1 section (so we can easily force incompatibilities)
+    client.post('/api/warehouse/sections/init', json={'count': 1})
+    
+    # Get section IDs
+    conn = sqlite3.connect(tenant_db_path)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM warehouse_sections ORDER BY position_index")
+    sections = [r[0] for r in cursor.fetchall()]
+    
+    # Get test chemicals: Acetone and Sulfuric Acid (which are incompatible)
+    acetone, sulfuric, other = _get_chemicals_for_test(app.config['CHEMICALS_DB_PATH'])
+    
+    # Helper to get groups
+    def _get_groups(chem_id):
+        conn_chem = sqlite3.connect(app.config['CHEMICALS_DB_PATH'])
+        cursor_chem = conn_chem.cursor()
+        cursor_chem.execute("SELECT react_id FROM mm_chemical_react WHERE chem_id = ?", (chem_id,))
+        groups = [r[0] for r in cursor_chem.fetchall()]
+        conn_chem.close()
+        return groups
+
+    # Seed placements in unplaced pool
+    cursor.execute(
+        """
+        INSERT INTO chemical_placements (warehouse_id, section_id, chemical_id, chemical_name, cas_number, quantity_kg, reactive_groups)
+        VALUES (1, NULL, ?, ?, ?, 10.0, ?)
+        """,
+        (acetone['id'], acetone['name'], acetone['cas_id'], json.dumps(_get_groups(acetone['id'])))
+    )
+    p1_id = cursor.lastrowid
+    
+    cursor.execute(
+        """
+        INSERT INTO chemical_placements (warehouse_id, section_id, chemical_id, chemical_name, cas_number, quantity_kg, reactive_groups)
+        VALUES (1, NULL, ?, ?, ?, 15.0, ?)
+        """,
+        (sulfuric['id'], sulfuric['name'], sulfuric['cas_id'], json.dumps(_get_groups(sulfuric['id'])))
+    )
+    p2_id = cursor.lastrowid
+    
+    conn.commit()
+    conn.close()
+
+    # Call auto arrange
+    res = client.post('/api/warehouse/auto_arrange')
+    assert res.status_code == 200
+    payload = res.get_json()
+    assert payload['success'] is True
+    assert 'suggested_layout' in payload
+    assert 'recommendation' in payload
+    
+    recommendation = payload['recommendation']
+    assert recommendation['has_recommendation'] is True
+    assert recommendation['add_sections_needed'] == 1
+    assert "Adding 1 more sections" in recommendation['message']
+    
+    # Check that in suggested_layout, one of them has None as section_id
+    suggested = payload['suggested_layout']
+    s1 = suggested.get(str(p1_id))
+    s2 = suggested.get(str(p2_id))
+    assert s1 is None or s2 is None
+    assert s1 != s2
+
+
+def test_init_sections_preserves_layout(client, tenant_db_path):
+    # 1. Initialize 3 sections
+    client.post('/api/warehouse/sections/init', json={'count': 3})
+    
+    conn = sqlite3.connect(tenant_db_path)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM warehouse_sections ORDER BY position_index")
+    sec_ids = [r[0] for r in cursor.fetchall()]
+    sec1_id, sec2_id, sec3_id = sec_ids[0], sec_ids[1], sec_ids[2]
+    
+    # Place a chemical in Section 2 (which will be kept)
+    cursor.execute(
+        "INSERT INTO chemical_placements (warehouse_id, section_id, chemical_id, chemical_name, cas_number, quantity_kg, reactive_groups) "
+        "VALUES (1, ?, 1, 'Acetone', '67-64-1', 10.0, '[]')",
+        (sec2_id,)
+    )
+    # Place another chemical in Section 3 (which will be deleted if we reduce count to 2)
+    cursor.execute(
+        "INSERT INTO chemical_placements (warehouse_id, section_id, chemical_id, chemical_name, cas_number, quantity_kg, reactive_groups) "
+        "VALUES (1, ?, 2, 'Sulfuric Acid', '7664-93-9', 15.0, '[]')",
+        (sec3_id,)
+    )
+    conn.commit()
+    conn.close()
+    
+    # 2. Reconfigure to 2 sections (so Section 3 is deleted, but Section 2 is kept)
+    res = client.post('/api/warehouse/sections/init', json={'count': 2})
+    assert res.status_code == 200
+    
+    # Verify section count is 2
+    conn = sqlite3.connect(tenant_db_path)
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM warehouse_sections")
+    assert cursor.fetchone()[0] == 2
+    
+    # Verify Acetone is STILL in Section 2 (sec2_id)
+    cursor.execute("SELECT section_id FROM chemical_placements WHERE chemical_id = 1")
+    assert cursor.fetchone()[0] == sec2_id
+    
+    # Verify Sulfuric Acid is returned to pool (section_id IS NULL)
+    cursor.execute("SELECT section_id FROM chemical_placements WHERE chemical_id = 2")
+    assert cursor.fetchone()[0] is None
+    conn.close()

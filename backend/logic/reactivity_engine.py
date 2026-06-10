@@ -402,7 +402,8 @@ class ReactivityEngine:
         self,
         chemical_ids: List[int],
         include_water_check: bool = True,
-        user_id: Optional[int] = None
+        user_id: Optional[int] = None,
+        save_audit: bool = True
     ) -> MatrixResult:
         """
         ═══════════════════════════════════════════════════════════════
@@ -562,7 +563,8 @@ class ReactivityEngine:
                 break
         
         # Save audit log
-        result.audit_id = self._save_audit_log(chemical_ids, result, user_id)
+        if save_audit:
+            result.audit_id = self._save_audit_log(chemical_ids, result, user_id)
         
         logger.info(
             f"Analysis complete: Overall={result.overall_compatibility.value}, "

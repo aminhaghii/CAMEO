@@ -11,6 +11,8 @@ import sqlite3
 from datetime import datetime, timezone
 
 from flask import Blueprint, current_app, jsonify, request, g
+from auth.decorators import login_required, csrf_protect, viewer_readonly
+from db_utils import get_safe_connection
 
 logger = logging.getLogger(__name__)
 
@@ -39,8 +41,7 @@ def _validate_quantity(quantity) -> bool:
 
 def _fetch_chemical(chemical_id: int):
     chemicals_db = current_app.config['CHEMICALS_DB_PATH']
-    conn = sqlite3.connect(chemicals_db)
-    conn.row_factory = sqlite3.Row
+    conn = get_safe_connection(chemicals_db, readonly=True)
     cursor = conn.cursor()
     cursor.execute(
         """
@@ -57,6 +58,9 @@ def _fetch_chemical(chemical_id: int):
 
 
 @inventory_actions_bp.route('/api/inventory/edit', methods=['POST'])
+@login_required
+@viewer_readonly
+@csrf_protect
 def edit_inventory_row():
     """Edit a staged inventory row safely with optimistic concurrency check."""
     try:
@@ -77,8 +81,7 @@ def edit_inventory_row():
             return jsonify({'error': 'Quantity must be numeric (e.g., 10 or 10.5)'}), 400
 
         user_db = _get_db_path()
-        conn = sqlite3.connect(user_db)
-        conn.row_factory = sqlite3.Row
+        conn = get_safe_connection(user_db)
         cursor = conn.cursor()
 
         cursor.execute(
@@ -223,6 +226,9 @@ def edit_inventory_row():
 
 
 @inventory_actions_bp.route('/api/inventory/delete/<int:staging_id>', methods=['DELETE'])
+@login_required
+@viewer_readonly
+@csrf_protect
 def delete_inventory_row(staging_id):
     """Delete a staged row after frontend confirmation modal."""
     try:
@@ -231,8 +237,7 @@ def delete_inventory_row(staging_id):
             return jsonify({'error': 'batch_id query param is required'}), 400
 
         user_db = _get_db_path()
-        conn = sqlite3.connect(user_db)
-        conn.row_factory = sqlite3.Row
+        conn = get_safe_connection(user_db)
         cursor = conn.cursor()
 
         cursor.execute(
@@ -281,6 +286,9 @@ def delete_inventory_row(staging_id):
 
 
 @inventory_actions_bp.route('/api/inventory/add', methods=['POST'])
+@login_required
+@viewer_readonly
+@csrf_protect
 def add_inventory_row():
     """Add a new row to staged inventory using selected chemical_id."""
     try:
@@ -308,8 +316,7 @@ def add_inventory_row():
             return jsonify({'error': 'chemical_id does not exist in CAMEO DB'}), 400
 
         user_db = _get_db_path()
-        conn = sqlite3.connect(user_db)
-        conn.row_factory = sqlite3.Row
+        conn = get_safe_connection(user_db)
         cursor = conn.cursor()
 
         cursor.execute("SELECT 1 FROM inventory_batches WHERE id = ?", (batch_id,))

@@ -29,6 +29,32 @@
 
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 
+    <!-- CSRF Protection Global Fetch Interceptor -->
+    <script>
+        (function() {
+            function getCookie(name) {
+                let matches = document.cookie.match(new RegExp(
+                    "(?:^|; )" + name.replace(/([\.$?*|{}\(\)\[\]\\\/\+^])/g, '\\$1') + "=([^;]*)"
+                ));
+                return matches ? decodeURIComponent(matches[1]) : undefined;
+            }
+            const originalFetch = window.fetch;
+            window.fetch = async function (resource, options = {}) {
+                const method = (options.method || 'GET').toUpperCase();
+                if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
+                    const token = getCookie('csrf_token');
+                    if (token) {
+                        options.headers = {
+                            ...options.headers,
+                            'X-CSRF-Token': token
+                        };
+                    }
+                }
+                return originalFetch(resource, options);
+            };
+        })();
+    </script>
+
     {% block extra_head %}{% endblock %}
 </head>
 

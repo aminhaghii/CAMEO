@@ -242,7 +242,22 @@ def test_add_from_batch(client, tenant_db_path):
         'warehouse_name': 'Main Warehouse'
     })
     assert res.status_code == 200
-    assert 'Successfully imported 2 chemicals' in res.get_json()['message']
+    res_json = res.get_json()
+    assert 'Successfully imported 2 chemicals' in res_json['message']
+    assert 'warehouse_id' in res_json
+    w_id = res_json['warehouse_id']
+    assert w_id is not None
+
+    # Check that data endpoint returns placement list with 'id' and 'placement_id'
+    data_res = client.get(f"/api/warehouse/data?warehouse_id={w_id}")
+    assert data_res.status_code == 200
+    data_json = data_res.get_json()
+    assert 'inventory' in data_json
+    assert len(data_json['inventory']) == 2
+    for item in data_json['inventory']:
+        assert 'id' in item
+        assert 'placement_id' in item
+        assert item['id'] == item['placement_id']
 
     # Verify placement pool has 2 unplaced chemicals (section_id is NULL)
     conn = sqlite3.connect(tenant_db_path)

@@ -14,10 +14,11 @@ Security Standards:
   - Role enforcement: super_admin, company_admin, operator, viewer
 """
 
+import os
 import sqlite3
 import logging
-import os
 from datetime import datetime
+from db_utils import get_safe_connection
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,7 @@ def init_auth_db(db_path: str):
     Also handles schema migrations for existing databases.
     """
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
-    conn = sqlite3.connect(db_path)
+    conn = get_safe_connection(db_path)
     cursor = conn.cursor()
 
     # ═══════════════════════════════════════════════════════
@@ -66,7 +67,8 @@ def init_auth_db(db_path: str):
             failed_attempts     INTEGER NOT NULL DEFAULT 0,
             locked_until        DATETIME,
             created_at          DATETIME DEFAULT CURRENT_TIMESTAMP,
-            password_changed_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            password_changed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            force_password_change BOOLEAN NOT NULL DEFAULT 0
         )
     """)
 
@@ -85,7 +87,8 @@ def init_auth_db(db_path: str):
             user_agent  TEXT,
             created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
             expires_at  DATETIME NOT NULL,
-            is_active   BOOLEAN NOT NULL DEFAULT 1
+            is_active   BOOLEAN NOT NULL DEFAULT 1,
+            absolute_expires_at DATETIME
         )
     """)
 
@@ -115,6 +118,25 @@ def init_auth_db(db_path: str):
     """)
 
     conn.commit()
+
+    # ── Schema Migration checks ──
+    # Check for users.force_password_change
+    try:
+        cursor.execute("SELECT force_password_change FROM users LIMIT 1")
+    except sqlite3.OperationalError:
+        logger.info("Migrating: Adding force_password_change column to users table")
+        cursor.execute("ALTER TABLE users ADD COLUMN force_password_change BOOLEAN NOT NULL DEFAULT 0")
+        conn.commit()
+
+    # Check for sessions.absolute_expires_at
+    try:
+        cursor.execute("SELECT absolute_expires_at FROM sessions LIMIT 1")
+    except sqlite3.OperationalError:
+        logger.info("Migrating: Adding absolute_expires_at column to sessions table")
+        cursor.execute("ALTER TABLE sessions ADD COLUMN absolute_expires_at DATETIME")
+        cursor.execute("UPDATE sessions SET absolute_expires_at = datetime(created_at, '+8 hours') WHERE absolute_expires_at IS NULL")
+        conn.commit()
+
     conn.close()
     logger.info("global_auth.db initialized successfully")
 
@@ -124,7 +146,7 @@ def seed_default_company_and_admin(db_path: str, password_hash: str):
     Seed the default SAFEWARE company and super admin user.
     Only runs if no companies exist yet. Idempotent.
     """
-    conn = sqlite3.connect(db_path)
+    conn = get_safe_connection(db_path)
     cursor = conn.cursor()
 
     cursor.execute("SELECT COUNT(*) FROM companies")
@@ -146,16 +168,16 @@ def seed_default_company_and_admin(db_path: str, password_hash: str):
     """)
     demo_id = cursor.lastrowid
 
-    # Create super admin user
+    # Create super admin user (default password will require reset on first login)
     cursor.execute("""
-        INSERT INTO users (email, full_name, password_hash, company_id, role, status)
-        VALUES (?, ?, ?, ?, 'super_admin', 'ACTIVE')
+        INSERT INTO users (email, full_name, password_hash, company_id, role, status, force_password_change)
+        VALUES (?, ?, ?, ?, 'super_admin', 'ACTIVE', 1)
     """, ('admin@safeware.io', 'SAFEWARE Admin', password_hash, safeware_id))
 
-    # Create demo company admin
+    # Create demo company admin (default password will require reset on first login)
     cursor.execute("""
-        INSERT INTO users (email, full_name, password_hash, company_id, role, status)
-        VALUES (?, ?, ?, ?, 'company_admin', 'ACTIVE')
+        INSERT INTO users (email, full_name, password_hash, company_id, role, status, force_password_change)
+        VALUES (?, ?, ?, ?, 'company_admin', 'ACTIVE', 1)
     """, ('admin@demo.com', 'Demo HSE Manager', password_hash, demo_id))
 
     conn.commit()
@@ -164,8 +186,5 @@ def seed_default_company_and_admin(db_path: str, password_hash: str):
 
 
 def get_auth_db_connection(db_path: str) -> sqlite3.Connection:
-    """Get a connection to global_auth.db with Row factory."""
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")  # Better concurrent read perf
-    return conn
+    """Get a connection to global_auth.db with safety features."""
+    return get_safe_connection(db_path)

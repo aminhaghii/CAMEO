@@ -10,8 +10,10 @@ import json
 import hashlib
 import sqlite3
 import logging
+from auth.decorators import login_required, csrf_protect, viewer_readonly
 from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify, render_template, current_app, g
+from db_utils import get_safe_connection
 
 from etl.pipeline import (
     init_inventory_tables, create_batch, get_batch_status,
@@ -31,14 +33,14 @@ def _get_db_path() -> str:
 
 
 @inventory_bp.route('/api/inventory/batches', methods=['GET'])
+@login_required
 def list_inventory_batches():
     """List all inventory batches for the inventory management page."""
     try:
         user_db = _get_db_path()
         if not os.path.exists(user_db):
             return jsonify({'batches': []})
-        conn = sqlite3.connect(user_db)
-        conn.row_factory = sqlite3.Row
+        conn = get_safe_connection(user_db, readonly=True)
         cursor = conn.cursor()
         cursor.execute("""
             SELECT id, filename, status, created_at, total_rows
@@ -55,6 +57,9 @@ def list_inventory_batches():
 
 
 @inventory_bp.route('/api/inventory/batches/create', methods=['POST'])
+@login_required
+@viewer_readonly
+@csrf_protect
 def create_manual_batch():
     """Create a new manual inventory batch with a custom name."""
     try:
@@ -69,7 +74,7 @@ def create_manual_batch():
         import uuid
         batch_id = f"manual-{uuid.uuid4()}"
 
-        conn = sqlite3.connect(user_db)
+        conn = get_safe_connection(user_db)
         cursor = conn.cursor()
         cursor.execute(
             """
@@ -98,11 +103,14 @@ def create_manual_batch():
 
 
 @inventory_bp.route('/api/inventory/batches/delete/<batch_id>', methods=['DELETE'])
+@login_required
+@viewer_readonly
+@csrf_protect
 def delete_inventory_batch(batch_id):
     """Delete a batch and all its associated staging rows, review queue, and audit trail."""
     try:
         user_db = _get_db_path()
-        conn = sqlite3.connect(user_db)
+        conn = get_safe_connection(user_db)
         cursor = conn.cursor()
 
         # Check if exists
@@ -113,7 +121,7 @@ def delete_inventory_batch(batch_id):
 
         # Delete related data
         cursor.execute("DELETE FROM review_queue WHERE batch_id = ?", (batch_id,))
-        cursor.execute("DELETE FROM audit_trail WHERE batch_id = ?", (batch_id,))
+        cursor.execute("UPDATE audit_trail SET is_deleted = 1 WHERE batch_id = ?", (batch_id,))
         cursor.execute("DELETE FROM inventory_staging WHERE batch_id = ?", (batch_id,))
         cursor.execute("DELETE FROM inventory_batches WHERE id = ?", (batch_id,))
 
@@ -144,6 +152,9 @@ def admin_import_page():
 
 
 @inventory_bp.route('/api/inventory/upload', methods=['POST'])
+@login_required
+@viewer_readonly
+@csrf_protect
 def upload_inventory():
     """
     Accept a file upload, create a batch, start processing in background.
@@ -163,8 +174,11 @@ def upload_inventory():
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
     # Save file
+    import uuid
     from werkzeug.utils import secure_filename
-    safe_name = secure_filename(file.filename)
+    company_id = g.user.get('company_id', 'unknown') if (hasattr(g, 'user') and g.user) else 'unknown'
+    prefix = f"{company_id}_{uuid.uuid4().hex[:8]}_"
+    safe_name = prefix + secure_filename(file.filename)
     filepath = os.path.join(UPLOAD_FOLDER, safe_name)
     file.save(filepath)
 
@@ -178,7 +192,7 @@ def upload_inventory():
     # Create batch or reuse existing
     batch_id = request.args.get('batch_id') or request.form.get('batch_id')
     if batch_id:
-        conn = sqlite3.connect(user_db)
+        conn = get_safe_connection(user_db)
         cursor = conn.cursor()
         cursor.execute("SELECT 1 FROM inventory_batches WHERE id = ?", (batch_id,))
         exists = cursor.fetchone()
@@ -215,6 +229,7 @@ def upload_inventory():
 
 
 @inventory_bp.route('/api/inventory/status/<batch_id>')
+@login_required
 def inventory_status(batch_id):
     """Poll batch processing status."""
     user_db = _get_db_path()
@@ -223,11 +238,11 @@ def inventory_status(batch_id):
 
 
 @inventory_bp.route('/api/inventory/rows/<batch_id>')
+@login_required
 def inventory_rows(batch_id):
     """Get all staging rows for interactive inventory management UI."""
     user_db = _get_db_path()
-    conn = sqlite3.connect(user_db)
-    conn.row_factory = sqlite3.Row
+    conn = get_safe_connection(user_db, readonly=True)
     cursor = conn.cursor()
 
     cursor.execute(
@@ -276,6 +291,7 @@ def inventory_rows(batch_id):
 
 
 @inventory_bp.route('/api/inventory/review/<batch_id>')
+@login_required
 def review_rows(batch_id):
     """Get all rows that need human review (REVIEW_REQUIRED + UNIDENTIFIED)."""
     user_db = _get_db_path()
@@ -284,6 +300,9 @@ def review_rows(batch_id):
 
 
 @inventory_bp.route('/api/inventory/confirm', methods=['POST'])
+@login_required
+@viewer_readonly
+@csrf_protect
 def confirm_match():
     """
     Human-in-the-loop: confirm a row's chemical match.
@@ -302,8 +321,7 @@ def confirm_match():
 
     # Anti-Hallucination: verify chemical_id exists in chemicals.db
     chemicals_db = current_app.config['CHEMICALS_DB_PATH']
-    conn = sqlite3.connect(chemicals_db)
-    conn.row_factory = sqlite3.Row
+    conn = get_safe_connection(chemicals_db, readonly=True)
     cursor = conn.cursor()
     cursor.execute("SELECT id, name FROM chemicals WHERE id = ?", (chemical_id,))
     chem = cursor.fetchone()
@@ -322,6 +340,7 @@ def confirm_match():
 
 
 @inventory_bp.route('/api/inventory/search_chemicals')
+@login_required
 def search_chemicals_for_linking():
     """
     Search chemicals.db for manual linking.
@@ -333,8 +352,7 @@ def search_chemicals_for_linking():
         return jsonify({'results': []})
 
     chemicals_db = current_app.config['CHEMICALS_DB_PATH']
-    conn = sqlite3.connect(chemicals_db)
-    conn.row_factory = sqlite3.Row
+    conn = get_safe_connection(chemicals_db, readonly=True)
     cursor = conn.cursor()
 
     like_term = f'%{query}%'
@@ -368,14 +386,14 @@ def search_chemicals_for_linking():
 # ═══════════════════════════════════════════════════════
 
 @inventory_bp.route('/api/inventory/column_mapping/<batch_id>')
+@login_required
 def get_column_mapping(batch_id):
     """
     Get the column mapping result for a batch.
     Returns the full Layer 2 analysis including confidence scores.
     """
     user_db = _get_db_path()
-    conn = sqlite3.connect(user_db)
-    conn.row_factory = sqlite3.Row
+    conn = get_safe_connection(user_db, readonly=True)
     cursor = conn.cursor()
 
     cursor.execute(
@@ -409,14 +427,14 @@ def get_column_mapping(batch_id):
 # ═══════════════════════════════════════════════════════
 
 @inventory_bp.route('/api/inventory/review_queue/<batch_id>')
+@login_required
 def get_review_queue(batch_id):
     """
     Get prioritized review queue for a batch.
     Returns rows sorted by priority (critical → high → medium → low).
     """
     user_db = _get_db_path()
-    conn = sqlite3.connect(user_db)
-    conn.row_factory = sqlite3.Row
+    conn = get_safe_connection(user_db, readonly=True)
     cursor = conn.cursor()
 
     priority_order = "CASE priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 WHEN 'low' THEN 4 ELSE 5 END"
@@ -468,6 +486,9 @@ def get_review_queue(batch_id):
 
 
 @inventory_bp.route('/api/inventory/resolve_review', methods=['POST'])
+@login_required
+@viewer_readonly
+@csrf_protect
 def resolve_review():
     """
     Resolve a review queue item.
@@ -486,8 +507,7 @@ def resolve_review():
 
     # Verify chemical exists
     chemicals_db = current_app.config['CHEMICALS_DB_PATH']
-    conn_chem = sqlite3.connect(chemicals_db)
-    conn_chem.row_factory = sqlite3.Row
+    conn_chem = get_safe_connection(chemicals_db, readonly=True)
     cursor_chem = conn_chem.cursor()
     cursor_chem.execute("SELECT id, name FROM chemicals WHERE id = ?", (chemical_id,))
     chem = cursor_chem.fetchone()
@@ -497,8 +517,7 @@ def resolve_review():
         return jsonify({'error': f'chemical_id {chemical_id} not found'}), 400
 
     user_db = _get_db_path()
-    conn = sqlite3.connect(user_db)
-    conn.row_factory = sqlite3.Row
+    conn = get_safe_connection(user_db)
     cursor = conn.cursor()
 
     # Get review queue item
@@ -561,18 +580,18 @@ def resolve_review():
 # ═══════════════════════════════════════════════════════
 
 @inventory_bp.route('/api/inventory/audit/<batch_id>')
+@login_required
 def get_audit_trail(batch_id):
     """Get audit trail for a batch."""
     user_db = _get_db_path()
-    conn = sqlite3.connect(user_db)
-    conn.row_factory = sqlite3.Row
+    conn = get_safe_connection(user_db, readonly=True)
     cursor = conn.cursor()
 
     cursor.execute("""
         SELECT id, row_index, action, input_data, output_data,
                confidence, method, timestamp, user_id
         FROM audit_trail
-        WHERE batch_id = ?
+        WHERE batch_id = ? AND (is_deleted IS NULL OR is_deleted = 0)
         ORDER BY timestamp DESC
         LIMIT 500
     """, (batch_id,))

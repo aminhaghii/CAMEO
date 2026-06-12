@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 import sqlite3
 
+from db_utils import get_safe_connection
 from .constants import (
     Compatibility, COMPATIBILITY_MAP, WATER_GROUP_ID, DB_COMPATIBILITY_MAP
 )
@@ -69,9 +70,7 @@ class ReactivityEngine:
     
     def _get_connection(self) -> sqlite3.Connection:
         """Create database connection"""
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        return conn
+        return get_safe_connection(self.db_path, readonly=True)
     
     def _normalize_pair(self, g1: int, g2: int) -> Tuple[int, int]:
         """
@@ -80,7 +79,7 @@ class ReactivityEngine:
         """
         return (min(g1, g2), max(g1, g2))
     
-    def _get_chemical_groups(self, chemical_id: int) -> List[int]:
+    def _get_chemical_groups(self, chemical_id: int, conn: Optional[sqlite3.Connection] = None) -> List[int]:
         """
         Get all reactive groups for a chemical
         Uses cache for optimization
@@ -88,7 +87,11 @@ class ReactivityEngine:
         if chemical_id in self._group_cache:
             return self._group_cache[chemical_id]
         
-        conn = self._get_connection()
+        close_conn = False
+        if conn is None:
+            conn = self._get_connection()
+            close_conn = True
+            
         cursor = conn.cursor()
         
         # Use existing mm_chemical_react table
@@ -98,7 +101,8 @@ class ReactivityEngine:
         )
         
         groups = [row['react_id'] for row in cursor.fetchall()]
-        conn.close()
+        if close_conn:
+            conn.close()
         
         if not groups:
             logger.warning(f"⚠️ Chemical ID {chemical_id} has no reactive groups assigned!")
@@ -106,7 +110,7 @@ class ReactivityEngine:
         self._group_cache[chemical_id] = groups
         return groups
     
-    def _get_rule(self, group1_id: int, group2_id: int) -> Dict:
+    def _get_rule(self, group1_id: int, group2_id: int, conn: Optional[sqlite3.Connection] = None) -> Dict:
         """
         ═══════════════════════════════════════════════════════════
         🔴 SAFETY-CRITICAL FUNCTION
@@ -136,7 +140,11 @@ class ReactivityEngine:
             return result
         
         # Query existing reactivity table
-        conn = self._get_connection()
+        close_conn = False
+        if conn is None:
+            conn = self._get_connection()
+            close_conn = True
+            
         cursor = conn.cursor()
         
         # Try both orderings since DB may not enforce order
@@ -150,7 +158,8 @@ class ReactivityEngine:
         )
         
         row = cursor.fetchone()
-        conn.close()
+        if close_conn:
+            conn.close()
         
         if row is None:
             # ════════════════════════════════════════════════════════
@@ -168,7 +177,15 @@ class ReactivityEngine:
             }
         else:
             # Map DB compatibility value to our enum
-            db_compat = row['pair_compatibility'] or 'Compatible'
+            raw_compat = row['pair_compatibility']
+            if not raw_compat or not raw_compat.strip():
+                logger.warning(
+                    f"⚠️ NULL pair_compatibility for groups {normalized}. "
+                    f"Treating as NO_DATA (fail-safe)."
+                )
+                db_compat = 'N'  # Maps to Compatibility.NO_DATA
+            else:
+                db_compat = raw_compat.strip()
             compat = DB_COMPATIBILITY_MAP.get(db_compat, Compatibility.NO_DATA)
             
             # Parse gas products
@@ -269,7 +286,8 @@ class ReactivityEngine:
         chem_a_name: str,
         chem_b_name: str,
         groups_a: List[int],
-        groups_b: List[int]
+        groups_b: List[int],
+        conn: Optional[sqlite3.Connection] = None
     ) -> PairResult:
         """
         ═══════════════════════════════════════════════════════════
@@ -304,7 +322,7 @@ class ReactivityEngine:
         
         for g_a in groups_a:
             for g_b in groups_b:
-                rule = self._get_rule(g_a, g_b)
+                rule = self._get_rule(g_a, g_b, conn=conn)
                 
                 rule_priority = COMPATIBILITY_MAP[rule['compatibility']].priority
                 
@@ -351,11 +369,15 @@ class ReactivityEngine:
         self,
         chemical_ids: List[int],
         result: 'MatrixResult',
-        user_id: Optional[int] = None
+        user_id: Optional[int] = None,
+        audit_db_path: Optional[str] = None
     ) -> Optional[int]:
         """Save audit log for safety tracking"""
         try:
-            conn = self._get_connection()
+            if audit_db_path:
+                conn = get_safe_connection(audit_db_path)
+            else:
+                conn = self._get_connection()
             cursor = conn.cursor()
             
             # Create audit_log table if not exists
@@ -403,7 +425,8 @@ class ReactivityEngine:
         chemical_ids: List[int],
         include_water_check: bool = True,
         user_id: Optional[int] = None,
-        save_audit: bool = True
+        save_audit: bool = True,
+        audit_db_path: Optional[str] = None
     ) -> MatrixResult:
         """
         ═══════════════════════════════════════════════════════════════
@@ -471,9 +494,7 @@ class ReactivityEngine:
                 chem_names[chem_id] = f"Unknown ({chem_id})"
             
             # Get groups
-            chem_groups[chem_id] = self._get_chemical_groups(chem_id)
-        
-        conn.close()
+            chem_groups[chem_id] = self._get_chemical_groups(chem_id, conn=conn)
         
         # ════════════════════════════════════════════════════════════
         # 🔄 Main Matrix Building Loop
@@ -503,6 +524,11 @@ class ReactivityEngine:
                         result.warnings.append(
                             f"⚠️ {chem_names[chem_a_id]} has special hazards: {', '.join(self_result.hazards)}"
                         )
+                        
+                        # Escalate overall compatibility priority for self-hazard
+                        self_priority = COMPATIBILITY_MAP[Compatibility.CAUTION].priority
+                        if self_priority > overall_max_priority:
+                            overall_max_priority = self_priority
                     else:
                         self_result = PairResult(
                             chem_a_id=chem_a_id,
@@ -519,7 +545,8 @@ class ReactivityEngine:
                     pair_result = self._analyze_pair(
                         chem_a_id, chem_b_id,
                         chem_names[chem_a_id], chem_names[chem_b_id],
-                        chem_groups[chem_a_id], chem_groups[chem_b_id]
+                        chem_groups[chem_a_id], chem_groups[chem_b_id],
+                        conn=conn
                     )
                     
                     # Store in matrix (both [i][j] and [j][i] - symmetry)
@@ -548,13 +575,15 @@ class ReactivityEngine:
             for chem_id in chemical_ids:
                 groups = chem_groups.get(chem_id, [])
                 for g in groups:
-                    water_rule = self._get_rule(g, WATER_GROUP_ID)
+                    water_rule = self._get_rule(g, WATER_GROUP_ID, conn=conn)
                     if water_rule['compatibility'] in (Compatibility.INCOMPATIBLE, Compatibility.CAUTION):
                         result.warnings.append(
                             f"💧 {chem_names[chem_id]} is water-reactive - "
                             f"store in dry conditions"
                         )
                         break
+        
+        conn.close()
         
         # Determine overall compatibility
         for compat, info in COMPATIBILITY_MAP.items():

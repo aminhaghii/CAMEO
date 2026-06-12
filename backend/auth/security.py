@@ -24,6 +24,7 @@ from datetime import datetime, timedelta
 from typing import Tuple, List, Optional
 
 import bcrypt
+from db_utils import get_safe_connection
 
 logger = logging.getLogger(__name__)
 
@@ -191,8 +192,7 @@ def check_brute_force(
     Returns:
         (is_blocked, seconds_remaining_until_unlock)
     """
-    conn = sqlite3.connect(auth_db_path)
-    conn.row_factory = sqlite3.Row
+    conn = get_safe_connection(auth_db_path)
     cursor = conn.cursor()
 
     now = datetime.utcnow()
@@ -252,7 +252,7 @@ def record_login_attempt(
     - Reset failed_attempts to 0
     - Update last_login timestamp
     """
-    conn = sqlite3.connect(auth_db_path)
+    conn = get_safe_connection(auth_db_path)
     cursor = conn.cursor()
     now = datetime.utcnow()
 
@@ -318,14 +318,15 @@ def create_session(
     session_id = generate_session_id()
     now = datetime.utcnow()
     expires_at = now + timedelta(minutes=SESSION_DURATION_MINUTES)
+    absolute_expires_at = now + timedelta(hours=8)
 
-    conn = sqlite3.connect(auth_db_path)
+    conn = get_safe_connection(auth_db_path)
     cursor = conn.cursor()
 
     cursor.execute("""
-        INSERT INTO sessions (id, user_id, ip_address, user_agent, created_at, expires_at, is_active)
-        VALUES (?, ?, ?, ?, ?, ?, 1)
-    """, (session_id, user_id, ip_address, user_agent, now.isoformat(), expires_at.isoformat()))
+        INSERT INTO sessions (id, user_id, ip_address, user_agent, created_at, expires_at, is_active, absolute_expires_at)
+        VALUES (?, ?, ?, ?, ?, ?, 1, ?)
+    """, (session_id, user_id, ip_address, user_agent, now.isoformat(), expires_at.isoformat(), absolute_expires_at.isoformat()))
 
     conn.commit()
     conn.close()
@@ -353,8 +354,7 @@ def validate_session(
     if not session_id:
         return None
 
-    conn = sqlite3.connect(auth_db_path)
-    conn.row_factory = sqlite3.Row
+    conn = get_safe_connection(auth_db_path)
     cursor = conn.cursor()
 
     cursor.execute("""
@@ -386,6 +386,21 @@ def validate_session(
         conn.commit()
         conn.close()
         return None
+
+    # Check absolute expiry (P1-8)
+    absolute_expires_str = row['absolute_expires_at']
+    if absolute_expires_str:
+        absolute_expires = datetime.fromisoformat(absolute_expires_str)
+        if now > absolute_expires:
+            # Force expire regardless of sliding window
+            cursor.execute(
+                "UPDATE sessions SET is_active = 0 WHERE id = ?",
+                (session_id,)
+            )
+            conn.commit()
+            conn.close()
+            logger.warning(f"Session {session_id} exceeded absolute 8-hour limit. Forcing expiry.")
+            return None
 
     # Check user status
     if row['status'] != 'ACTIVE':
@@ -420,7 +435,7 @@ def validate_session(
 
 def invalidate_session(session_id: str, auth_db_path: str):
     """Invalidate a session (logout)."""
-    conn = sqlite3.connect(auth_db_path)
+    conn = get_safe_connection(auth_db_path)
     conn.execute(
         "UPDATE sessions SET is_active = 0 WHERE id = ?",
         (session_id,)
@@ -431,7 +446,7 @@ def invalidate_session(session_id: str, auth_db_path: str):
 
 def invalidate_all_sessions(user_id: int, auth_db_path: str):
     """Invalidate ALL sessions for a user (force logout everywhere)."""
-    conn = sqlite3.connect(auth_db_path)
+    conn = get_safe_connection(auth_db_path)
     conn.execute(
         "UPDATE sessions SET is_active = 0 WHERE user_id = ?",
         (user_id,)
@@ -442,7 +457,7 @@ def invalidate_all_sessions(user_id: int, auth_db_path: str):
 
 def cleanup_expired_sessions(auth_db_path: str):
     """Remove expired sessions (garbage collection). Call periodically."""
-    conn = sqlite3.connect(auth_db_path)
+    conn = get_safe_connection(auth_db_path)
     now = datetime.utcnow().isoformat()
     cursor = conn.execute(
         "DELETE FROM sessions WHERE expires_at < ? OR is_active = 0",

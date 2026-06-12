@@ -173,8 +173,10 @@ _SYNONYM_LOOKUP = {k.lower(): v.lower() for k, v in INDUSTRIAL_SYNONYMS.items()}
 # ═══════════════════════════════════════════════════════
 SIGNAL_WEIGHTS = {
     'cas_exact':        1.00,   # CAS is gold standard
-    'cas_scanned':      0.95,   # CAS found in non-CAS column
+    'cas_scanned':      0.70,   # Demoted from 0.95 to 0.70 for P0-8
     'cas_from_name':    0.90,   # CAS pattern detected in name field (field swap)
+    'cas_reconstructed': 0.70,  # Reconstructed CAS (P0-8)
+    'cas_scanned_reconstructed': 0.70, # Reconstructed scanned CAS (P0-8)
     'name_exact':       0.90,   # Exact name match
     'name_synonym':     0.85,   # Exact synonym match
     'name_normalized':  0.80,   # Normalized string match
@@ -438,11 +440,13 @@ class HybridMatcher:
 
         # ── 2a: CAS signals ──
         if cas_raw and cas_valid:
-            sigs = self._signals_from_cas(cas_raw, 'cas_exact')
+            cas_source = 'cas_reconstructed' if cleaned.get('cas_reconstructed') else 'cas_exact'
+            sigs = self._signals_from_cas(cas_raw, cas_source)
             signals.extend(sigs)
 
         if cas_scanned and cas_scanned != cas_raw:
-            sigs = self._signals_from_cas(cas_scanned, 'cas_scanned')
+            scanned_source = 'cas_scanned_reconstructed' if cleaned.get('cas_scanned_reconstructed') else 'cas_scanned'
+            sigs = self._signals_from_cas(cas_scanned, scanned_source)
             signals.extend(sigs)
 
         if cas_in_name:

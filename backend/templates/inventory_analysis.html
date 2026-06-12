@@ -915,7 +915,7 @@
                     const data = await res.json();
                     if (res.ok && data.success) {
                         alert(data.message);
-                        window.location.href = '/warehouse';
+                        window.location.href = '/warehouse?warehouse_id=' + data.warehouse_id;
                     } else {
                         alert(data.error || 'Failed to import to warehouse');
                     }

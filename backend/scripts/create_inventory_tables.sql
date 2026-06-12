@@ -8,8 +8,7 @@ CREATE TABLE IF NOT EXISTS user_inventories (
     unit TEXT,
     storage_location TEXT,
     notes TEXT,
-    date_added TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (chemical_id) REFERENCES chemicals(id)
+    date_added TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_user_inventories_batch ON user_inventories(batch_id);

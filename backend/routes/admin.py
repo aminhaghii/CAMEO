@@ -184,9 +184,9 @@ def approve_user():
         conn.close()
         return jsonify({'success': False, 'error': 'User not found'}), 404
 
-    if target_user['status'] != 'PENDING':
+    if target_user['status'] not in ('PENDING', 'SUSPENDED'):
         conn.close()
-        return jsonify({'success': False, 'error': 'User is not in PENDING status'}), 400
+        return jsonify({'success': False, 'error': 'User is not in PENDING or SUSPENDED status'}), 400
 
     if g.user['role'] != 'super_admin' and target_user['company_id'] != g.user['company_id']:
         conn.close()

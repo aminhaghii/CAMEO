@@ -516,6 +516,11 @@
             },
 
             async init() {
+                const urlParams = new URLSearchParams(window.location.search);
+                const urlWarehouseId = urlParams.get('warehouse_id');
+                if (urlWarehouseId) {
+                    this.selectedWarehouseId = parseInt(urlWarehouseId);
+                }
                 await this.loadWarehouses();
                 await this.loadData();
             },

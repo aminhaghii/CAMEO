@@ -151,10 +151,10 @@ def validate_cas(cas_string: str) -> tuple[bool, str]:
         return False, f"Checksum failed: {cas}"
 
 
-def scan_cas_from_all_columns(row: dict) -> str | None:
+def scan_cas_from_all_columns(row: dict) -> tuple[str | None, bool]:
     """
     Scan ALL columns in a row for CAS-like patterns using regex.
-    Returns the first valid CAS found (checksum-verified), or None.
+    Returns a tuple (first_valid_cas, is_reconstructed) or (None, False).
     This is the Gold Standard — CAS numbers are unique identifiers.
     """
     # Priority: check the 'cas' column first
@@ -162,7 +162,7 @@ def scan_cas_from_all_columns(row: dict) -> str | None:
     if cas_col:
         is_valid, result = validate_cas(cas_col)
         if is_valid:
-            return result
+            return result, False
 
     # Scan every other column for CAS patterns
     for key, value in row.items():
@@ -175,16 +175,16 @@ def scan_cas_from_all_columns(row: dict) -> str | None:
             is_valid, result = validate_cas(candidate)
             if is_valid:
                 logger.debug(f"CAS found in column '{key}': {result}")
-                return result
+                return result, False
         # Try digit-only CAS (e.g. 7664939)
         digit_matches = CAS_DIGITS_REGEX.findall(val_str)
         for digits in digit_matches:
             reconstructed = reconstruct_cas_from_digits(digits)
             if reconstructed:
                 logger.debug(f"CAS reconstructed from digits in column '{key}': {digits} → {reconstructed}")
-                return reconstructed
+                return reconstructed, True
 
-    return None
+    return None, False
 
 
 def reconstruct_cas_from_digits(digits: str) -> str | None:
@@ -428,8 +428,9 @@ def validate_row(row: dict, available_columns: set | None = None) -> dict:
     score = 100  # Start perfect, deduct for issues
 
     # ── Step 1: CAS scan from ALL columns (Gold Standard) ──
-    cas_scanned = scan_cas_from_all_columns(row)
+    cas_scanned, scan_reconstructed = scan_cas_from_all_columns(row)
     cleaned['cas_scanned'] = cas_scanned
+    cleaned['cas_scanned_reconstructed'] = scan_reconstructed
 
     # ── Name: smart cleaning (extract parenthesized info, remove stopwords) ──
     name = (row.get('name') or '').strip()
@@ -458,6 +459,7 @@ def validate_row(row: dict, available_columns: set | None = None) -> dict:
     # ── CAS (explicit column) ──
     cas_raw = (row.get('cas') or '').strip() if row.get('cas') else ''
     cleaned['cas_raw'] = cas_raw
+    cas_reconstructed = False
     if cas_raw:
         is_valid, cas_result = validate_cas(cas_raw)
         if not is_valid:
@@ -466,6 +468,7 @@ def validate_row(row: dict, available_columns: set | None = None) -> dict:
             if reconstructed:
                 is_valid = True
                 cas_result = reconstructed
+                cas_reconstructed = True
                 issues.append(f"CAS reconstructed from digits: {cas_raw} → {reconstructed}")
         cleaned['cas'] = cas_result if is_valid else None
         cleaned['cas_valid'] = is_valid
@@ -481,8 +484,11 @@ def validate_row(row: dict, available_columns: set | None = None) -> dict:
     if not cleaned['cas_valid'] and cas_scanned:
         cleaned['cas'] = cas_scanned
         cleaned['cas_valid'] = True
+        cas_reconstructed = scan_reconstructed
         issues.append(f"CAS recovered from scan: {cas_scanned}")
         score = min(score + 10, 100)  # Partial recovery
+
+    cleaned['cas_reconstructed'] = cas_reconstructed
 
     # ── Quantity & Unit ──
     qty_result = clean_quantity(

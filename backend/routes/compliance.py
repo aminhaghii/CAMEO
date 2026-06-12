@@ -19,8 +19,11 @@ from datetime import datetime
 
 from flask import (
     Blueprint, request, jsonify, send_file,
-    current_app, render_template,
+    current_app, render_template, g,
 )
+
+from auth.decorators import login_required, role_required, csrf_protect
+from db_utils import get_safe_connection
 
 logger = logging.getLogger("compliance")
 
@@ -28,12 +31,16 @@ compliance_bp = Blueprint("compliance", __name__)
 
 
 @compliance_bp.route("/compliance")
+@login_required
 def compliance_page():
     """Render the compliance report page."""
     return render_template("compliance.html")
 
 
 @compliance_bp.route("/api/compliance/export", methods=["POST"])
+@login_required
+@role_required('operator', 'company_admin', 'super_admin')
+@csrf_protect
 def export_compliance_report():
     """
     Generate and download an EU REACH/CLP compliance Excel report.
@@ -73,9 +80,10 @@ def export_compliance_report():
         if batch_id:
             logger.info("3-sheet unified export for batch %s", batch_id[:8])
 
-            user_db = current_app.config["USER_DB_PATH"]
-            conn = sqlite3.connect(user_db)
-            conn.row_factory = sqlite3.Row
+            user_db = getattr(g, 'tenant_db_path', None)
+            if not user_db:
+                return jsonify({"error": "Access Denied: Invalid tenant context"}), 403
+            conn = get_safe_connection(user_db)
             cur = conn.cursor()
 
             # Fetch analysis payload
@@ -190,4 +198,4 @@ def export_compliance_report():
         return jsonify({"error": "Database not available"}), 500
     except Exception as e:
         logger.error("Report generation failed: %s", e, exc_info=True)
-        return jsonify({"error": f"Report generation failed: {str(e)}"}), 500
+        return jsonify({"error": "Report generation failed"}), 500

@@ -10,6 +10,8 @@ from datetime import datetime, timezone
 from io import BytesIO
 
 from flask import Blueprint, current_app, jsonify, render_template, request, send_file, g
+from auth.decorators import login_required, csrf_protect, viewer_readonly
+from db_utils import get_safe_connection
 
 from logic.reactivity_engine import ReactivityEngine
 from logic.constants import Compatibility
@@ -141,7 +143,7 @@ def _analyze_storage_proximity(inventory_rows, pair_details):
 
 def _fetch_inventory_rows_for_analysis(user_db_path: str, batch_id: str):
     """Fetch matched rows and unresolved counts for a batch."""
-    conn = sqlite3.connect(user_db_path)
+    conn = get_safe_connection(user_db_path)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -188,7 +190,7 @@ def _fetch_inventory_rows_for_analysis(user_db_path: str, batch_id: str):
 
 def _persist_user_inventory_snapshot(user_db_path: str, batch_id: str, inventory_rows: list):
     """Persist finalized batch rows into user_inventories table for historical retrieval."""
-    conn = sqlite3.connect(user_db_path)
+    conn = get_safe_connection(user_db_path)
     cursor = conn.cursor()
 
     # Keep latest snapshot for this batch by replacing previous rows
@@ -216,6 +218,9 @@ def _persist_user_inventory_snapshot(user_db_path: str, batch_id: str, inventory
 
 
 @inventory_analysis_bp.route('/api/inventory/analyze', methods=['POST'])
+@login_required
+@viewer_readonly
+@csrf_protect
 def analyze_inventory():
     """Analyze all confirmed chemicals in a batch with ReactivityEngine."""
     try:
@@ -254,7 +259,7 @@ def analyze_inventory():
         location_warnings = _analyze_storage_proximity(inventory_rows, pair_details)
 
         # ── Enrich chemicals with CAS numbers ──
-        chem_conn = sqlite3.connect(chemicals_db)
+        chem_conn = get_safe_connection(chemicals_db, readonly=True)
         chem_conn.row_factory = sqlite3.Row
         for chem in analysis.chemicals:
             cas_rows = chem_conn.execute(
@@ -310,7 +315,7 @@ def analyze_inventory():
             'engine_warnings': analysis.warnings,
         }
 
-        conn = sqlite3.connect(user_db)
+        conn = get_safe_connection(user_db)
         cursor = conn.cursor()
         cursor.execute(
             """
@@ -345,17 +350,19 @@ def analyze_inventory():
 
 
 @inventory_analysis_bp.route('/inventory/analysis/<batch_id>')
+@login_required
 def inventory_analysis_page(batch_id):
     """Render analysis results page."""
     return render_template('inventory_analysis.html', batch_id=batch_id)
 
 
 @inventory_analysis_bp.route('/api/inventory/analysis/<batch_id>')
+@login_required
 def get_inventory_analysis(batch_id):
     """Fetch latest saved analysis payload for a batch, enriched with EU data."""
     try:
         user_db = getattr(g, 'tenant_db_path', None) or current_app.config['USER_DB_PATH']
-        conn = sqlite3.connect(user_db)
+        conn = get_safe_connection(user_db)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         cursor.execute(
@@ -447,6 +454,7 @@ def get_inventory_analysis(batch_id):
 
 
 @inventory_analysis_bp.route('/api/inventory/analysis/<batch_id>/export/excel')
+@login_required
 def export_inventory_analysis_excel(batch_id):
     """Export analysis payload to XLSX."""
     try:
@@ -456,7 +464,7 @@ def export_inventory_analysis_excel(batch_id):
             return jsonify({'error': 'Excel export requires pandas/openpyxl'}), 501
 
         user_db = getattr(g, 'tenant_db_path', None) or current_app.config['USER_DB_PATH']
-        conn = sqlite3.connect(user_db)
+        conn = get_safe_connection(user_db)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         cursor.execute(
@@ -496,6 +504,7 @@ def export_inventory_analysis_excel(batch_id):
 
 
 @inventory_analysis_bp.route('/api/inventory/analysis/<batch_id>/export/pdf')
+@login_required
 def export_inventory_analysis_pdf(batch_id):
     """Export analysis summary to PDF (requires reportlab)."""
     try:
@@ -506,7 +515,7 @@ def export_inventory_analysis_pdf(batch_id):
             return jsonify({'error': 'PDF export requires reportlab. Install with: pip install reportlab'}), 501
 
         user_db = getattr(g, 'tenant_db_path', None) or current_app.config['USER_DB_PATH']
-        conn = sqlite3.connect(user_db)
+        conn = get_safe_connection(user_db)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         cursor.execute(

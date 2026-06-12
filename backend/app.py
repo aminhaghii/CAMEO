@@ -5,30 +5,51 @@ import sqlite3
 import logging
 import difflib
 from pathlib import Path
-from flask import Flask, jsonify, request, render_template, g
+from flask import Flask, jsonify, request, render_template, g, redirect
 from flask_cors import CORS
 
 from logic.reactivity_engine import ReactivityEngine
 from logic.constants import Compatibility, COMPATIBILITY_MAP
 from auth.models import init_auth_db, seed_default_company_and_admin, get_auth_db_connection
 from auth.security import hash_password, validate_session, generate_csrf_token
+from auth.decorators import login_required, csrf_protect
+from db_utils import get_safe_connection
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-CORS(app, supports_credentials=True)  # Enable CORS with credentials for auth cookies
+CORS(app, supports_credentials=True, origins=[
+    'http://localhost:5000',
+    'http://127.0.0.1:5000',
+    'http://localhost:5173',
+])
 
 # ═══════════════════════════════════════════════════════
 #  Security Configuration
 # ═══════════════════════════════════════════════════════
-app.secret_key = os.environ.get('FLASK_SECRET_KEY', secrets.token_hex(32))
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50 MB limit (P1-7)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, 'data')
+os.makedirs(DATA_DIR, exist_ok=True)
+
+# Secret key: persist to file if env var not set (P1-2)
+_secret_path = os.path.join(DATA_DIR, '.flask_secret_key')
+if os.environ.get('FLASK_SECRET_KEY'):
+    app.secret_key = os.environ['FLASK_SECRET_KEY']
+elif os.path.exists(_secret_path):
+    with open(_secret_path, 'r') as f:
+        app.secret_key = f.read().strip()
+else:
+    _generated = secrets.token_hex(32)
+    with open(_secret_path, 'w') as f:
+        f.write(_generated)
+    app.secret_key = _generated
+
 CHEMICALS_DB_PATH = os.path.join(DATA_DIR, 'chemicals.db')
 USER_DB_PATH = os.path.join(DATA_DIR, 'user.db')  # Legacy fallback
 AUTH_DB_PATH = os.path.join(DATA_DIR, 'global_auth.db')
@@ -75,38 +96,51 @@ app.register_blueprint(warehouse_bp)
 #  Auto-download Static Assets (if not exist)
 # ═══════════════════════════════════════════════════════
 def ensure_static_assets():
-    """Check va download-e static assets agar vojud nadarand."""
+    """Download static assets with TLS verification and SHA-256 hash check."""
     static_dir = os.path.join(BASE_DIR, 'static')
     js_dir = os.path.join(static_dir, 'js')
     fonts_dir = os.path.join(static_dir, 'fonts')
     
     assets = {
-        os.path.join(js_dir, 'tailwind.min.js'): 'https://cdn.tailwindcss.com/3.4.17',
-        os.path.join(js_dir, 'alpine.min.js'): 'https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js',
+        os.path.join(js_dir, 'tailwind.min.js'): {
+            'url': 'https://cdn.tailwindcss.com/3.4.17',
+            'sha256': '176e894661aa9cdc9a5cba6c720044cbbf7b8bd80d1c9a142a7c24b1b6c50d15'
+        },
+        os.path.join(js_dir, 'alpine.min.js'): {
+            'url': 'https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js',
+            'sha256': '689f513978d11d69f4d33794f7296c9a586a2e55de79bb447cddbc3f474f9f07'
+        },
     }
     
     import urllib.request
-    import ssl
-    
-    ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
+    import hashlib
     
     os.makedirs(js_dir, exist_ok=True)
     os.makedirs(fonts_dir, exist_ok=True)
     
-    for filepath, url in assets.items():
+    for filepath, info in assets.items():
         if not os.path.exists(filepath):
+            url = info['url']
+            expected_hash = info['sha256']
+            logger.info(f"Downloading {os.path.basename(filepath)} from CDN...")
             try:
-                logger.info(f"Downloading {os.path.basename(filepath)} az CDN...")
-                urllib.request.urlretrieve(url, filepath)
-                logger.info(f"✓ Download shod: {os.path.basename(filepath)}")
+                # Use standard Request with a proper User-Agent header to avoid 403 blocks
+                req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+                with urllib.request.urlopen(req, timeout=15) as response:
+                    content = response.read()
+                    
+                # Verify SHA-256 hash (P0-4)
+                actual_hash = hashlib.sha256(content).hexdigest()
+                if actual_hash != expected_hash:
+                    raise ValueError(f"Hash mismatch! Expected {expected_hash}, got {actual_hash}")
+                    
+                with open(filepath, 'wb') as f:
+                    f.write(content)
+                logger.info(f"✓ Downloaded and verified: {os.path.basename(filepath)}")
             except Exception as e:
-                logger.error(f"✗ Error dar download {os.path.basename(filepath)}: {e}")
-        else:
-            logger.info(f"✓ {os.path.basename(filepath)}")
+                logger.error(f"✗ Error downloading {os.path.basename(filepath)}: {e}")
 
-# Run asset check dar startup
+# Run asset check on startup
 ensure_static_assets()
 
 
@@ -119,8 +153,6 @@ AUTH_EXEMPT_PREFIXES = (
     '/auth/',
     '/api/auth/',
     '/static/',
-    '/api/compliance/',   # EU compliance export — RBAC applied at route level
-    '/compliance',        # Compliance UI page
 )
 
 
@@ -166,6 +198,29 @@ def tenant_router():
     # Set user in request context
     g.user = user
 
+    # ── Forced Password Change check (P1-1) ──
+    if user.get('force_password_change'):
+        # If user has force_password_change flag set, we only allow access to logout and change password endpoints
+        allowed = (
+            '/auth/logout',
+            '/api/auth/change-password',
+            '/auth/change-password',
+            '/api/auth/me',
+            '/api/auth/csrf'
+        )
+        is_allowed = False
+        for path in allowed:
+            if request.path.startswith(path):
+                is_allowed = True
+                break
+        if not is_allowed:
+            if request.path.startswith('/api/'):
+                return jsonify({
+                    'error': 'Password change required',
+                    'code': 'PASSWORD_CHANGE_REQUIRED'
+                }), 403
+            return redirect('/auth/change-password')
+
     # ── Tenant Routing ──
     if user['role'] == 'super_admin':
         # 🔴 BLIND SPOT: Super Admin has NO access to tenant data
@@ -188,7 +243,7 @@ def _init_tenant_db(tenant_path: str):
     from etl.pipeline import init_inventory_tables
     init_inventory_tables(tenant_path)
     # Also create favorites table
-    conn = sqlite3.connect(tenant_path)
+    conn = get_safe_connection(tenant_path)
     cursor = conn.cursor()
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS favorites (
@@ -214,9 +269,7 @@ def inject_user():
 from flask import redirect
 
 def get_chemicals_db_connection():
-    conn = sqlite3.connect(CHEMICALS_DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+    return get_safe_connection(CHEMICALS_DB_PATH, readonly=True)
 
 def get_user_db_connection():
     """
@@ -229,12 +282,10 @@ def get_user_db_connection():
     if not os.path.exists(db_path):
         _init_tenant_db(db_path)
 
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    return conn
+    return get_safe_connection(db_path)
 
 def init_user_db():
-    conn = sqlite3.connect(USER_DB_PATH)
+    conn = get_safe_connection(USER_DB_PATH)
     cursor = conn.cursor()
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS favorites (
@@ -256,7 +307,7 @@ def init_inventory_tables():
             logger.warning("Phase 2 SQL file not found: %s", sql_path)
             return
 
-        conn = sqlite3.connect(USER_DB_PATH)
+        conn = get_safe_connection(USER_DB_PATH)
         with sql_path.open('r', encoding='utf-8') as f:
             conn.executescript(f.read())
         conn.commit()
@@ -543,6 +594,7 @@ def chemical_detail_page(chemical_id):
     return render_template('chemical_detail.html', chemical=chemical)
 
 @app.route('/api/favorites', methods=['GET'])
+@login_required
 def get_favorites():
     try:
         conn = get_user_db_connection()
@@ -563,10 +615,12 @@ def get_favorites():
         conn.close()
         return jsonify(favorites)
     except Exception as e:
-        print(f"Get favorites error: {e}")
+        logger.error(f"Get favorites error: {e}")
         return jsonify([]), 500
 
 @app.route('/api/favorites', methods=['POST'])
+@login_required
+@csrf_protect
 def add_favorite():
     try:
         data = request.json
@@ -583,10 +637,12 @@ def add_favorite():
         
         return jsonify({'success': True})
     except Exception as e:
-        print(f"Add favorite error: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        logger.error(f"Add favorite error: {e}")
+        return jsonify({'success': False, 'error': 'Internal server error'}), 500
 
 @app.route('/api/favorites/<int:chemical_id>', methods=['DELETE'])
+@login_required
+@csrf_protect
 def remove_favorite(chemical_id):
     try:
         conn = get_user_db_connection()
@@ -598,8 +654,8 @@ def remove_favorite(chemical_id):
         
         return jsonify({'success': True})
     except Exception as e:
-        print(f"Remove favorite error: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        logger.error(f"Remove favorite error: {e}")
+        return jsonify({'success': False, 'error': 'Internal server error'}), 500
 
 @app.route('/')
 def index():
@@ -733,31 +789,32 @@ def dashboard_stats():
         total_pairs = n * (n - 1) // 2 if n > 1 else 0
 
         conn.close()
+        
+        # R-06 compliance: Return no_data stats when there is no user matrix computed
         return jsonify({
             'success': True,
             'data': {
                 'total_chemicals': total_chemicals,
                 'total_reactive_groups': total_groups,
                 'total_pairs': total_pairs,
-                # Simulated stats for demo (will be real when matrix computed)
-                'safe_pairs': int(total_pairs * 0.60),
-                'caution_pairs': int(total_pairs * 0.25),
-                'critical_pairs': int(total_pairs * 0.15),
+                'safe_pairs': 0,
+                'caution_pairs': 0,
+                'critical_pairs': 0,
+                'no_data': True
             }
         })
     except Exception as e:
         logger.error(f"Dashboard stats error: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({'success': False, 'error': 'Internal server error'}), 500
 
 
 @app.route('/api/warehouse', methods=['GET'])
 def get_warehouses():
     """Get warehouse overview data"""
     try:
-        user_db = USER_DB_PATH
-        if os.path.exists(user_db):
-            conn = sqlite3.connect(user_db)
-            conn.row_factory = sqlite3.Row
+        user_db = getattr(g, 'tenant_db_path', None) or USER_DB_PATH
+        if user_db and os.path.exists(user_db):
+            conn = get_safe_connection(user_db)
             cursor = conn.cursor()
             # Get distinct locations from inventory staging
             cursor.execute("""
@@ -794,16 +851,8 @@ def get_warehouses():
             if warehouses:
                 return jsonify({'success': True, 'data': warehouses})
 
-        # Return demo data if no real data
-        demo = [
-            {'name': 'Acid Storage A', 'chemical_count': 24, 'matched': 22, 'safety_pct': 92, 'status': 'safe', 'last_updated': '2025-02-18'},
-            {'name': 'Flammables Shed B', 'chemical_count': 18, 'matched': 12, 'safety_pct': 67, 'status': 'warning', 'last_updated': '2025-02-17'},
-            {'name': 'Tank Farm C', 'chemical_count': 32, 'matched': 30, 'safety_pct': 94, 'status': 'safe', 'last_updated': '2025-02-19'},
-            {'name': 'Lab Storage D', 'chemical_count': 56, 'matched': 40, 'safety_pct': 71, 'status': 'warning', 'last_updated': '2025-02-15'},
-            {'name': 'Oxidizer Vault E', 'chemical_count': 12, 'matched': 5, 'safety_pct': 42, 'status': 'danger', 'last_updated': '2025-02-10'},
-            {'name': 'General Storage F', 'chemical_count': 44, 'matched': 44, 'safety_pct': 100, 'status': 'safe', 'last_updated': '2025-02-19'},
-        ]
-        return jsonify({'success': True, 'data': demo})
+        # Return clean no_data status instead of fake demo data (R-06)
+        return jsonify({'success': True, 'data': [], 'no_data': True, 'message': 'No warehouse data available yet.'})
     except Exception as e:
         logger.error(f"Warehouse error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -813,11 +862,10 @@ def get_warehouses():
 def get_activity_logs():
     """Get activity log entries"""
     try:
-        user_db = USER_DB_PATH
+        user_db = getattr(g, 'tenant_db_path', None) or USER_DB_PATH
         logs = []
-        if os.path.exists(user_db):
-            conn = sqlite3.connect(user_db)
-            conn.row_factory = sqlite3.Row
+        if user_db and os.path.exists(user_db):
+            conn = get_safe_connection(user_db)
             cursor = conn.cursor()
 
             # Get audit trail
@@ -867,24 +915,15 @@ def get_activity_logs():
             conn.close()
 
         if not logs:
-            # Demo data
-            from datetime import datetime, timedelta
-            now = datetime.utcnow()
-            logs = [
-                {'id':1,'type':'upload','title':'File uploaded: inventory_q1.xlsx','detail':'287 rows imported, 264 matched','timestamp':(now - timedelta(hours=2)).isoformat(),'user':'Admin','category':'import'},
-                {'id':2,'type':'analysis','title':'Compatibility analysis started','detail':'Analyzing 287 chemicals for reactive pairs','timestamp':(now - timedelta(hours=2, minutes=5)).isoformat(),'user':'System','category':'analysis'},
-                {'id':3,'type':'alert','title':'Critical incompatibility found','detail':'HNO3 + Acetone: Explosion risk detected','timestamp':(now - timedelta(hours=2, minutes=6)).isoformat(),'user':'System','category':'alert'},
-                {'id':4,'type':'edit','title':'Chemical edited: Acetone','detail':'Location updated to Flammables Shed B','timestamp':(now - timedelta(days=1)).isoformat(),'user':'Admin','category':'edit'},
-                {'id':5,'type':'upload','title':'File uploaded: chemicals_backup.csv','detail':'52 rows imported, 50 matched','timestamp':(now - timedelta(days=2)).isoformat(),'user':'Admin','category':'import'},
-                {'id':6,'type':'delete','title':'Chemical removed: Ethyl acetate','detail':'Removed from Lab Storage D by Admin','timestamp':(now - timedelta(days=3)).isoformat(),'user':'Admin','category':'edit'},
-            ]
+            # Return no_data indicator instead of hardcoded demo log events (R-06)
+            return jsonify({'success': True, 'data': [], 'no_data': True, 'message': 'No activity logs found.'})
 
         # Sort by timestamp desc
         logs.sort(key=lambda x: x['timestamp'], reverse=True)
         return jsonify({'success': True, 'data': logs})
     except Exception as e:
         logger.error(f"Logs error: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({'success': False, 'error': 'Internal server error'}), 500
 
 
 def _log_title(action, filename):
@@ -904,20 +943,11 @@ def _log_category(action):
 
 
 @app.route('/api/analyze', methods=['POST'])
+@login_required
 def analyze_chemicals():
     """
-    ═══════════════════════════════════════════════════════════
     POST /api/analyze
     Analyze chemical compatibility - SAFETY-CRITICAL ENDPOINT
-    ═══════════════════════════════════════════════════════════
-    
-    Request Body:
-    {
-        "chemical_ids": [1, 5, 23],
-        "options": {
-            "include_water_check": true
-        }
-    }
     """
     try:
         data = request.get_json()
@@ -943,10 +973,13 @@ def analyze_chemicals():
                 }
             }), 400
         
-        # Run analysis
+        # Run analysis, specifying user audit DB path (P1-3)
+        tenant_db = getattr(g, 'tenant_db_path', None)
         result = reactivity_engine.analyze(
             chemical_ids=chemical_ids,
-            include_water_check=options.get('include_water_check', True)
+            include_water_check=options.get('include_water_check', True),
+            user_id=g.user['id'] if (hasattr(g, 'user') and g.user) else None,
+            audit_db_path=tenant_db
         )
         
         # Convert to JSON-friendly format

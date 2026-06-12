@@ -125,7 +125,8 @@ def init_inventory_tables(user_db_path: str):
             confidence  REAL,
             method      TEXT,
             timestamp   DATETIME DEFAULT CURRENT_TIMESTAMP,
-            user_id     TEXT
+            user_id     TEXT,
+            is_deleted  INTEGER DEFAULT 0
         )
     """)
 
@@ -199,6 +200,7 @@ def init_inventory_tables(user_db_path: str):
     _safe_add_column(cursor, 'warehouses', 'created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
     _safe_add_column(cursor, 'warehouse_sections', 'warehouse_id', 'INTEGER REFERENCES warehouses(id) ON DELETE CASCADE')
     _safe_add_column(cursor, 'chemical_placements', 'warehouse_id', 'INTEGER REFERENCES warehouses(id) ON DELETE CASCADE')
+    _safe_add_column(cursor, 'audit_trail', 'is_deleted', 'INTEGER DEFAULT 0')
 
     # Seed default warehouse if none exist and migrate existing data
     cursor.execute("SELECT COUNT(*) FROM warehouses")

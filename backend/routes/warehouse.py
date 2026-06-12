@@ -7,6 +7,8 @@ from flask import Blueprint, request, jsonify, current_app, g
 
 from logic.reactivity_engine import ReactivityEngine
 from logic.constants import Compatibility, COMPATIBILITY_MAP
+from auth.decorators import login_required, csrf_protect, viewer_readonly
+from db_utils import get_safe_connection
 
 logger = logging.getLogger(__name__)
 
@@ -26,9 +28,7 @@ def _get_db_connection():
     db_path = _get_db_path()
     from etl.pipeline import init_inventory_tables
     init_inventory_tables(db_path)
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    return conn
+    return get_safe_connection(db_path)
 
 def _current_role() -> str:
     return g.user.get('role', '') if (hasattr(g, 'user') and g.user) else ''
@@ -110,7 +110,7 @@ def _validate_layout_update(conn, updates: dict, actor_role: str):
 
     warehouse_placeholders = ",".join(["?"] * len(affected_warehouse_ids))
     cursor.execute(
-        f"SELECT * FROM chemical_placements WHERE warehouse_id IN ({warehouse_placeholders}) AND status = 'placed'",
+        f"SELECT * FROM chemical_placements WHERE warehouse_id IN ({warehouse_placeholders})",
         affected_warehouse_ids
     )
     final_by_section = {}
@@ -150,7 +150,7 @@ def _validate_layout_update(conn, updates: dict, actor_role: str):
 
 def _get_chem_groups(chemical_id: int) -> list:
     chemicals_db = current_app.config['CHEMICALS_DB_PATH']
-    conn = sqlite3.connect(chemicals_db)
+    conn = get_safe_connection(chemicals_db, readonly=True)
     cursor = conn.cursor()
     cursor.execute("SELECT react_id FROM mm_chemical_react WHERE chem_id = ?", (chemical_id,))
     groups = [r[0] for r in cursor.fetchall()]
@@ -171,6 +171,7 @@ def _get_compatibility_rules(group_ids: list) -> dict:
     return rules
 
 @warehouse_bp.route('/api/warehouse/data', methods=['GET'])
+@login_required
 def get_warehouse_data():
     """Get warehouse sections, placements, inventory, and compatibility rules."""
     try:
@@ -179,77 +180,80 @@ def get_warehouse_data():
         conn = _get_db_connection()
         cursor = conn.cursor()
         
+        # Determine current warehouse scope
         if not warehouse_id:
             cursor.execute("SELECT id FROM warehouses ORDER BY name LIMIT 1")
             row = cursor.fetchone()
             if row:
                 warehouse_id = row['id']
             else:
-                cursor.execute("INSERT INTO warehouses (name) VALUES ('Main Warehouse')")
-                conn.commit()
-                warehouse_id = cursor.lastrowid
+                conn.close()
+                return jsonify({
+                    'success': True,
+                    'warehouse_id': None,
+                    'sections': [],
+                    'inventory': [],
+                    'chemical_groups': {},
+                    'reactive_rules': {}
+                })
         else:
             try:
                 warehouse_id = int(warehouse_id)
             except ValueError:
                 conn.close()
                 return jsonify({'error': 'warehouse_id must be integer'}), 400
-            cursor.execute("SELECT id FROM warehouses WHERE id = ?", (warehouse_id,))
-            if not cursor.fetchone():
-                conn.close()
-                return jsonify({'error': 'warehouse_id not found'}), 404
-        
+
         # 1. Fetch sections
-        cursor.execute("SELECT * FROM warehouse_sections WHERE warehouse_id = ? ORDER BY position_index", (warehouse_id,))
-        sections_rows = cursor.fetchall()
-        
-        sections = []
-        for s in sections_rows:
-            sections.append({
-                'id': s['id'],
-                'name': s['name'],
-                'position_index': s['position_index'],
-                'color': s['color'] or 'slate',
+        cursor.execute(
+            "SELECT id, name, position_index, color FROM warehouse_sections WHERE warehouse_id = ? ORDER BY position_index",
+            (warehouse_id,)
+        )
+        sections = [
+            {
+                'id': row['id'],
+                'name': row['name'],
+                'position_index': row['position_index'],
+                'color': row['color'] or 'slate',
                 'chemicals': []
-            })
-            
-        # 2. Fetch placements (both placed and unplaced)
-        cursor.execute("SELECT * FROM chemical_placements WHERE warehouse_id = ?", (warehouse_id,))
-        placements_rows = cursor.fetchall()
+            }
+            for row in cursor.fetchall()
+        ]
+        
+        # 2. Fetch placements
+        cursor.execute(
+            "SELECT id, chemical_id, chemical_name, cas_number, quantity_kg, reactive_groups, section_id, status FROM chemical_placements WHERE warehouse_id = ?",
+            (warehouse_id,)
+        )
+        placements = cursor.fetchall()
         
         inventory_pool = []
-        all_unique_groups = set()
         chem_groups_map = {}
+        all_unique_groups = set()
         
-        for p in placements_rows:
-            groups = []
+        for p in placements:
             try:
                 groups = json.loads(p['reactive_groups']) if p['reactive_groups'] else []
             except Exception:
-                pass
+                groups = []
             
-            for g_id in groups:
-                all_unique_groups.add(g_id)
-                
-            chem_groups_map[str(p['chemical_id'])] = groups
+            chem_id = p['chemical_id']
+            chem_groups_map[chem_id] = groups
+            all_unique_groups.update(groups)
             
             placement_obj = {
                 'id': p['id'],
-                'section_id': p['section_id'],
-                'chemical_id': p['chemical_id'],
+                'placement_id': p['id'],
+                'chemical_id': chem_id,
                 'chemical_name': p['chemical_name'],
-                'cas_number': p['cas_number'] or '',
-                'quantity_kg': p['quantity_kg'] or 1.0,
+                'cas_number': p['cas_number'],
+                'quantity_kg': p['quantity_kg'],
                 'reactive_groups': groups,
-                'status': p['status'] or 'placed',
-                'placed_by': p['placed_by'] or 'human',
-                'placed_at': p['placed_at']
+                'status': p['status']
             }
             
             if p['section_id'] is None:
                 inventory_pool.append(placement_obj)
             else:
-                # Add to corresponding section
                 for sec in sections:
                     if sec['id'] == p['section_id']:
                         sec['chemicals'].append(placement_obj)
@@ -270,16 +274,15 @@ def get_warehouse_data():
         })
     except Exception as e:
         logger.error(f"Failed to fetch warehouse data: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 @warehouse_bp.route('/api/warehouse/sections/init', methods=['POST'])
+@login_required
+@viewer_readonly
+@csrf_protect
 def init_sections():
     """Initialize warehouse sections."""
     try:
-        access_error = _write_access_error()
-        if access_error:
-            return access_error
-
         data = request.get_json(silent=True) or {}
         count = data.get('count', 10)
         warehouse_id = data.get('warehouse_id')
@@ -356,16 +359,15 @@ def init_sections():
         return jsonify({'success': True, 'message': f'{count} sections initialized'})
     except Exception as e:
         logger.error(f"Init sections failed: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 @warehouse_bp.route('/api/warehouse/sections/update', methods=['POST'])
+@login_required
+@viewer_readonly
+@csrf_protect
 def update_section():
     """Rename a warehouse section."""
     try:
-        access_error = _write_access_error()
-        if access_error:
-            return access_error
-
         data = request.get_json(silent=True) or {}
         section_id = data.get('section_id')
         name = (data.get('name') or '').strip()
@@ -382,17 +384,16 @@ def update_section():
         return jsonify({'success': True, 'message': 'Section renamed successfully'})
     except Exception as e:
         logger.error(f"Update section failed: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 @warehouse_bp.route('/api/warehouse/placements/move', methods=['POST'])
+@login_required
+@viewer_readonly
+@csrf_protect
 def move_placement():
     """Move a chemical placement to another section or to the sidebar pool (section_id=None)."""
     conn = None
     try:
-        access_error = _write_access_error()
-        if access_error:
-            return access_error
-
         data = request.get_json(silent=True) or {}
         placement_id = data.get('placement_id')
         section_id = data.get('section_id') # Can be None/null to move back to sidebar pool
@@ -486,13 +487,12 @@ def move_placement():
         return jsonify({'error': 'Internal server error'}), 500
 
 @warehouse_bp.route('/api/warehouse/placements/remove/<int:placement_id>', methods=['DELETE'])
+@login_required
+@viewer_readonly
+@csrf_protect
 def remove_placement(placement_id):
     """Delete a placement completely from the warehouse database."""
     try:
-        access_error = _write_access_error()
-        if access_error:
-            return access_error
-
         conn = _get_db_connection()
         cursor = conn.cursor()
         
@@ -528,13 +528,13 @@ def remove_placement(placement_id):
         return jsonify({'error': 'Internal server error'}), 500
 
 @warehouse_bp.route('/api/warehouse/add_from_batch', methods=['POST'])
+@login_required
+@viewer_readonly
+@csrf_protect
 def add_from_batch():
     """Import finalized batch rows to the warehouse available pool."""
+    conn = None
     try:
-        access_error = _write_access_error()
-        if access_error:
-            return access_error
-
         data = request.get_json(silent=True) or {}
         batch_id = data.get('batch_id')
         warehouse_id = data.get('warehouse_id')
@@ -544,6 +544,7 @@ def add_from_batch():
             return jsonify({'error': 'batch_id is required'}), 400
             
         conn = _get_db_connection()
+        conn.execute('BEGIN EXCLUSIVE')
         cursor = conn.cursor()
         
         if not warehouse_id:
@@ -663,14 +664,29 @@ def add_from_batch():
         
         return jsonify({
             'success': True, 
+            'warehouse_id': warehouse_id,
             'message': f'Successfully imported {imported_count} chemicals to the warehouse pool.'
         })
     except Exception as e:
         logger.error(f"Import batch to warehouse failed: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        if conn is not None:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            try:
+                conn.close()
+            except Exception:
+                pass
+        return jsonify({'error': 'Internal server error'}), 500
 
 def _groups_for_placement(placement):
     groups = placement.get('reactive_groups') or []
+    if isinstance(groups, str):
+        try:
+            groups = json.loads(groups)
+        except Exception:
+            groups = []
     try:
         return [int(g) for g in groups]
     except (TypeError, ValueError):
@@ -808,6 +824,9 @@ def _run_matrix_placement(sections, placements, engine):
 
 
 @warehouse_bp.route('/api/warehouse/auto_arrange', methods=['POST'])
+@login_required
+@viewer_readonly
+@csrf_protect
 def auto_arrange():
     """
     Greedy Auto-Arrange Algorithm:
@@ -836,17 +855,13 @@ def auto_arrange():
             except ValueError:
                 conn.close()
                 return jsonify({'error': 'warehouse_id must be integer'}), 400
-        
-        # Get sections
+
+        # Fetch sections
         cursor.execute("SELECT id, name FROM warehouse_sections WHERE warehouse_id = ? ORDER BY position_index", (warehouse_id,))
         sections = [dict(r) for r in cursor.fetchall()]
         
-        if not sections:
-            conn.close()
-            return jsonify({'error': 'No warehouse sections defined. Please initialize sections first.'}), 400
-            
-        # Get all placements (placed and unplaced)
-        cursor.execute("SELECT id, chemical_id, chemical_name, reactive_groups FROM chemical_placements WHERE warehouse_id = ?", (warehouse_id,))
+        # Fetch placements
+        cursor.execute("SELECT id as placement_id, chemical_id, chemical_name, reactive_groups FROM chemical_placements WHERE warehouse_id = ?", (warehouse_id,))
         placements = []
         for r in cursor.fetchall():
             groups = []
@@ -855,46 +870,58 @@ def auto_arrange():
             except Exception:
                 pass
             placements.append({
-                'placement_id': r['id'],
+                'placement_id': r['placement_id'],
                 'chemical_id': r['chemical_id'],
                 'chemical_name': r['chemical_name'],
                 'reactive_groups': groups
             })
-            
+        
         conn.close()
-        
+
+        if not sections:
+            return jsonify({'error': 'No sections configured in this warehouse'}), 400
         if not placements:
-            return jsonify({'error': 'No chemicals in the warehouse pool to arrange.'}), 400
+            return jsonify({'error': 'No chemical placements in this warehouse'}), 400
+
+        # Run analysis
+        engine = ReactivityEngine(current_app.config['CHEMICALS_DB_PATH'])
+        
+        # O(N^2) Placement Solver
+        mapping, section_occupants, unplaced, exact_complete, adjacency = _run_matrix_placement(sections, placements, engine)
+        
+        total_placements = len(placements)
+        unplaced_count = len(unplaced)
+        placed_count = total_placements - unplaced_count
+        
+        # Construct summary warnings
+        warnings = []
+        if unplaced_count > 0:
+            warnings.append(
+                f"We left {unplaced_count} chemicals unplaced in the available pool "
+                f"because they are incompatible with all existing sections."
+            )
             
-        # Instantiate ReactivityEngine
-        chemicals_db = current_app.config['CHEMICALS_DB_PATH']
-        engine = ReactivityEngine(chemicals_db)
-        
-        # 1. Run fail-safe graph placement for actual sections
-        suggested_mapping, section_occupants, unplaced_placements, exact_complete, adjacency = _run_matrix_placement(
-            sections, placements, engine
-        )
-        
-        # 2. Dynamic Section Suggester (Simulation Loop)
+        msg = f"Auto-arrangement proposed: {placed_count} of {total_placements} chemicals placed."
+        if unplaced_count == 0:
+            msg = "Fail-safe arrangement successful: all chemicals placed safely."
+
+        # ── Step 5: Simulation recommendations ──
         recommendation = {
             'has_recommendation': False,
             'add_sections_needed': 0,
-            'message': '',
             'can_auto_create': False,
             'virtual_layout': None,
+            'message': None
         }
-        
-        total_placements = len(placements)
-        if unplaced_placements:
-            initial_unplaced_count = len(unplaced_placements)
-            best_unplaced_count = initial_unplaced_count
+
+        initial_unplaced_count = unplaced_count
+        if initial_unplaced_count > 0:
             best_extra_sections = 0
             best_virtual_layout = None
             best_virtual_complete = False
+            best_unplaced_count = initial_unplaced_count
             
-            max_extra_sections = min(max(total_placements - len(sections), 0), 25)
-            # Try enough virtual sections to avoid false "add N" promises.
-            for extra_count in range(1, max_extra_sections + 1):
+            for extra_count in range(1, 11):
                 sim_sections = list(sections)
                 for i in range(1, extra_count + 1):
                     sim_sections.append({
@@ -910,14 +937,13 @@ def auto_arrange():
                     sim_mapping, sim_occupants, sim_unplaced = _run_greedy_placement(sim_sections, placements, adjacency)
                     sim_complete = False
                 
-                sim_unplaced_count = len(sim_unplaced)
-                if sim_unplaced_count < best_unplaced_count:
-                    best_unplaced_count = sim_unplaced_count
+                if len(sim_unplaced) < best_unplaced_count:
+                    best_unplaced_count = len(sim_unplaced)
                     best_extra_sections = extra_count
                     best_virtual_layout = sim_mapping
                     best_virtual_complete = sim_complete
                     
-                if sim_complete and sim_unplaced_count == 0:
+                if sim_complete and len(sim_unplaced) == 0:
                     break
             
             if best_extra_sections > 0:
@@ -925,84 +951,69 @@ def auto_arrange():
                 recommendation['add_sections_needed'] = best_extra_sections
                 recommendation['can_auto_create'] = best_virtual_complete and best_unplaced_count == 0
                 recommendation['virtual_layout'] = best_virtual_layout if recommendation['can_auto_create'] else None
-                if recommendation['can_auto_create']:
-                    recommendation['message'] = (
-                        f"We left {initial_unplaced_count} chemicals unplaced to prevent hazards. "
-                        f"Adding {best_extra_sections} more sections will allow a complete matrix-compatible layout."
-                    )
-                else:
-                    placed_percentage = int(((total_placements - best_unplaced_count) / total_placements) * 100)
-                    recommendation['message'] = (
-                        f"We left {initial_unplaced_count} chemicals unplaced to prevent hazards. "
-                        f"Adding {best_extra_sections} more sections may allow placement of "
-                        f"{total_placements - best_unplaced_count} out of {total_placements} chemicals ({placed_percentage}%)."
-                    )
-            else:
+                placed_percentage = int(((total_placements - best_unplaced_count) / total_placements) * 100)
                 recommendation['message'] = (
-                    f"We left {initial_unplaced_count} chemicals unplaced. "
-                    f"No complete matrix-compatible layout was found with up to {max_extra_sections} extra sections."
+                    f"We left {initial_unplaced_count} chemicals unplaced to prevent hazards. "
+                    f"Adding {best_extra_sections} more sections may allow placement of "
+                    f"{total_placements - best_unplaced_count} out of {total_placements} chemicals ({placed_percentage}%)."
                 )
-                    
-        # 3. Calculate Confidence Score (Percentage of compatible pairs in actual placement)
-        caution_count = 0
-        total_pairs_checked = 0
+
+        # O(N^2) confidence score loop
+        # Map proposed layout to count caution sections
+        final_by_section = {}
+        for placement in placements:
+            p_id = placement['placement_id']
+            target_sec_id = mapping.get(p_id)
+            if target_sec_id is not None:
+                final_by_section.setdefault(target_sec_id, []).append(placement)
         
-        for s_id, occupants in section_occupants.items():
-            if len(occupants) >= 2:
-                ids = [o['chemical_id'] for o in occupants]
-                analysis = engine.analyze(ids, include_water_check=True, save_audit=False)
+        # Calculate overall warehouse safety index
+        total_sections = len(sections)
+        hazard_free_sections = total_sections
+        caution_sections_count = 0
+        incompatible_sections_count = 0
+        
+        # Pre-load DB rules inside reactivity engine for caching performance (A-1/A-4)
+        for section_id, occupants in final_by_section.items():
+            if len(occupants) < 2:
+                continue
+            chem_ids = [o['chemical_id'] for o in occupants]
+            analysis = engine.analyze(chem_ids, include_water_check=True, save_audit=False)
+            if analysis.overall_compatibility == Compatibility.INCOMPATIBLE:
+                incompatible_sections_count += 1
+                hazard_free_sections -= 1
+            elif analysis.overall_compatibility in (Compatibility.CAUTION, Compatibility.NO_DATA):
+                caution_sections_count += 1
+                hazard_free_sections -= 1
                 
-                n_occ = len(occupants)
-                total_pairs_checked += (n_occ * (n_occ - 1)) // 2
-                
-                # Find Caution / NO_DATA pairs
-                for i in range(n_occ):
-                    for j in range(i + 1, n_occ):
-                        p_a = occupants[i]
-                        p_b = occupants[j]
-                        pair_analysis = engine._analyze_pair(
-                            p_a['chemical_id'], p_b['chemical_id'],
-                            p_a['chemical_name'], p_b['chemical_name'],
-                            p_a['reactive_groups'], p_b['reactive_groups']
-                        )
-                        if pair_analysis.compatibility in (Compatibility.CAUTION, Compatibility.NO_DATA):
-                            caution_count += 1
-                            
-        # Compute confidence score
-        if total_pairs_checked > 0:
-            compatibility_score = int(((total_pairs_checked - caution_count) / total_pairs_checked) * 100)
-        else:
-            compatibility_score = 100
-            
-        # Build human readable message
-        if unplaced_placements:
-            msg = (
-                f"Auto-Arrange computed. Safety level: {compatibility_score}%. "
-                f"We left {len(unplaced_placements)} chemicals unplaced because they conflict with all available sections."
-            )
-        else:
-            msg = f"Auto-Arrange computed successfully. Safety level: {compatibility_score}%."
-            
+        safety_score = 100
+        if total_sections > 0:
+            # Formula: (hazard_free_sections / total_sections) * 100
+            safety_score = int((hazard_free_sections / total_sections) * 100)
+
         return jsonify({
             'success': True,
-            'suggested_layout': suggested_mapping,
-            'confidence_score': compatibility_score,
+            'layout': mapping,
+            'suggested_layout': mapping,
+            'unplaced': [p['placement_id'] for p in unplaced],
+            'safety_score': safety_score,
+            'confidence_score': safety_score,
+            'warnings': warnings,
             'recommendation': recommendation,
             'exact_complete': exact_complete,
             'message': msg
         })
     except Exception as e:
         logger.error(f"Auto-Arrange failed: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 @warehouse_bp.route('/api/warehouse/layout/save', methods=['POST'])
+@login_required
+@viewer_readonly
+@csrf_protect
 def save_layout():
     """Save the proposed layout mappings."""
     try:
-        access_error = _write_access_error()
-        if access_error:
-            return access_error
-
         data = request.get_json(silent=True) or {}
         layout = data.get('layout') # Dict mapping placement_id -> section_id
         
@@ -1046,17 +1057,16 @@ def save_layout():
         return jsonify({'success': True, 'message': 'Layout saved successfully.'})
     except Exception as e:
         logger.error(f"Save layout failed: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 @warehouse_bp.route('/api/warehouse/recommendation/apply', methods=['POST'])
+@login_required
+@viewer_readonly
+@csrf_protect
 def apply_recommended_layout():
     """Create recommended extra sections and persist a complete virtual layout atomically."""
     conn = None
     try:
-        access_error = _write_access_error()
-        if access_error:
-            return access_error
-
         data = request.get_json(silent=True) or {}
         warehouse_id = data.get('warehouse_id')
         extra_sections = data.get('extra_sections')
@@ -1164,9 +1174,10 @@ def apply_recommended_layout():
                 conn.close()
             except Exception:
                 pass
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 @warehouse_bp.route('/api/warehouse/list', methods=['GET'])
+@login_required
 def list_warehouses():
     """List all warehouses."""
     try:
@@ -1181,16 +1192,15 @@ def list_warehouses():
         })
     except Exception as e:
         logger.error(f"List warehouses failed: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 @warehouse_bp.route('/api/warehouse/create', methods=['POST'])
+@login_required
+@viewer_readonly
+@csrf_protect
 def create_warehouse():
     """Create a new warehouse and seed 10 default sections."""
     try:
-        access_error = _write_access_error()
-        if access_error:
-            return access_error
-
         data = request.get_json(silent=True) or {}
         name = (data.get('name') or '').strip()
         if not name:
@@ -1220,16 +1230,15 @@ def create_warehouse():
         })
     except Exception as e:
         logger.error(f"Create warehouse failed: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 @warehouse_bp.route('/api/warehouse/rename', methods=['POST'])
+@login_required
+@viewer_readonly
+@csrf_protect
 def rename_warehouse():
     """Rename an existing warehouse."""
     try:
-        access_error = _write_access_error()
-        if access_error:
-            return access_error
-
         data = request.get_json(silent=True) or {}
         warehouse_id = data.get('warehouse_id')
         name = (data.get('name') or '').strip()
@@ -1253,16 +1262,15 @@ def rename_warehouse():
         })
     except Exception as e:
         logger.error(f"Rename warehouse failed: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 @warehouse_bp.route('/api/warehouse/delete/<int:warehouse_id>', methods=['DELETE'])
+@login_required
+@viewer_readonly
+@csrf_protect
 def delete_warehouse(warehouse_id):
     """Delete a warehouse and all its sections and placements."""
     try:
-        access_error = _write_access_error()
-        if access_error:
-            return access_error
-
         conn = _get_db_connection()
         cursor = conn.cursor()
         
@@ -1293,4 +1301,4 @@ def delete_warehouse(warehouse_id):
         })
     except Exception as e:
         logger.error(f"Delete warehouse failed: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500

@@ -114,10 +114,20 @@ def login():
         record_login_attempt(email, ip, False, auth_db)
         return jsonify({
             'success': False,
-            'error': 'Invalid email or password'
+            'error': 'Invalid email or password',
+            'code': 'INVALID_CREDENTIALS'
         }), 401
 
-    # ── Check account status ──
+    # ── Verify password FIRST (fix P1-9 status leak) ──
+    if not verify_password(password, user['password_hash']):
+        record_login_attempt(email, ip, False, auth_db)
+        return jsonify({
+            'success': False,
+            'error': 'Invalid email or password',
+            'code': 'INVALID_CREDENTIALS'
+        }), 401
+
+    # ── Check account status AFTER password verified ──
     if user['status'] == 'PENDING':
         return jsonify({
             'success': False,
@@ -132,14 +142,6 @@ def login():
             'code': 'ACCOUNT_SUSPENDED'
         }), 403
 
-    # ── Verify password ──
-    if not verify_password(password, user['password_hash']):
-        record_login_attempt(email, ip, False, auth_db)
-        return jsonify({
-            'success': False,
-            'error': 'Invalid email or password'
-        }), 401
-
     # ── Success! Create session ──
     record_login_attempt(email, ip, True, auth_db)
     user_agent = request.headers.get('User-Agent', '')[:500]
@@ -153,6 +155,9 @@ def login():
 
     csrf_token = generate_csrf_token()
 
+    # If force_password_change is active, redirect to change password page instead of dashboard
+    next_redirect = '/auth/change-password' if user['force_password_change'] else '/dashboard'
+
     response = make_response(jsonify({
         'success': True,
         'user': {
@@ -160,8 +165,9 @@ def login():
             'email': user['email'],
             'full_name': user['full_name'],
             'role': user['role'],
+            'force_password_change': bool(user['force_password_change']),
         },
-        'redirect': '/dashboard'
+        'redirect': next_redirect
     }))
 
     # Set session cookie (HttpOnly, SameSite=Lax)
@@ -186,6 +192,130 @@ def login():
 
     logger.info(f"✅ Login successful: {email} (role={user['role']}, IP={ip})")
     return response
+
+
+# ═══════════════════════════════════════════════════════
+#  Forced Password Change Endpoints
+# ═══════════════════════════════════════════════════════
+
+@auth_bp.route('/auth/change-password', methods=['GET'])
+def change_password_page():
+    """Render a simple, secure page to change password on first login."""
+    session_id = request.cookies.get('session_id')
+    if not session_id:
+        return redirect('/auth/login')
+        
+    from flask import current_app
+    user = validate_session(session_id, current_app.config['AUTH_DB_PATH'])
+    if not user:
+        return redirect('/auth/login')
+        
+    return '''
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Change Password - SAFEWARE</title>
+        <style>
+            body { font-family: sans-serif; background: #0f172a; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+            .card { background: #1e293b; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); width: 320px; }
+            h2 { margin-top: 0; text-align: center; }
+            input { width: 100%; padding: 0.5rem; margin: 0.5rem 0; border: 1px solid #475569; background: #0f172a; color: white; border-radius: 4px; box-sizing: border-box; }
+            button { width: 100%; padding: 0.75rem; background: #2563eb; border: none; color: white; font-weight: bold; border-radius: 4px; margin-top: 1rem; cursor: pointer; }
+            button:hover { background: #1d4ed8; }
+            .error { color: #f87171; font-size: 0.875rem; margin-top: 0.5rem; text-align: center; }
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <h2>Change Password</h2>
+            <p style="font-size: 0.875rem; color: #94a3b8; text-align: center;">You are using a default password and must change it to continue.</p>
+            <form id="changeForm">
+                <input type="password" id="old_password" placeholder="Current Password" required>
+                <input type="password" id="new_password" placeholder="New Password" required>
+                <button type="submit">Update Password</button>
+                <div class="error" id="msg"></div>
+            </form>
+        </div>
+        <script>
+            function getCookie(name) {
+                let matches = document.cookie.match(new RegExp(
+                    "(?:^|; )" + name.replace(/([\.$?*|{}\(\)\[\]\\\/\+^])/g, '\\\\$1') + "=([^;]*)"
+                ));
+                return matches ? decodeURIComponent(matches[1]) : undefined;
+            }
+            
+            document.getElementById('changeForm').onsubmit = async (e) => {
+                e.preventDefault();
+                const old_password = document.getElementById('old_password').value;
+                const new_password = document.getElementById('new_password').value;
+                const token = getCookie('csrf_token');
+                
+                const res = await fetch('/api/auth/change-password', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': token
+                    },
+                    body: JSON.stringify({ old_password, new_password })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    alert('Password changed successfully. Please log in again.');
+                    window.location.href = '/auth/logout';
+                } else {
+                    document.getElementById('msg').innerText = data.error || 'An error occurred';
+                }
+            };
+        </script>
+    </body>
+    </html>
+    '''
+
+
+@auth_bp.route('/api/auth/change-password', methods=['POST'])
+def change_password():
+    """Change password for the authenticated user, clearing the force_password_change flag."""
+    if not hasattr(g, 'user') or g.user is None:
+        return jsonify({'error': 'Authentication required'}), 401
+        
+    data = request.get_json() or {}
+    old_password = data.get('old_password')
+    new_password = data.get('new_password')
+    
+    if not old_password or not new_password:
+        return jsonify({'error': 'Old and new passwords are required'}), 400
+        
+    from flask import current_app
+    auth_db = current_app.config['AUTH_DB_PATH']
+    
+    # Fetch latest user details (including password_hash)
+    conn = get_auth_db_connection(auth_db)
+    cursor = conn.cursor()
+    cursor.execute("SELECT password_hash FROM users WHERE id = ?", (g.user['id'],))
+    row = cursor.fetchone()
+    
+    if not row or not verify_password(old_password, row['password_hash']):
+        conn.close()
+        return jsonify({'error': 'Invalid old password'}), 400
+        
+    # Validate new password complexity
+    pwd_valid, pwd_errors = validate_password_complexity(new_password)
+    if not pwd_valid:
+        conn.close()
+        return jsonify({'error': '; '.join(pwd_errors)}), 400
+        
+    # Hash and save new password
+    new_hash = hash_password(new_password)
+    cursor.execute(
+        "UPDATE users SET password_hash = ?, force_password_change = 0, password_changed_at = CURRENT_TIMESTAMP WHERE id = ?",
+        (new_hash, g.user['id'])
+    )
+    conn.commit()
+    conn.close()
+    
+    logger.info(f"🔑 Password successfully changed for user ID: {g.user['id']}")
+    return jsonify({'success': True, 'message': 'Password changed successfully.'})
 
 
 # ═══════════════════════════════════════════════════════

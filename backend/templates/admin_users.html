@@ -50,7 +50,9 @@
                                 class="text-sm border border-slate-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                                 <option value="viewer">Viewer (Read-Only)</option>
                                 <option value="operator">Operator</option>
+                                {% if current_user and current_user.role == 'super_admin' %}
                                 <option value="company_admin">Company Admin</option>
+                                {% endif %}
                             </select>
                             <button @click="approveUser(user)"
                                 class="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium rounded-lg transition shadow-sm hover:shadow-md flex items-center gap-1.5">

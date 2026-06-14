@@ -1,0 +1,210 @@
+{
+  "chemical_groups": {
+    "8": [
+      19
+    ],
+    "667": [
+      4
+    ],
+    "1516": [
+      10,
+      44
+    ],
+    "2434": [
+      61,
+      100
+    ],
+    "3874": [
+      4
+    ]
+  },
+  "inventory": [
+    {
+      "cas_number": "67-64-1",
+      "chemical_id": 8,
+      "chemical_name": "ACETONE",
+      "id": 1,
+      "placement_id": 1,
+      "quantity_kg": 1000.0,
+      "reactive_groups": [
+        19
+      ],
+      "status": "placed"
+    },
+    {
+      "cas_number": "67-64-1",
+      "chemical_id": 8,
+      "chemical_name": "ACETONE",
+      "id": 2,
+      "placement_id": 2,
+      "quantity_kg": 10.0,
+      "reactive_groups": [
+        19
+      ],
+      "status": "placed"
+    },
+    {
+      "cas_number": "64-17-5",
+      "chemical_id": 667,
+      "chemical_name": "ETHANOL",
+      "id": 3,
+      "placement_id": 3,
+      "quantity_kg": 20.0,
+      "reactive_groups": [
+        4
+      ],
+      "status": "placed"
+    },
+    {
+      "cas_number": "67-56-1",
+      "chemical_id": 3874,
+      "chemical_name": "METHANOL",
+      "id": 4,
+      "placement_id": 4,
+      "quantity_kg": 15.0,
+      "reactive_groups": [
+        4
+      ],
+      "status": "placed"
+    },
+    {
+      "cas_number": "1336-21-6",
+      "chemical_id": 2434,
+      "chemical_name": "AMMONIUM HYDROXIDE",
+      "id": 6,
+      "placement_id": 6,
+      "quantity_kg": 10.0,
+      "reactive_groups": [
+        61,
+        100
+      ],
+      "status": "placed"
+    }
+  ],
+  "reactive_rules": {
+    "100|10": "I-C",
+    "100|100": "C",
+    "100|19": "C",
+    "100|4": "C",
+    "100|44": "I",
+    "100|61": "I-C",
+    "10|10": "C",
+    "10|100": "I-C",
+    "10|19": "I",
+    "10|4": "I",
+    "10|44": "I",
+    "10|61": "C",
+    "19|10": "I",
+    "19|100": "C",
+    "19|19": "C",
+    "19|4": "I-C",
+    "19|44": "I",
+    "19|61": "C",
+    "44|10": "I",
+    "44|100": "I",
+    "44|19": "I",
+    "44|4": "I",
+    "44|44": "C",
+    "44|61": "I",
+    "4|10": "I",
+    "4|100": "C",
+    "4|19": "I-C",
+    "4|4": "C",
+    "4|44": "I",
+    "4|61": "C",
+    "61|10": "C",
+    "61|100": "I-C",
+    "61|19": "C",
+    "61|4": "C",
+    "61|44": "I",
+    "61|61": "C"
+  },
+  "sections": [
+    {
+      "chemicals": [
+        {
+          "cas_number": "1313-60-6",
+          "chemical_id": 1516,
+          "chemical_name": "SODIUM PEROXIDE",
+          "id": 5,
+          "placement_id": 5,
+          "quantity_kg": 5.0,
+          "reactive_groups": [
+            10,
+            44
+          ],
+          "status": "placed"
+        }
+      ],
+      "color": "slate",
+      "id": 5,
+      "name": "Section 1",
+      "position_index": 0
+    },
+    {
+      "chemicals": [],
+      "color": "slate",
+      "id": 6,
+      "name": "Section 2",
+      "position_index": 1
+    },
+    {
+      "chemicals": [],
+      "color": "slate",
+      "id": 7,
+      "name": "Section 3",
+      "position_index": 2
+    },
+    {
+      "chemicals": [],
+      "color": "slate",
+      "id": 8,
+      "name": "Section 4",
+      "position_index": 3
+    },
+    {
+      "chemicals": [],
+      "color": "slate",
+      "id": 9,
+      "name": "Section 5",
+      "position_index": 4
+    },
+    {
+      "chemicals": [],
+      "color": "slate",
+      "id": 10,
+      "name": "Section 6",
+      "position_index": 5
+    },
+    {
+      "chemicals": [],
+      "color": "slate",
+      "id": 11,
+      "name": "Section 7",
+      "position_index": 6
+    },
+    {
+      "chemicals": [],
+      "color": "slate",
+      "id": 12,
+      "name": "Section 8",
+      "position_index": 7
+    },
+    {
+      "chemicals": [],
+      "color": "slate",
+      "id": 13,
+      "name": "Section 9",
+      "position_index": 8
+    },
+    {
+      "chemicals": [],
+      "color": "slate",
+      "id": 14,
+      "name": "Section 10",
+      "position_index": 9
+    }
+  ],
+  "success": true,
+  "warehouse_id": 2
+}

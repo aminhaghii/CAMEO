@@ -708,12 +708,20 @@ def matrix_data():
                 return jsonify({'chemicals': [], 'matrix': [], 'total': 0})
             placeholders = ','.join('?' * len(id_list))
             cursor.execute(
-                f"SELECT id, name, formula, cas_number FROM chemicals WHERE id IN ({placeholders})",
+                f"""
+                SELECT c.id, c.name, c.formulas AS formula,
+                       (SELECT cas_id FROM chemical_cas WHERE chem_id = c.id ORDER BY sort LIMIT 1) AS cas_number
+                FROM chemicals c WHERE c.id IN ({placeholders})
+                """,
                 id_list
             )
         else:
             cursor.execute(
-                "SELECT id, name, formula, cas_number FROM chemicals LIMIT ?", (limit,)
+                """
+                SELECT c.id, c.name, c.formulas AS formula,
+                       (SELECT cas_id FROM chemical_cas WHERE chem_id = c.id ORDER BY sort LIMIT 1) AS cas_number
+                FROM chemicals c LIMIT ?
+                """, (limit,)
             )
 
         chemicals = [dict(r) for r in cursor.fetchall()]
@@ -822,7 +830,7 @@ def get_warehouses():
                     json_extract(cleaned_data, '$.location') as location,
                     COUNT(*) as chemical_count,
                     SUM(CASE WHEN match_status = 'MATCHED' THEN 1 ELSE 0 END) as matched,
-                    MAX(created_at) as last_updated
+                    MAX(rowid) as last_rowid
                 FROM inventory_staging
                 WHERE json_extract(cleaned_data, '$.location') IS NOT NULL
                   AND json_extract(cleaned_data, '$.location') != ''
@@ -845,7 +853,7 @@ def get_warehouses():
                     'matched': matched,
                     'safety_pct': safety_pct,
                     'status': 'safe' if safety_pct > 80 else ('warning' if safety_pct > 50 else 'danger'),
-                    'last_updated': r['last_updated'] or 'N/A',
+                    'last_updated': 'N/A',
                 })
 
             if warehouses:
@@ -872,20 +880,28 @@ def get_activity_logs():
             try:
                 cursor.execute("""
                     SELECT at.timestamp, at.action, at.method,
-                           ib.filename, at.confidence, at.batch_id
+                           ib.filename, at.confidence, at.batch_id, at.user_id
                     FROM audit_trail at
                     LEFT JOIN inventory_batches ib ON at.batch_id = ib.id
+                    WHERE (at.is_deleted IS NULL OR at.is_deleted = 0)
                     ORDER BY at.timestamp DESC
                     LIMIT 50
                 """)
                 for row in cursor.fetchall():
+                    uid = row['user_id'] if 'user_id' in row.keys() else None
+                    if uid and uid not in ('human', 'system', None, ''):
+                        actor = str(uid)
+                    elif uid == 'human':
+                        actor = 'Operator'
+                    else:
+                        actor = 'System'
                     logs.append({
                         'id': len(logs) + 1,
                         'type': row['action'] or 'unknown',
                         'title': _log_title(row['action'], row['filename']),
                         'detail': f"Method: {row['method'] or 'N/A'} | Confidence: {int((row['confidence'] or 0)*100)}%",
                         'timestamp': row['timestamp'] or '',
-                        'user': 'Admin',
+                        'user': actor,
                         'category': _log_category(row['action']),
                     })
             except Exception:
@@ -894,7 +910,7 @@ def get_activity_logs():
             # Get batch events
             try:
                 cursor.execute("""
-                    SELECT id, filename, status, created_at, total_rows, matched_rows
+                    SELECT id, filename, status, created_at, total_rows, processed
                     FROM inventory_batches
                     ORDER BY created_at DESC
                     LIMIT 20
@@ -904,9 +920,9 @@ def get_activity_logs():
                         'id': len(logs) + 1,
                         'type': 'upload',
                         'title': f"File uploaded: {row['filename'] or 'unknown'}",
-                        'detail': f"Status: {row['status']} | {row['matched_rows'] or 0}/{row['total_rows'] or 0} rows matched",
+                        'detail': f"Status: {row['status']} | {row['processed'] or 0}/{row['total_rows'] or 0} rows processed",
                         'timestamp': row['created_at'] or '',
-                        'user': 'Admin',
+                        'user': 'System',
                         'category': 'import',
                     })
             except Exception:

@@ -197,6 +197,12 @@
                             <span x-text="suggestedLayoutRecommendation.message"></span>
                         </div>
                     </template>
+                    <template x-if="requiresAdminOverride">
+                        <div class="mt-2 text-xs font-bold text-amber-900 bg-amber-50 border border-amber-300 rounded-lg p-2.5 flex items-center gap-2">
+                            <span class="p-1 bg-amber-100 rounded-md text-amber-700">⚠️ Admin Override Required</span>
+                            <span x-text="`${cautionSections} section(s) contain CAUTION chemical pairs. Only administrators can save this layout.`"></span>
+                        </div>
+                    </template>
                 </div>
             </div>
             <div class="flex items-center gap-2">
@@ -496,6 +502,8 @@
             suggestedLayout: null,
             suggestedScore: 100,
             suggestedLayoutRecommendation: null,
+            requiresAdminOverride: false,
+            cautionSections: 0,
 
             get activePool() {
                 const allWarehousePlacements = [...this.inventory, ...this.sections.flatMap(s => s.chemicals)];
@@ -750,6 +758,21 @@
                 const chemicals = this.getMergedPlacements(sec);
                 if (!chemicals || chemicals.length === 0) return 'COMPATIBLE';
                 
+                // Check water-reactive vs water-containing (group 104) conflict
+                const itemIsWR = item.water_reactive || false;
+                const itemHasWater = (item.reactive_groups || []).includes(104);
+
+                for (const existing of chemicals) {
+                    if (existing.id === item.id) continue;
+                    
+                    const existingIsWR = existing.water_reactive || false;
+                    const existingHasWater = (existing.reactive_groups || []).includes(104);
+                    
+                    if ((itemIsWR && existingHasWater) || (existingIsWR && itemHasWater)) {
+                        return 'INCOMPATIBLE';
+                    }
+                }
+                
                 const draggedGroups = item.reactive_groups || [];
                 if (!draggedGroups || draggedGroups.length === 0) return 'NO_DATA';
                 
@@ -899,6 +922,8 @@
                         this.suggestedLayout = data.suggested_layout;
                         this.suggestedScore = data.confidence_score;
                         this.suggestedLayoutRecommendation = data.recommendation;
+                        this.requiresAdminOverride = data.requires_admin_override || false;
+                        this.cautionSections = data.caution_sections || 0;
                     } else {
                         alert(data.error || 'Failed to calculate Auto-Arrange');
                     }

@@ -52,7 +52,6 @@ logger = logging.getLogger(__name__)
 # ═══════════════════════════════════════════════════════
 INDUSTRIAL_SYNONYMS = {
     # Common trade/short names → canonical CAMEO DB names
-    'alcohol': 'ethanol',
     'ethyl alcohol': 'ethanol',
     'spirit': 'ethanol',
     'spirits': 'ethanol',
@@ -77,15 +76,12 @@ INDUSTRIAL_SYNONYMS = {
     'quicklime': 'calcium oxide',
     'slaked lime': 'calcium hydroxide',
     'chalk': 'calcium carbonate',
-    'table salt': 'sodium chloride',
-    'salt': 'sodium chloride',
     'epsom salt': 'magnesium sulfate',
     'epsom salts': 'magnesium sulfate',
     'glycerine': 'glycerol',
     'glycerin': 'glycerol',
     'formalin': 'formaldehyde',
     'bleach': 'sodium hypochlorite',
-    'peroxide': 'hydrogen peroxide',
     'acetaldehyde': 'acetaldehyde',
     'wood alcohol': 'methanol',
     'methyl alcohol': 'methanol',

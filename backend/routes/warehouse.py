@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify, current_app, g
 
 from logic.reactivity_engine import ReactivityEngine
-from logic.constants import Compatibility, COMPATIBILITY_MAP
+from logic.constants import Compatibility, COMPATIBILITY_MAP, WATER_GROUP_ID
 from auth.decorators import login_required, csrf_protect, viewer_readonly
 from db_utils import get_safe_connection
 
@@ -19,6 +19,10 @@ SECTION_BLOCKING_COMPATIBILITIES = {
     Compatibility.INCOMPATIBLE,
     Compatibility.CAUTION,
     Compatibility.NO_DATA,
+}
+
+SECTION_CONFLICT_COMPATIBILITIES = {
+    Compatibility.INCOMPATIBLE,
 }
 
 def _get_db_path():
@@ -125,17 +129,17 @@ def _validate_layout_update(conn, updates: dict, actor_role: str):
     for section_id, occupants in final_by_section.items():
         if len(occupants) < 2:
             continue
+        # Double check all pairs using the precise section conflict rules (including water reactivity)
+        for i, p_a in enumerate(occupants):
+            for p_b in occupants[i + 1:]:
+                if _is_section_conflict(engine, p_a, p_b):
+                    return False, 409, {
+                        'error': f"Safety Block: Incompatible chemicals in section ({p_a['chemical_name']} & {p_b['chemical_name']})",
+                        'code': 'INCOMPATIBLE'
+                    }
+
         chem_ids = [row['chemical_id'] for row in occupants]
         analysis = engine.analyze(chem_ids, include_water_check=True, save_audit=False)
-        if analysis.overall_compatibility == Compatibility.INCOMPATIBLE:
-            critical_desc = "; ".join(
-                f"{pair['chemicals'][0]} & {pair['chemicals'][1]}"
-                for pair in analysis.critical_pairs
-            )
-            return False, 409, {
-                'error': f"Safety Block: Incompatible chemicals in section ({critical_desc})",
-                'code': 'INCOMPATIBLE'
-            }
         if analysis.overall_compatibility in (Compatibility.CAUTION, Compatibility.NO_DATA):
             caution_sections.append(section_id)
 
@@ -240,6 +244,8 @@ def get_warehouse_data():
             chem_groups_map[chem_id] = groups
             all_unique_groups.update(groups)
             
+            is_wr = _is_water_reactive(chem_id, current_app.config['CHEMICALS_DB_PATH'])
+            
             placement_obj = {
                 'id': p['id'],
                 'placement_id': p['id'],
@@ -248,6 +254,7 @@ def get_warehouse_data():
                 'cas_number': p['cas_number'],
                 'quantity_kg': p['quantity_kg'],
                 'reactive_groups': groups,
+                'water_reactive': is_wr,
                 'status': p['status']
             }
             
@@ -587,11 +594,21 @@ def add_from_batch():
             
         # Fetch matching rows from staging
         cursor.execute(
-            "SELECT chemical_id, cleaned_data FROM inventory_staging WHERE batch_id = ? AND match_status = 'MATCHED'",
+            "SELECT id, chemical_id, cleaned_data FROM inventory_staging WHERE batch_id = ? AND match_status = 'MATCHED'",
             (batch_id,)
         )
         rows = cursor.fetchall()
-        
+
+        # Count total and skipped rows for reporting
+        cursor.execute(
+            "SELECT COUNT(*) as total, SUM(CASE WHEN match_status = 'MATCHED' THEN 1 ELSE 0 END) as matched FROM inventory_staging WHERE batch_id = ?",
+            (batch_id,)
+        )
+        count_row = cursor.fetchone()
+        total_rows = count_row['total'] if count_row else 0
+        matched_rows = count_row['matched'] if count_row else 0
+        skipped_count = total_rows - matched_rows
+
         if not rows:
             conn.close()
             return jsonify({'error': 'No matched chemicals found in this batch'}), 400
@@ -613,25 +630,47 @@ def add_from_batch():
             unit_str = cleaned.get('unit', 'kg').lower()
             
             # Parse quantity to kg
+            CONTAINER_KG = {
+                'drum': 200, 'drums': 200,
+                'cylinder': 50, 'cylinders': 50,
+                'bottle': 2, 'bottles': 2,
+                'jug': 4, 'jugs': 4,
+                'container': 10, 'containers': 10,
+                'tank': 500, 'tanks': 500,
+                'pail': 20, 'pails': 20,
+                'bag': 25, 'bags': 25,
+                'sack': 50, 'sacks': 50,
+                'tote': 1000, 'totes': 1000,
+                'keg': 60, 'kegs': 60,
+            }
             try:
                 qty = float(qty_str)
                 if unit_str in ('g', 'grams', 'gr'):
                     qty /= 1000.0
                 elif unit_str in ('lb', 'lbs', 'pounds'):
                     qty *= 0.453592
-            except Exception:
-                qty = 1.0
+                elif unit_str in ('oz', 'ounces'):
+                    qty *= 0.0283495
+                elif unit_str in ('ton', 'tons'):
+                    qty *= 907.185
+                elif unit_str in ('mt', 'metric ton', 'metric tons', 'tonnes'):
+                    qty *= 1000.0
+                elif unit_str in CONTAINER_KG:
+                    qty *= CONTAINER_KG[unit_str]
+            except (ValueError, TypeError):
+                qty = None
                 
             groups = _get_chem_groups(chem_id)
             groups_json = json.dumps(groups)
             
-            # Check if this chemical (with same batch and name) already exists in warehouse to prevent duplicates
+            staging_row_id = r['id']
+            # Check if this staging row already exists in warehouse to prevent duplicates
             cursor.execute(
-                "SELECT id FROM chemical_placements WHERE chemical_id = ? AND placed_by = ? AND warehouse_id = ?",
-                (chem_id, f"import:{batch_id}", warehouse_id)
+                "SELECT id FROM chemical_placements WHERE placed_by = ? AND warehouse_id = ?",
+                (f"import:{batch_id}:{staging_row_id}", warehouse_id)
             )
             if cursor.fetchone():
-                continue # Skip duplicates from same batch import
+                continue # Skip duplicate import of this staging row
                 
             cursor.execute(
                 """
@@ -639,7 +678,7 @@ def add_from_batch():
                     (warehouse_id, section_id, chemical_id, chemical_name, cas_number, quantity_kg, reactive_groups, status, placed_by)
                 VALUES (?, NULL, ?, ?, ?, ?, ?, 'placed', ?)
                 """,
-                (warehouse_id, chem_id, chem_name, cas_number, qty, groups_json, f"import:{batch_id}")
+                (warehouse_id, chem_id, chem_name, cas_number, qty, groups_json, f"import:{batch_id}:{staging_row_id}")
             )
             imported_count += 1
             
@@ -665,7 +704,10 @@ def add_from_batch():
         return jsonify({
             'success': True, 
             'warehouse_id': warehouse_id,
+            'imported_count': imported_count,
+            'skipped_count': skipped_count,
             'message': f'Successfully imported {imported_count} chemicals to the warehouse pool.'
+                       + (f' {skipped_count} rows skipped (not yet matched).' if skipped_count > 0 else '')
         })
     except Exception as e:
         logger.error(f"Import batch to warehouse failed: {e}", exc_info=True)
@@ -681,7 +723,13 @@ def add_from_batch():
         return jsonify({'error': 'Internal server error'}), 500
 
 def _groups_for_placement(placement):
-    groups = placement.get('reactive_groups') or []
+    if hasattr(placement, 'get'):
+        groups = placement.get('reactive_groups') or []
+    else:
+        try:
+            groups = placement['reactive_groups'] or []
+        except (KeyError, TypeError, IndexError):
+            groups = []
     if isinstance(groups, str):
         try:
             groups = json.loads(groups)
@@ -692,6 +740,28 @@ def _groups_for_placement(placement):
     except (TypeError, ValueError):
         return []
 
+def _is_water_reactive(chemical_id, chemicals_db_path):
+    """Check if a chemical has a water-reactive self-hazard in special_hazards."""
+    try:
+        conn = get_safe_connection(chemicals_db_path, readonly=True)
+        cur = conn.cursor()
+        cur.execute("SELECT special_hazards FROM chemicals WHERE id = ?", (chemical_id,))
+        row = cur.fetchone()
+        conn.close()
+        if row and row['special_hazards']:
+            special = row['special_hazards'].lower()
+            return 'water reactive' in special or 'water-reactive' in special
+    except Exception:
+        pass
+    return False
+
+
+def _has_water_group(placement):
+    """Check if a chemical belongs to the Water reactive group (104)."""
+    groups = _groups_for_placement(placement)
+    return WATER_GROUP_ID in groups
+
+
 def _is_section_conflict(engine, placement_a, placement_b):
     pair_res = engine._analyze_pair(
         placement_a['chemical_id'],
@@ -701,7 +771,21 @@ def _is_section_conflict(engine, placement_a, placement_b):
         _groups_for_placement(placement_a),
         _groups_for_placement(placement_b),
     )
-    return pair_res.compatibility in SECTION_BLOCKING_COMPATIBILITIES
+    if pair_res.compatibility in SECTION_CONFLICT_COMPATIBILITIES:
+        return True
+
+    # Water-reactive self-hazard check:
+    # If one chemical is water-reactive AND the other has water group, block.
+    chemicals_db = current_app.config['CHEMICALS_DB_PATH']
+    a_water_reactive = _is_water_reactive(placement_a['chemical_id'], chemicals_db)
+    b_water_reactive = _is_water_reactive(placement_b['chemical_id'], chemicals_db)
+    a_has_water = _has_water_group(placement_a)
+    b_has_water = _has_water_group(placement_b)
+
+    if (a_water_reactive and b_has_water) or (b_water_reactive and a_has_water):
+        return True
+
+    return False
 
 def _build_conflict_graph(placements, engine):
     """Build a graph where edges mean two placements must not share a section."""
@@ -811,8 +895,9 @@ def _run_matrix_placement(sections, placements, engine):
     """
     Place chemicals by solving a conflict graph.
 
-    A conflict edge means two chemicals must not share a section under the
-    warehouse fail-safe policy: INCOMPATIBLE, CAUTION, and NO_DATA are separated.
+    A conflict edge means two chemicals must not share a section.
+    Only INCOMPATIBLE pairs create conflict edges.
+    CAUTION/NO_DATA pairs are allowed together (user override available via validation).
     """
     adjacency, _ = _build_conflict_graph(placements, engine)
     exact_result = _run_exact_coloring(sections, placements, adjacency)
@@ -972,7 +1057,8 @@ def auto_arrange():
         hazard_free_sections = total_sections
         caution_sections_count = 0
         incompatible_sections_count = 0
-        
+        requires_admin_override = False
+
         # Pre-load DB rules inside reactivity engine for caching performance (A-1/A-4)
         for section_id, occupants in final_by_section.items():
             if len(occupants) < 2:
@@ -985,6 +1071,7 @@ def auto_arrange():
             elif analysis.overall_compatibility in (Compatibility.CAUTION, Compatibility.NO_DATA):
                 caution_sections_count += 1
                 hazard_free_sections -= 1
+                requires_admin_override = True
                 
         safety_score = 100
         if total_sections > 0:
@@ -998,6 +1085,8 @@ def auto_arrange():
             'unplaced': [p['placement_id'] for p in unplaced],
             'safety_score': safety_score,
             'confidence_score': safety_score,
+            'requires_admin_override': requires_admin_override,
+            'caution_sections': caution_sections_count,
             'warnings': warnings,
             'recommendation': recommendation,
             'exact_complete': exact_complete,

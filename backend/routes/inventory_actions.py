@@ -57,6 +57,207 @@ def _fetch_chemical(chemical_id: int):
     return chem
 
 
+def _propagate_to_warehouse(cursor, batch_id, old_chemical_id, new_chemical_id, chem, staging_id=None):
+    """Update chemical_placements if this batch was already imported to warehouse.
+    Called after staging edits that change chemical identity.
+    old_chemical_id MUST be captured BEFORE the staging update."""
+    if not chem:
+        return
+
+    chemicals_db = current_app.config['CHEMICALS_DB_PATH']
+
+    # Get new chemical info from CAMEO DB
+    conn_chem = get_safe_connection(chemicals_db, readonly=True)
+    cur = conn_chem.cursor()
+    cur.execute("SELECT name FROM chemicals WHERE id = ?", (new_chemical_id,))
+    name_row = cur.fetchone()
+    chem_name = name_row['name'] if name_row else chem.get('name', '')
+
+    cur.execute("SELECT cas_id FROM chemical_cas WHERE chem_id = ? ORDER BY sort LIMIT 1", (new_chemical_id,))
+    cas_row = cur.fetchone()
+    cas_number = cas_row['cas_id'] if cas_row else ''
+    conn_chem.close()
+
+    # Get reactive groups for new chemical
+    conn_g = get_safe_connection(chemicals_db, readonly=True)
+    cur_g = conn_g.cursor()
+    cur_g.execute("SELECT react_id FROM mm_chemical_react WHERE chem_id = ?", (new_chemical_id,))
+    groups = [r[0] for r in cur_g.fetchall()]
+    conn_g.close()
+    groups_json = json.dumps(groups)
+
+    import_tag = f"import:{batch_id}"
+
+    # If old_chemical_id is None, it means the chemical was previously unmatched.
+    # If the batch was already imported, we must INSERT a new placement for it.
+    if old_chemical_id is None:
+        cursor.execute(
+            "SELECT DISTINCT warehouse_id FROM chemical_placements WHERE placed_by = ? OR placed_by LIKE ?",
+            (import_tag, f"import:{batch_id}:%")
+        )
+        imported_warehouses = [r[0] for r in cursor.fetchall()]
+        if not imported_warehouses:
+            return
+
+        # Fetch quantity, unit, etc. from inventory_staging
+        if staging_id:
+            cursor.execute(
+                "SELECT cleaned_data FROM inventory_staging WHERE id = ?",
+                (staging_id,)
+            )
+        else:
+            cursor.execute(
+                "SELECT id, cleaned_data FROM inventory_staging WHERE batch_id = ? AND chemical_id = ? LIMIT 1",
+                (batch_id, new_chemical_id)
+            )
+        st_row = cursor.fetchone()
+        
+        # Determine staging_id if not passed
+        if st_row and staging_id is None:
+            try:
+                staging_id = st_row['id']
+            except (TypeError, KeyError, IndexError):
+                staging_id = st_row[0]
+
+        qty = None
+        if st_row and st_row['cleaned_data']:
+            try:
+                cleaned_data = json.loads(st_row['cleaned_data'])
+                qty_str = cleaned_data.get('quantity', '1.0')
+                unit_str = cleaned_data.get('unit', 'kg').lower()
+                
+                CONTAINER_KG = {
+                    'drum': 200, 'drums': 200,
+                    'cylinder': 50, 'cylinders': 50,
+                    'bottle': 2, 'bottles': 2,
+                    'jug': 4, 'jugs': 4,
+                    'container': 10, 'containers': 10,
+                    'tank': 500, 'tanks': 500,
+                    'pail': 20, 'pails': 20,
+                    'bag': 25, 'bags': 25,
+                    'sack': 50, 'sacks': 50,
+                    'tote': 1000, 'totes': 1000,
+                    'keg': 60, 'kegs': 60,
+                }
+                qty = float(qty_str)
+                if unit_str in ('g', 'grams', 'gr'):
+                    qty /= 1000.0
+                elif unit_str in ('lb', 'lbs', 'pounds'):
+                    qty *= 0.453592
+                elif unit_str in ('oz', 'ounces'):
+                    qty *= 0.0283495
+                elif unit_str in ('ton', 'tons'):
+                    qty *= 907.185
+                elif unit_str in ('mt', 'metric ton', 'metric tons', 'tonnes'):
+                    qty *= 1000.0
+                elif unit_str in CONTAINER_KG:
+                    qty *= CONTAINER_KG[unit_str]
+            except Exception:
+                qty = None
+
+        for wh_id in imported_warehouses:
+            # Check if it already exists to prevent duplicate insertion
+            tag = f"import:{batch_id}:{staging_id}" if staging_id else import_tag
+            cursor.execute(
+                "SELECT id FROM chemical_placements WHERE placed_by = ? AND warehouse_id = ?",
+                (tag, wh_id)
+            )
+            if cursor.fetchone():
+                continue
+            
+            cursor.execute(
+                """INSERT INTO chemical_placements 
+                    (warehouse_id, section_id, chemical_id, chemical_name, cas_number, quantity_kg, reactive_groups, status, placed_by)
+                   VALUES (?, NULL, ?, ?, ?, ?, ?, 'placed', ?)""",
+                (wh_id, new_chemical_id, chem_name, cas_number, qty, groups_json, tag)
+            )
+            logger.info(
+                "Added new placement to warehouse %d: %s (%s kg, batch=%s)",
+                wh_id, chem_name, qty, batch_id[:8]
+            )
+        return
+
+    # If old == new, nothing to propagate
+    if old_chemical_id == new_chemical_id:
+        return
+
+    # Update warehouse placements imported from this batch with the old chemical_id
+    if staging_id:
+        cursor.execute(
+            """UPDATE chemical_placements
+               SET chemical_id = ?, chemical_name = ?, cas_number = ?, reactive_groups = ?
+               WHERE placed_by = ?""",
+            (new_chemical_id, chem_name, cas_number, groups_json, f"import:{batch_id}:{staging_id}")
+        )
+    else:
+        cursor.execute(
+            """UPDATE chemical_placements
+               SET chemical_id = ?, chemical_name = ?, cas_number = ?, reactive_groups = ?
+               WHERE chemical_id = ? AND (placed_by = ? OR placed_by LIKE ?)""",
+            (new_chemical_id, chem_name, cas_number, groups_json, old_chemical_id, import_tag, f"import:{batch_id}:%")
+        )
+    if cursor.rowcount > 0:
+        logger.info(
+            "Propagated chemical change to warehouse: %d placement(s) updated "
+            "(old_id=%s -> new_id=%s, batch=%s)",
+            cursor.rowcount, old_chemical_id, new_chemical_id, batch_id[:8]
+        )
+
+
+def _propagate_quantity_to_warehouse(cursor, batch_id, staging_id, new_quantity, new_unit):
+    """Update quantity_kg in chemical_placements when inventory quantity changes."""
+    if new_quantity is None:
+        return
+
+    import_tag = f"import:{batch_id}"
+
+    # Get the chemical_id from the staging row
+    cursor.execute("SELECT chemical_id FROM inventory_staging WHERE id = ?", (staging_id,))
+    staging_row = cursor.fetchone()
+    if not staging_row or not staging_row['chemical_id']:
+        return
+
+    chem_id = staging_row['chemical_id']
+
+    # Convert quantity to kg (same logic as add_from_batch)
+    CONTAINER_KG = {
+        'drum': 200, 'drums': 200, 'cylinder': 50, 'cylinders': 50,
+        'bottle': 2, 'bottles': 2, 'jug': 4, 'jugs': 4,
+        'container': 10, 'containers': 10, 'tank': 500, 'tanks': 500,
+        'pail': 20, 'pails': 20, 'bag': 25, 'bags': 25,
+        'sack': 50, 'sacks': 50, 'tote': 1000, 'totes': 1000,
+        'keg': 60, 'kegs': 60,
+    }
+    try:
+        qty = float(new_quantity)
+        unit_lower = (new_unit or '').lower()
+        if unit_lower in ('g', 'grams', 'gr'):
+            qty /= 1000.0
+        elif unit_lower in ('lb', 'lbs', 'pounds'):
+            qty *= 0.453592
+        elif unit_lower in CONTAINER_KG:
+            qty *= CONTAINER_KG[unit_lower]
+    except (ValueError, TypeError):
+        qty = None
+
+    if qty is None:
+        return
+
+    # Update warehouse placements
+    cursor.execute(
+        """UPDATE chemical_placements
+           SET quantity_kg = ?
+           WHERE chemical_id = ? AND placed_by = ?""",
+        (qty, chem_id, import_tag)
+    )
+    if cursor.rowcount > 0:
+        logger.info(
+            "Propagated quantity change to warehouse: %d placement(s) updated "
+            "(chem_id=%s, qty=%.1f kg, batch=%s)",
+            cursor.rowcount, chem_id, qty, batch_id[:8]
+        )
+
+
 @inventory_actions_bp.route('/api/inventory/edit', methods=['POST'])
 @login_required
 @viewer_readonly
@@ -106,6 +307,9 @@ def edit_inventory_row():
         raw = json.loads(row['raw_data']) if row['raw_data'] else {}
 
         selected_chemical_id = data.get('chemical_id')
+        # Capture OLD chemical_id before any changes
+        old_chem_id = row['chemical_id'] if 'chemical_id' in row.keys() else None
+
         if selected_chemical_id:
             try:
                 selected_chemical_id = int(selected_chemical_id)
@@ -184,6 +388,17 @@ def edit_inventory_row():
         )
 
         conn.commit()
+
+        # ── Propagate to warehouse if batch was already imported ──
+        # Capture old chemical_id BEFORE the staging update was committed
+        if new_chemical_id and new_chemical_id != old_chem_id:
+            _propagate_to_warehouse(cursor, batch_id, old_chem_id, new_chemical_id, chem, staging_id)
+            conn.commit()
+
+        # ── Propagate quantity changes to warehouse ──
+        if quantity not in (None, ''):
+            _propagate_quantity_to_warehouse(cursor, batch_id, staging_id, quantity, unit)
+            conn.commit()
 
         cursor.execute(
             """
@@ -394,6 +609,8 @@ def add_inventory_row():
             "UPDATE inventory_batches SET total_rows = total_rows + 1 WHERE id = ?",
             (batch_id,)
         )
+        # Propagate manually added chemical to warehouse if the batch has already been imported
+        _propagate_to_warehouse(cursor, batch_id, None, chemical_id, chem, staging_id)
         conn.commit()
 
         cursor.execute(

@@ -463,6 +463,17 @@ def classify_material(name: str) -> tuple[str | None, str | None]:
     if 'sugar sphere' in lower or 'sugar spheres' in lower:
         return "Packaging/excipient material (not in CAMEO)", None
 
+    # ── Rule 6: Generic single-word chemical terms ──
+    # These are too vague to match safely — route to REVIEW_REQUIRED
+    _GENERIC_CHEMICAL_TERMS = {
+        'acid', 'salt', 'base', 'solvent', 'oil', 'water',
+        'alcohol', 'ether', 'ester', 'amine', 'ketone',
+        'oxide', 'chloride', 'sulfate', 'carbonate', 'nitrate',
+        'hydroxide', 'peroxide', 'acetate', 'phosphate',
+    }
+    if stripped in _GENERIC_CHEMICAL_TERMS:
+        return f"Generic term '{stripped}' (too vague for safe matching)", None
+
     return None, None
 
 

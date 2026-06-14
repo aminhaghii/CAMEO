@@ -239,7 +239,7 @@
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
-                        <template x-for="(info, rawCol) in (columnMappingResult.column_mapping || {})" :key="rawCol">
+                        <template x-for="(info, rawCol) in (columnMappingResult?.column_mapping || {})" :key="rawCol">
                             <tr>
                                 <td class="px-3 py-2 font-mono text-xs text-slate-700" x-text="rawCol"></td>
                                 <td class="px-3 py-2">
@@ -335,11 +335,11 @@
 
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1">Chemical Name</label>
-                        <input type="text" x-model="editForm.name" class="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-50" readonly>
+                        <input type="text" x-model="editForm.name" class="w-full px-3 py-2 border border-slate-300 rounded-lg">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1">CAS</label>
-                        <input type="text" x-model="editForm.cas" class="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-50" readonly>
+                        <input type="text" x-model="editForm.cas" class="w-full px-3 py-2 border border-slate-300 rounded-lg">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1">Quantity</label>

@@ -1,0 +1,221 @@
+yad {% extends "base.html" %}
+
+{% block title %}Compliance Reports — SAFEWARE{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-slate-950 text-slate-100 p-6">
+
+  <!-- Page Header -->
+  <div class="mb-8">
+    <div class="flex items-center gap-3 mb-2">
+      <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+        <svg class="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+        </svg>
+      </div>
+      <div>
+        <h1 class="text-2xl font-semibold text-white">Compliance Reports</h1>
+        <p class="text-sm text-slate-400">EU REACH / CLP regulatory compliance export</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Grid -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- Export Panel -->
+    <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-6">
+      <h2 class="text-lg font-medium text-white mb-1">Generate Report</h2>
+      <p class="text-sm text-slate-400 mb-6">Export an EU REACH/CLP compliance workbook for your inventory batch or
+        specific CAS numbers.</p>
+
+      <!-- Batch Export -->
+      <div class="mb-8">
+        <h3 class="text-sm font-semibold text-slate-300 uppercase tracking-widest mb-4">Mode 1 — Batch Report (3-Sheet
+          Workbook)</h3>
+        <div id="batch-list" class="space-y-2 mb-4 max-h-48 overflow-y-auto"></div>
+        <div id="batch-empty" class="hidden text-sm text-slate-500 italic py-4 text-center">No completed batches found.
+          Upload and process inventory first.</div>
+        <button id="btn-export-batch" disabled onclick="exportBatch()"
+          class="w-full mt-4 flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed px-4 py-3 text-sm font-semibold text-white transition-all">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+          </svg>
+          Export Selected Batch (.xlsx)
+        </button>
+      </div>
+
+      <div class="border-t border-slate-800 my-6"></div>
+
+      <!-- CAS Export -->
+      <div>
+        <h3 class="text-sm font-semibold text-slate-300 uppercase tracking-widest mb-4">Mode 2 — CAS Number Report</h3>
+        <textarea id="cas-input" rows="4"
+          placeholder="Enter CAS numbers, one per line&#10;Example:&#10;67-64-1&#10;7664-93-9&#10;1310-73-2"
+          class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 resize-none font-mono"></textarea>
+        <button onclick="exportCAS()"
+          class="w-full mt-3 flex items-center justify-center gap-2 rounded-xl bg-sky-600 hover:bg-sky-500 px-4 py-3 text-sm font-semibold text-white transition-all">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+          </svg>
+          Export CAS Report (.xlsx)
+        </button>
+      </div>
+    </div>
+
+    <!-- Info Panel -->
+    <div class="space-y-4">
+      <!-- Info Card -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+        <h3 class="text-sm font-semibold text-white mb-3">About This Report</h3>
+        <ul class="space-y-2 text-sm text-slate-400">
+          <li class="flex gap-2"><span class="text-emerald-400 mt-0.5">✓</span> EU REACH substance registration status
+          </li>
+          <li class="flex gap-2"><span class="text-emerald-400 mt-0.5">✓</span> CLP H-codes and hazard classifications
+          </li>
+          <li class="flex gap-2"><span class="text-emerald-400 mt-0.5">✓</span> SVHC (substances of very high concern)
+          </li>
+          <li class="flex gap-2"><span class="text-emerald-400 mt-0.5">✓</span> EC numbers and regulatory identifiers
+          </li>
+          <li class="flex gap-2"><span class="text-emerald-400 mt-0.5">✓</span> Reactivity matrix (batch mode)</li>
+          <li class="flex gap-2"><span class="text-emerald-400 mt-0.5">✓</span> Full inventory listing (batch mode)</li>
+        </ul>
+      </div>
+
+      <!-- Status Banner -->
+      <div id="status-banner" class="hidden rounded-2xl p-4 text-sm font-medium"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let selectedBatchId = null;
+
+  function getCsrfToken() {
+    const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/);
+    return match ? decodeURIComponent(match[1]) : '';
+  }
+
+  function showStatus(msg, type) {
+    const el = document.getElementById('status-banner');
+    el.className = 'rounded-2xl p-4 text-sm font-medium ' + (
+      type === 'error' ? 'bg-red-900/40 border border-red-700/40 text-red-300' :
+        type === 'success' ? 'bg-emerald-900/40 border border-emerald-700/40 text-emerald-300' :
+          'bg-slate-800 border border-slate-700 text-slate-300'
+    );
+    el.textContent = msg;
+    el.classList.remove('hidden');
+  }
+
+  async function loadBatches() {
+    try {
+      const resp = await fetch('/api/inventory/batches');
+      const data = await resp.json();
+      const batches = (data.batches || []).filter(b => b.status === 'completed');
+      const list = document.getElementById('batch-list');
+      const empty = document.getElementById('batch-empty');
+
+      if (batches.length === 0) {
+        list.classList.add('hidden');
+        empty.classList.remove('hidden');
+        return;
+      }
+
+      list.innerHTML = batches.map(b => `
+        <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-700 hover:border-emerald-500/50 cursor-pointer transition-all group">
+          <input type="radio" name="batch" value="${b.id}" class="accent-emerald-500" onchange="selectBatch('${b.id}')">
+          <div class="min-w-0">
+            <p class="text-sm font-medium text-slate-200 truncate">${b.filename}</p>
+            <p class="text-xs text-slate-500">${b.total_rows || 0} rows · ${b.created_at ? new Date(b.created_at).toLocaleDateString() : 'N/A'}</p>
+          </div>
+        </label>
+      `).join('');
+    } catch (e) {
+      console.error('Failed to load batches:', e);
+    }
+  }
+
+  function selectBatch(id) {
+    selectedBatchId = id;
+    document.getElementById('btn-export-batch').disabled = false;
+  }
+
+  async function exportBatch() {
+    if (!selectedBatchId) return;
+    showStatus('Generating 3-sheet compliance workbook…', 'info');
+    try {
+      const resp = await fetch('/api/compliance/export', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': getCsrfToken()
+        },
+        body: JSON.stringify({ batch_id: selectedBatchId })
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        showStatus('Export failed: ' + (err.error || 'Unknown error'), 'error');
+        return;
+      }
+
+      const blob = await resp.blob();
+      const cd = resp.headers.get('Content-Disposition') || '';
+      const match = cd.match(/filename[^;=\n]*=['"]?([^'";\n]+)['"]?/);
+      const filename = match ? match[1] : 'compliance_report.xlsx';
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; a.click();
+      URL.revokeObjectURL(url);
+      showStatus('Report downloaded: ' + filename, 'success');
+    } catch (e) {
+      showStatus('Network error: ' + e.message, 'error');
+    }
+  }
+
+  async function exportCAS() {
+    const raw = document.getElementById('cas-input').value.trim();
+    if (!raw) { showStatus('Enter at least one CAS number.', 'error'); return; }
+
+    const cas_numbers = raw.split('\n').map(s => s.trim()).filter(Boolean);
+    if (cas_numbers.length === 0) { showStatus('No valid CAS numbers found.', 'error'); return; }
+
+    showStatus(`Generating report for ${cas_numbers.length} CAS number(s)…`, 'info');
+    try {
+      const resp = await fetch('/api/compliance/export', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': getCsrfToken()
+        },
+        body: JSON.stringify({ cas_numbers })
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        showStatus('Export failed: ' + (err.error || 'Unknown error'), 'error');
+        return;
+      }
+
+      const blob = await resp.blob();
+      const cd = resp.headers.get('Content-Disposition') || '';
+      const match = cd.match(/filename[^;=\n]*=['"]?([^'";\n]+)['"]?/);
+      const filename = match ? match[1] : 'compliance_report.xlsx';
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; a.click();
+      URL.revokeObjectURL(url);
+      showStatus('Report downloaded: ' + filename, 'success');
+    } catch (e) {
+      showStatus('Network error: ' + e.message, 'error');
+    }
+  }
+
+  loadBatches();
+</script>
+{% endblock %}

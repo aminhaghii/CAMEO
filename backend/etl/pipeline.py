@@ -196,6 +196,47 @@ def init_inventory_tables(user_db_path: str):
         )
     """)
 
+    # Phase 2: User-managed finalized inventory
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS user_inventories (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            batch_id TEXT NOT NULL,
+            chemical_id INTEGER NOT NULL,
+            quantity TEXT,
+            unit TEXT,
+            storage_location TEXT,
+            notes TEXT,
+            date_added TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_inventories_batch ON user_inventories(batch_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_inventories_chemical ON user_inventories(chemical_id)")
+
+    # Phase 2: Analysis result storage
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS analysis_results (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            batch_id TEXT NOT NULL,
+            analysis_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            total_chemicals INTEGER,
+            dangerous_pairs INTEGER,
+            storage_warnings INTEGER,
+            risk_matrix_json TEXT
+        )
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_analysis_results_batch ON analysis_results(batch_id)")
+
+    # Favorites Table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS favorites (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            chemical_id INTEGER NOT NULL,
+            chemical_name TEXT NOT NULL,
+            cas_number TEXT,
+            added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
     # ── Safe Column Migration for Existing DBs ──
     _safe_add_column(cursor, 'warehouses', 'created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
     _safe_add_column(cursor, 'warehouse_sections', 'warehouse_id', 'INTEGER REFERENCES warehouses(id) ON DELETE CASCADE')

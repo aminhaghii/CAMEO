@@ -243,6 +243,15 @@
                                                 View Details
                                             </a>
                                         </template>
+                                        <template x-if="row.match_status === 'REVIEW_REQUIRED'">
+                                            <button @click.stop="confirmMatch(row); open=false"
+                                                class="flex items-center gap-2 w-full px-4 py-2 text-sm text-emerald-600 hover:bg-emerald-50 transition">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                                </svg>
+                                                Confirm Match
+                                            </button>
+                                        </template>
                                         <hr class="my-1 border-slate-100">
                                         <button @click.stop="deleteRow(row); open=false"
                                             class="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition">
@@ -313,14 +322,12 @@
                 <div class="col-span-2">
                     <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Chemical Name</label>
                     <input type="text" x-model="editForm.name"
-                        class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm bg-slate-50"
-                        readonly>
+                        class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">CAS #</label>
                     <input type="text" x-model="editForm.cas"
-                        class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm bg-slate-50"
-                        readonly>
+                        class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Quantity</label>
@@ -662,6 +669,33 @@
                         await this.loadRows();
                     } else {
                         alert('Failed to delete chemical row.');
+                    }
+                } catch (e) {
+                    console.error(e);
+                }
+            },
+
+            async confirmMatch(row) {
+                // For REVIEW_REQUIRED rows, open edit modal to let user pick the correct chemical
+                // Then call /api/inventory/confirm with the selected chemical_id
+                const chemicalId = prompt(`Confirm chemical for "${row.name}"?\nEnter CAMEO chemical ID (or leave blank to skip):`);
+                if (!chemicalId) return;
+                try {
+                    const res = await fetch('/api/inventory/confirm', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            staging_id: row.staging_id,
+                            chemical_id: parseInt(chemicalId),
+                            chemical_name: row.name
+                        })
+                    });
+                    if (res.ok) {
+                        await this.loadRows();
+                        alert('Match confirmed successfully.');
+                    } else {
+                        const data = await res.json();
+                        alert(data.error || 'Failed to confirm match.');
                     }
                 } catch (e) {
                     console.error(e);

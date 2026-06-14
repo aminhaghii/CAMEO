@@ -62,10 +62,7 @@ def export_compliance_report():
     cas_numbers = data.get("cas_numbers", [])
     custom_title = data.get("title", None)
 
-    db_path = current_app.config.get(
-        "CHEMICALS_DB_PATH",
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "chemicals.db"),
-    )
+    db_path = current_app.config['CHEMICALS_DB_PATH']
 
     try:
         from logic.excel_generator import ComplianceExcelGenerator, query_eu_compliance

@@ -377,7 +377,13 @@ class ReactivityEngine:
             if audit_db_path:
                 conn = get_safe_connection(audit_db_path)
             else:
-                conn = self._get_connection()
+                from flask import has_request_context, g
+                tenant_db = getattr(g, 'tenant_db_path', None) if has_request_context() else None
+                if tenant_db:
+                    conn = get_safe_connection(tenant_db)
+                else:
+                    logger.warning("No writable database for reactivity engine audit logging. Skipping.")
+                    return None
             cursor = conn.cursor()
             
             # Create audit_log table if not exists
@@ -525,10 +531,9 @@ class ReactivityEngine:
                             f"⚠️ {chem_names[chem_a_id]} has special hazards: {', '.join(self_result.hazards)}"
                         )
                         
-                        # Escalate overall compatibility priority for self-hazard
+                        # Escalate overall compatibility priority for self-hazard (at least CAUTION)
                         self_priority = COMPATIBILITY_MAP[Compatibility.CAUTION].priority
-                        if self_priority > overall_max_priority:
-                            overall_max_priority = self_priority
+                        overall_max_priority = max(overall_max_priority, self_priority)
                     else:
                         self_result = PairResult(
                             chem_a_id=chem_a_id,

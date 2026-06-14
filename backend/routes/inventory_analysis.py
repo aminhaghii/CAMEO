@@ -317,6 +317,7 @@ def analyze_inventory():
 
         conn = get_safe_connection(user_db)
         cursor = conn.cursor()
+        cursor.execute("DELETE FROM analysis_results WHERE batch_id = ?", (batch_id,))
         cursor.execute(
             """
             INSERT INTO analysis_results

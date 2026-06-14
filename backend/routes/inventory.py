@@ -14,6 +14,7 @@ from auth.decorators import login_required, csrf_protect, viewer_readonly
 from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify, render_template, current_app, g
 from db_utils import get_safe_connection
+from activity_logger import log_event
 
 from etl.pipeline import (
     init_inventory_tables, create_batch, get_batch_status,
@@ -322,9 +323,22 @@ def delete_inventory_batch(batch_id):
         cursor.execute("UPDATE audit_trail SET is_deleted = 1 WHERE batch_id = ?", (batch_id,))
         cursor.execute("DELETE FROM inventory_staging WHERE batch_id = ?", (batch_id,))
         cursor.execute("DELETE FROM inventory_batches WHERE id = ?", (batch_id,))
-
         conn.commit()
         conn.close()
+ 
+        _uid = g.user.get('id') if (hasattr(g, 'user') and g.user) else None
+        log_event(
+            db_path=user_db,
+            event_type='delete_batch',
+            category='edit',
+            severity='warning',
+            title=f"Batch deleted: {batch_id[:8]}",
+            detail=f"All staging rows and review queue associated with the batch were deleted.",
+            user_id=_uid,
+            entity_type='batch',
+            entity_id=batch_id,
+            meta={'batch_id': batch_id},
+        )
 
         logger.info(f"Deleted inventory batch: {batch_id}")
         return jsonify({'success': True, 'deleted_batch_id': batch_id})
@@ -423,7 +437,24 @@ def upload_inventory():
     # Start pipeline in background thread
     run_async(user_db, chemicals_db, batch_id, filepath)
 
+    # Activity log
+    _uid = g.user.get('id') if (hasattr(g, 'user') and g.user) else None
+    log_event(
+        db_path=user_db,
+        event_type='file_upload',
+        category='import',
+        severity='info',
+        title=f'File uploaded — {file.filename}',
+        detail=f'Batch processing started | Batch: {batch_id[:8]}…',
+        user_id=_uid,
+        entity_type='batch',
+        entity_id=batch_id,
+        entity_name=file.filename,
+        meta={'filename': file.filename, 'batch_id': batch_id},
+    )
+
     return jsonify({'batch_id': batch_id, 'filename': file.filename})
+
 
 
 @inventory_bp.route('/api/inventory/status/<batch_id>')
@@ -615,9 +646,23 @@ def confirm_match():
 
     # Propagate to warehouse if batch was already imported
     _propagate_to_warehouse(cursor, batch_id, old_chemical_id, chemical_id, chem, staging_id)
-
     conn.commit()
     conn.close()
+ 
+    _uid = g.user.get('id') if (hasattr(g, 'user') and g.user) else None
+    log_event(
+        db_path=user_db,
+        event_type='manual_confirm',
+        category='analysis',
+        severity='info',
+        title=f"Chemical match confirmed — {chem['name']}",
+        detail=f"Staging row {staging_id} match confirmed manually to {chem['name']} (ID: {chemical_id})",
+        user_id=_uid,
+        entity_type='chemical',
+        entity_id=str(chemical_id),
+        entity_name=chem['name'],
+        meta={'staging_id': staging_id, 'batch_id': batch_id, 'chemical_id': chemical_id},
+    )
 
     return jsonify({'success': True, 'chemical_name': chem['name']})
 
@@ -888,9 +933,23 @@ def resolve_review():
     """, (batch_id, staging_id, input_data,
           json.dumps({'chemical_id': chemical_id, 'chemical_name': chem['name']}),
           datetime.utcnow().isoformat()))
-
     conn.commit()
     conn.close()
+ 
+    _uid = g.user.get('id') if (hasattr(g, 'user') and g.user) else None
+    log_event(
+        db_path=user_db,
+        event_type='manual_review',
+        category='analysis',
+        severity='info',
+        title=f"Manual review resolved — {chem['name']}",
+        detail=f"Staging row {staging_id} resolved from review queue item {queue_id} to {chem['name']} (ID: {chemical_id})",
+        user_id=_uid,
+        entity_type='chemical',
+        entity_id=str(chemical_id),
+        entity_name=chem['name'],
+        meta={'queue_id': queue_id, 'staging_id': staging_id, 'batch_id': batch_id},
+    )
 
     return jsonify({
         'success': True,

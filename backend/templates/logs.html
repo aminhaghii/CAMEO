@@ -1,315 +1,465 @@
 {% extends "base.html" %}
-{% block title %}Activity Logs - SAFEWARE{% endblock %}
-{% block breadcrumb %}Activity Logs{% endblock %}
+{% block title %}Activity Log — SAFEWARE{% endblock %}
+{% block breadcrumb %}Activity Log{% endblock %}
+
+{% block extra_head %}
+<style>
+  /* ─── Command Center Design System ────────────────────────────────────────── */
+  :root {
+    --bg-base:      #080C14;
+    --bg-panel:     #0E1626;
+    --border-color: #1E293B;
+    --text-primary: #F8FAFC;
+    --text-muted:   #64748B;
+    --c-accent:     #E5FF00; /* Acid Yellow / Safety Lime */
+    --font-mono:    'SF Mono', 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  }
+
+  /* Core resets inside main area container override */
+  .dark-console-container {
+    background-color: var(--bg-base);
+    color: var(--text-primary);
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  /* Monospace helpers */
+  .mono-font {
+    font-family: var(--font-mono);
+  }
+
+  /* Heartbeat dynamic dot animation */
+  @keyframes heartbeat {
+    0% { transform: scale(0.95); opacity: 0.5; }
+    50% { transform: scale(1.15); opacity: 1; }
+    100% { transform: scale(0.95); opacity: 0.5; }
+  }
+  .pulse-indicator {
+    animation: heartbeat 2s infinite ease-in-out;
+  }
+
+  /* Scrollbar custom styling */
+  .custom-scroll::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .custom-scroll::-webkit-scrollbar-track {
+    background: var(--bg-base);
+  }
+  .custom-scroll::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
+  }
+  .custom-scroll::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+  }
+
+  /* ─── Grid layouts ───────────────────────────────────────────────────────── */
+  .log-grid-row {
+    display: grid;
+    grid-template-columns: 140px 90px 110px 1fr 50px;
+    gap: 16px;
+    align-items: center;
+  }
+
+  @media (max-width: 768px) {
+    .log-grid-row {
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+  }
+
+  /* ─── Shimmer effect for skeleton loaders ──────────────────────────────── */
+  @keyframes shimmer-dark {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  .skeleton-shimmer {
+    background: linear-gradient(90deg, #0E1626 25%, #1B2538 50%, #0E1626 75%);
+    background-size: 200% 100%;
+    animation: shimmer-dark 1.5s infinite linear;
+  }
+</style>
+{% endblock %}
 
 {% block content %}
-<div x-data="logsApp()" x-init="init()" class="space-y-6 animate-fade-in">
+<div x-data="logsApp()" x-init="init()" class="dark-console-container min-h-full p-6 -m-6 flex flex-col gap-6">
 
-    <!-- Page Header -->
-    <div class="flex items-center justify-between">
-        <div>
-            <h1 class="text-2xl font-bold text-slate-900">Activity Logs</h1>
-            <p class="text-sm text-slate-500 mt-1">Full audit trail of all system and user events</p>
+  <!-- ── Header & Action ────────────────────────────────────────────────────── -->
+  <div class="flex items-start justify-between border-b border-[#1E293B] pb-4">
+    <div>
+      <div class="flex items-center gap-3">
+        <h1 class="text-xl font-bold tracking-tight text-white uppercase mono-font">
+          SYSTEM_LOG_AUDIT
+        </h1>
+        <div class="px-2 py-0.5 rounded bg-[#112423] border border-[#14532D] text-[#22C55E] text-[10px] font-mono tracking-widest flex items-center gap-1.5">
+          <span class="h-1.5 w-1.5 rounded-full bg-[#22C55E] pulse-indicator"></span>
+          SECURE_OK
         </div>
-        <div class="flex items-center gap-3">
-            <!-- Calendar Date Filter -->
-            <div class="relative" x-data="{ open: false }">
-                <button @click="open = !open"
-                    class="inline-flex items-center gap-2 px-4 py-2 border border-slate-200 rounded-lg bg-white text-sm font-medium text-slate-700 hover:border-slate-300 transition">
-                    <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <span x-text="dateRangeLabel">All Time</span>
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                    </svg>
-                </button>
-                <div x-show="open" @click.away="open = false" x-transition:enter="transition ease-out duration-100"
-                    x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
-                    class="absolute right-0 mt-2 w-44 bg-white rounded-xl shadow-xl border border-slate-100 py-1 z-20"
-                    style="display:none;">
-                    <template x-for="opt in dateOptions" :key="opt.value">
-                        <button @click="setDateRange(opt); open = false"
-                            class="flex items-center w-full px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition"
-                            :class="dateRange === opt.value ? 'font-semibold text-blue-600' : ''">
-                            <span x-text="opt.label"></span>
-                        </button>
-                    </template>
-                </div>
-            </div>
-
-            <!-- Export Button -->
-            <button @click="exportCSV()"
-                class="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-700 transition">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-                Export CSV
-            </button>
-        </div>
+      </div>
+      <p class="text-xs text-[#64748B] mt-1 font-mono uppercase tracking-wider">
+        Real-time industrial audit stream of physical inventory actions & warehouse safety changes.
+      </p>
     </div>
+    <button @click="exportCSV()" class="px-3 py-1.5 bg-[#0E1626] hover:bg-[#1E293B] border border-[#1E293B] hover:border-[#E5FF00] hover:text-[#E5FF00] rounded text-xs font-mono text-[#F8FAFC] transition duration-150 flex items-center gap-2">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+      </svg>
+      EXPORT_CSV
+    </button>
+  </div>
 
-    <!-- Category Filters -->
-    <div class="flex flex-wrap gap-2">
+  <!-- ── System Monitor Bar ────────────────────────────────────────────────── -->
+  <div class="border border-[#1E293B] bg-[#0E1626] rounded px-4 py-3 font-mono text-xs flex flex-wrap items-center justify-between gap-4">
+    <div class="flex flex-wrap items-center gap-x-6 gap-y-2">
+      <div class="flex items-center gap-2 text-[#E5FF00] font-bold uppercase tracking-wider">
+        <span class="relative flex h-2 w-2">
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#E5FF00] opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-2 w-2 bg-[#E5FF00]"></span>
+        </span>
+        Audit Feed Active
+      </div>
+      <div class="text-[#64748B]">TOTAL_LOGS: <span class="text-[#F8FAFC] font-bold" x-text="stats.total ?? '0'"></span></div>
+      <div class="text-[#64748B]">LAST_24H: <span class="text-[#F8FAFC] font-bold" x-text="stats.recent_24h ?? '0'"></span></div>
+      <div class="text-[#64748B]">ALERTS: <span class="text-[#EF4444] font-bold" x-text="(stats.by_category && stats.by_category['alert']) ?? 0"></span></div>
+      <div class="text-[#64748B]">IMPORTS: <span class="text-[#22D3EE] font-bold" x-text="(stats.by_category && stats.by_category['import']) ?? 0"></span></div>
+      <div class="text-[#64748B]">EDITS: <span class="text-[#F59E0B] font-bold" x-text="(stats.by_category && stats.by_category['edit']) ?? 0"></span></div>
+      <div class="text-[#64748B]">WAREHOUSE: <span class="text-[#10B981] font-bold" x-text="(stats.by_category && stats.by_category['warehouse']) ?? 0"></span></div>
+    </div>
+    <div class="text-[#64748B] text-[10px] uppercase font-bold tracking-widest" x-text="'LOC_TIME: ' + new Date().toLocaleTimeString()"></div>
+  </div>
+
+  <!-- ── Toolbar ───────────────────────────────────────────────────────────── -->
+  <div class="flex flex-wrap items-center justify-between gap-4 border-b border-[#1E293B]/60 pb-4">
+    <div class="flex flex-wrap items-center gap-3">
+      <!-- Search input -->
+      <div class="relative">
+        <input type="text" placeholder="FILTER BY KEYWORD..." 
+          class="w-64 bg-[#0E1626] border border-[#1E293B] rounded px-3 py-1.5 text-xs text-[#F8FAFC] font-mono focus:outline-none focus:border-[#E5FF00] placeholder-[#64748B] transition"
+          x-model="searchQuery" @input.debounce.400ms="fetchLogs()">
+      </div>
+      
+      <!-- Category selector badges -->
+      <div class="flex flex-wrap gap-1 font-mono text-[10px]">
         <template x-for="cat in categories" :key="cat.value">
-            <button @click="activeCategory = (activeCategory === cat.value ? 'ALL' : cat.value)"
-                class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition" :class="activeCategory === cat.value
-                        ? 'bg-slate-800 text-white shadow-sm'
-                        : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300'">
-                <span x-text="cat.emoji"></span>
-                <span x-text="cat.label"></span>
-                <span class="ml-0.5 px-1.5 py-0.5 bg-white/20 rounded-full text-xs"
-                    x-text="countByCategory(cat.value)"></span>
-            </button>
+          <button @click="activeCategory = cat.value; fetchLogs()"
+            class="px-2.5 py-1 rounded border transition uppercase font-bold"
+            :class="activeCategory === cat.value ? 'bg-[#E5FF00] border-[#E5FF00] text-[#080C14]' : 'bg-[#0E1626] border-[#1E293B] text-[#64748B] hover:text-[#F8FAFC] hover:border-[#64748B]'">
+            <span x-text="cat.label"></span>
+          </button>
         </template>
+      </div>
     </div>
 
-    <!-- Timeline -->
-    <div class="relative">
-        <!-- Vertical line -->
-        <div class="absolute left-[27px] top-0 bottom-0 w-0.5 bg-slate-200 rounded-full"></div>
+    <!-- Dropdowns & Tools -->
+    <div class="flex items-center gap-2 font-mono text-xs">
+      <select x-model="dateRange" @change="fetchLogs()"
+        class="bg-[#0E1626] border border-[#1E293B] rounded px-2 py-1.5 text-xs text-[#F8FAFC] focus:outline-none focus:border-[#E5FF00]">
+        <option value="all">ALL TIME</option>
+        <option value="24h">24 HOURS</option>
+        <option value="7d">7 DAYS</option>
+        <option value="30d">30 DAYS</option>
+      </select>
 
-        <div class="space-y-2" id="timeline-container">
-            <template x-for="(log, idx) in filteredLogs" :key="log.id">
-                <div class="relative flex items-start gap-4 group" x-show="log"
-                    x-transition:enter="transition ease-out duration-200"
-                    x-transition:enter-start="opacity-0 translate-y-2"
-                    x-transition:enter-end="opacity-100 translate-y-0">
+      <select x-model="severityFilter" @change="fetchLogs()"
+        class="bg-[#0E1626] border border-[#1E293B] rounded px-2 py-1.5 text-xs text-[#F8FAFC] focus:outline-none focus:border-[#E5FF00]">
+        <option value="ALL">ALL SEVERITIES</option>
+        <option value="info">INFO</option>
+        <option value="warning">WARNING</option>
+        <option value="error">ERROR</option>
+        <option value="critical">CRITICAL</option>
+      </select>
 
-                    <!-- Timeline Dot -->
-                    <div class="relative z-10 flex-shrink-0 w-[56px] flex justify-center pt-3">
-                        <div class="w-9 h-9 rounded-full flex items-center justify-center border-2 border-white shadow-sm"
-                            :class="{
-                                 'bg-blue-100': log.category === 'import',
-                                 'bg-purple-100': log.category === 'analysis',
-                                 'bg-red-100': log.category === 'alert',
-                                 'bg-amber-100': log.category === 'edit',
-                                 'bg-slate-100': !log.category || log.category === 'system',
-                             }">
-                            <!-- Import -->
-                            <template x-if="log.category === 'import'">
-                                <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor"
-                                    viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                                </svg>
-                            </template>
-                            <!-- Analysis -->
-                            <template x-if="log.category === 'analysis'">
-                                <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor"
-                                    viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10" />
-                                </svg>
-                            </template>
-                            <!-- Alert -->
-                            <template x-if="log.category === 'alert'">
-                                <svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                </svg>
-                            </template>
-                            <!-- Edit / Delete -->
-                            <template x-if="log.category === 'edit'">
-                                <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor"
-                                    viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                            </template>
-                            <!-- System fallback -->
-                            <template x-if="!log.category || log.category === 'system'">
-                                <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor"
-                                    viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                            </template>
-                        </div>
-                    </div>
+      <button @click="fetchLogs()"
+        class="p-1.5 rounded bg-[#0E1626] border border-[#1E293B] text-[#64748B] hover:text-[#F8FAFC] hover:border-[#64748B] transition">
+        <svg class="w-4 h-4" :class="{'animate-spin': loading}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+      </button>
+    </div>
+  </div>
 
-                    <!-- Log Card -->
-                    <div class="flex-1 bg-white rounded-xl border border-slate-100 p-4 shadow-sm hover:shadow-md transition group-hover:border-slate-200 cursor-pointer"
-                        @click="toggleExpand(log)">
-                        <div class="flex items-start justify-between gap-3">
-                            <div class="flex-1 min-w-0">
-                                <div class="flex items-center gap-2 flex-wrap">
-                                    <p class="font-semibold text-slate-900 text-sm" x-text="log.title"></p>
-                                    <span class="px-2 py-0.5 rounded-full text-xs font-semibold" :class="{
-                                              'bg-blue-100 text-blue-700': log.category === 'import',
-                                              'bg-purple-100 text-purple-700': log.category === 'analysis',
-                                              'bg-red-100 text-red-700': log.category === 'alert',
-                                              'bg-amber-100 text-amber-700': log.category === 'edit',
-                                              'bg-slate-100 text-slate-600': !log.category || log.category === 'system',
-                                          }" x-text="log.category || 'system'"></span>
-                                </div>
-                                <div class="flex items-center gap-3 mt-1.5">
-                                    <span class="text-xs text-slate-500 flex items-center gap-1">
-                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                        </svg>
-                                        <span x-text="log.user || 'System'"></span>
-                                    </span>
-                                    <span class="text-xs text-slate-400 flex items-center gap-1">
-                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                        <span x-text="formatTime(log.timestamp)"></span>
-                                    </span>
-                                </div>
-                            </div>
-                            <svg class="w-4 h-4 text-slate-400 flex-shrink-0 transition-transform"
-                                :class="{'rotate-180': log._expanded}" fill="none" stroke="currentColor"
-                                viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M19 9l-7 7-7-7" />
-                            </svg>
-                        </div>
+  <!-- ── Diagnostic Event Log Stream ────────────────────────────────────────── -->
+  <div class="flex-1 flex flex-col min-h-0 bg-[#0A0F1D] border border-[#1E293B] rounded overflow-hidden">
+    
+    <!-- Table Header (Visible on Desktop) -->
+    <div class="hidden md:grid log-grid-row gap-4 px-4 py-2 bg-[#0E1626] border-b border-[#1E293B] text-[10px] font-mono text-[#64748B] uppercase tracking-wider">
+      <div>Timestamp (UTC)</div>
+      <div>Severity</div>
+      <div>Category</div>
+      <div>Event Summary</div>
+      <div class="text-right">Actions</div>
+    </div>
 
-                        <!-- Expandable Detail -->
-                        <div x-show="log._expanded" x-transition:enter="transition ease-out duration-150"
-                            x-transition:enter-start="opacity-0 -translate-y-1"
-                            x-transition:enter-end="opacity-100 translate-y-0"
-                            class="mt-3 pt-3 border-t border-slate-100">
-                            <p class="text-sm text-slate-600" x-text="log.detail || 'No additional details.'"></p>
-                            <p class="text-xs text-slate-400 mt-2 font-mono" x-text="log.timestamp"></p>
-                        </div>
-                    </div>
-                </div>
-            </template>
-
-            <!-- Empty State -->
-            <template x-if="filteredLogs.length === 0 && !loading">
-                <div class="flex flex-col items-center py-20 text-slate-400 ml-14">
-                    <svg class="w-14 h-14 mb-4 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    <p class="font-semibold text-slate-500">No log events found</p>
-                    <p class="text-sm mt-1">Try changing the date range or category filter.</p>
-                </div>
-            </template>
-
-            <!-- Loading Skeletons -->
-            <template x-if="loading">
-                <template x-for="i in 5" :key="i">
-                    <div class="relative flex items-start gap-4">
-                        <div class="flex-shrink-0 w-[56px] flex justify-center pt-3">
-                            <div class="w-9 h-9 rounded-full bg-slate-200 animate-pulse"></div>
-                        </div>
-                        <div class="flex-1 bg-white rounded-xl border border-slate-100 p-4 animate-pulse">
-                            <div class="h-4 bg-slate-200 rounded w-3/4 mb-2"></div>
-                            <div class="h-3 bg-slate-100 rounded w-1/3"></div>
-                        </div>
-                    </div>
-                </template>
-            </template>
+    <div class="flex-1 overflow-y-auto custom-scroll divide-y divide-[#1E293B]/50">
+      
+      <!-- Skeletons (while loading) -->
+      <template x-if="loading">
+        <div>
+          <template x-for="i in 8" :key="i">
+            <div class="px-4 py-4 grid log-grid-row gap-4 items-center">
+              <div class="h-3.5 rounded skeleton-shimmer w-28"></div>
+              <div class="h-3.5 rounded skeleton-shimmer w-16"></div>
+              <div class="h-3.5 rounded skeleton-shimmer w-20"></div>
+              <div class="h-3.5 rounded skeleton-shimmer w-full"></div>
+              <div class="h-3.5 rounded skeleton-shimmer w-4 ml-auto"></div>
+            </div>
+          </template>
         </div>
+      </template>
+
+      <!-- Empty State -->
+      <template x-if="!loading && logs.length === 0">
+        <div class="flex flex-col items-center justify-center py-20 px-4 text-center font-mono">
+          <div class="h-12 w-12 rounded bg-[#0E1626] border border-[#1E293B] flex items-center justify-center text-[#64748B] mb-4">
+            🔍
+          </div>
+          <h3 class="text-sm font-bold text-[#F8FAFC] uppercase tracking-wide">NO LOG ENTRIES MATCHED</h3>
+          <p class="text-xs text-[#64748B] mt-1 max-w-sm">
+            Modify search constraints, active category filters, or select a broader time interval.
+          </p>
+        </div>
+      </template>
+
+      <!-- Logs list -->
+      <template x-if="!loading && logs.length > 0">
+        <div>
+          <template x-for="(log, idx) in logs" :key="log.id">
+            <div class="hover:bg-[#0E1626]/20 transition duration-150">
+              
+              <!-- Summary Grid -->
+              <div class="px-4 py-3.5 log-grid-row gap-4 items-center cursor-pointer text-xs"
+                   @click="log._expanded = !log._expanded">
+                
+                <!-- Timestamp (UTC) -->
+                <div class="font-mono text-[#64748B]" x-text="formatTime(log.timestamp)"></div>
+                
+                <!-- Severity badge -->
+                <div class="font-mono font-bold tracking-wider">
+                  <span x-show="log.severity === 'info'" class="text-[#22D3EE]">[INFO]</span>
+                  <span x-show="log.severity === 'warning'" class="text-[#F59E0B]">[WARN]</span>
+                  <span x-show="log.severity === 'error'" class="text-[#EF4444]">[FAIL]</span>
+                  <span x-show="log.severity === 'critical'" class="text-[#E5FF00] tracking-widest animate-pulse">[CRIT]</span>
+                </div>
+
+                <!-- Category tag -->
+                <div class="font-mono">
+                  <span class="px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider"
+                    :class="{
+                      'bg-[#1e293b] text-slate-300 border border-[#334155]': !log.category || log.category === 'system',
+                      'bg-[#172554] text-blue-300 border border-[#1e3a8a]': log.category === 'import',
+                      'bg-[#064e3b] text-emerald-300 border border-[#065f46]': log.category === 'warehouse',
+                      'bg-[#451a03] text-amber-300 border border-[#78350f]': log.category === 'edit',
+                      'bg-[#4c0519] text-red-300 border border-[#881337]': log.category === 'alert',
+                      'bg-[#3b0764] text-purple-300 border border-[#581c87]': log.category === 'analysis'
+                    }"
+                    x-text="log.category || 'system'"></span>
+                </div>
+
+                <!-- Log title and inline details -->
+                <div class="min-w-0">
+                  <span class="text-[#F8FAFC] font-semibold tracking-tight" x-text="log.title"></span>
+                  <span class="text-[#64748B] ml-2 text-[11px]" x-show="!log._expanded" x-text="'- ' + log.detail"></span>
+                </div>
+
+                <!-- Chevron collapse controls -->
+                <div class="text-right text-[#64748B]">
+                  <svg class="w-4 h-4 ml-auto transform transition-transform duration-200" :class="{'rotate-180 text-[#E5FF00]': log._expanded}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                  </svg>
+                </div>
+              </div>
+
+              <!-- Expanded Diagnostics readout -->
+              <div x-show="log._expanded"
+                   class="bg-[#070B13] border-t border-[#1E293B]/70 px-6 py-4 text-xs">
+                <div class="max-w-4xl space-y-4">
+                  
+                  <!-- Main explanation detail -->
+                  <div>
+                    <h4 class="text-[#64748B] font-mono uppercase text-[10px] tracking-wider mb-1">Diagnostic Detail</h4>
+                    <p class="text-[#F8FAFC] font-mono leading-relaxed" x-text="log.detail || 'NO RECORDED DIAGNOSTIC DETAILS'"></p>
+                  </div>
+
+                  <!-- Metadata attributes table -->
+                  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 py-2 border-y border-[#1E293B]/50 font-mono text-[11px]">
+                    <div>
+                      <span class="text-[#64748B]">OPERATOR_ID:</span>
+                      <span class="text-[#22D3EE] font-bold" x-text="log.user || 'System'"></span>
+                    </div>
+                    <div>
+                      <span class="text-[#64748B]">EVENT_CODE:</span>
+                      <span class="text-[#F8FAFC] uppercase" x-text="log.event_type || 'N/A'"></span>
+                    </div>
+                    <div x-show="log.entity_name">
+                      <span class="text-[#64748B]">TARGET_ENTITY:</span>
+                      <span class="text-[#F8FAFC]" x-text="log.entity_name"></span>
+                    </div>
+                    <div>
+                      <span class="text-[#64748B]">RECORD_IDX:</span>
+                      <span class="text-[#F8FAFC]" x-text="'#' + log.id"></span>
+                    </div>
+                  </div>
+
+                  <!-- Raw JSON Meta Details -->
+                  <div x-show="log.meta && Object.keys(log.meta).length > 0">
+                    <h4 class="text-[#64748B] font-mono uppercase text-[10px] tracking-wider mb-2">RAW_METRICS_OUTPUT</h4>
+                    <pre class="bg-[#0E1626] border border-[#1E293B] rounded p-3 font-mono text-[11px] text-[#22D3EE] overflow-x-auto custom-scroll"
+                         x-text="JSON.stringify(log.meta, null, 2)"></pre>
+                  </div>
+
+                </div>
+              </div>
+
+            </div>
+          </template>
+        </div>
+      </template>
+
     </div>
+  </div>
+
+  <!-- ── Pagination ─────────────────────────────────────────────────────────── -->
+  <div class="flex items-center justify-center gap-2 font-mono text-xs pb-2" x-show="totalPages > 1">
+    <button class="px-2 py-1 rounded bg-[#0E1626] border border-[#1E293B] text-[#64748B] hover:text-[#E5FF00] hover:border-[#E5FF00] transition disabled:opacity-40 disabled:cursor-not-allowed" 
+      :disabled="page <= 1" @click="page--; fetchLogs()">&lt; PREV</button>
+    
+    <template x-for="p in visiblePages" :key="p">
+      <button class="px-2.5 py-1 rounded border transition font-bold" 
+        :class="p === page ? 'bg-[#E5FF00] border-[#E5FF00] text-[#080C14]' : 'bg-[#0E1626] border-[#1E293B] text-[#64748B] hover:text-[#F8FAFC] hover:border-[#64748B]'"
+        @click="page = p; fetchLogs()" x-text="p"></button>
+    </template>
+    
+    <button class="px-2 py-1 rounded bg-[#0E1626] border border-[#1E293B] text-[#64748B] hover:text-[#E5FF00] hover:border-[#E5FF00] transition disabled:opacity-40 disabled:cursor-not-allowed" 
+      :disabled="page >= totalPages" @click="page++; fetchLogs()">NEXT &gt;</button>
+    
+    <span class="text-[10px] text-[#64748B] ml-2">
+      DISPLAYING <span class="text-[#F8FAFC]" x-text="((page-1)*perPage)+1"></span>–<span class="text-[#F8FAFC]" x-text="Math.min(page*perPage, totalCount)"></span> OF <span class="text-[#F8FAFC]" x-text="totalCount"></span> RECORDS
+    </span>
+  </div>
 
 </div>
 
 <script>
-    function logsApp() {
-        return {
-            allLogs: [],
-            loading: true,
-            activeCategory: 'ALL',
-            dateRange: 'all',
-            dateRangeLabel: 'All Time',
-            dateOptions: [
-                { value: 'all', label: 'All Time' },
-                { value: '24h', label: 'Last 24 Hours' },
-                { value: '7d', label: 'Last 7 Days' },
-                { value: '30d', label: 'Last 30 Days' },
-            ],
-            categories: [
-                { value: 'ALL', label: 'All', emoji: '📋' },
-                { value: 'import', label: 'Imports', emoji: '📤' },
-                { value: 'analysis', label: 'Analysis', emoji: '🔬' },
-                { value: 'alert', label: 'Alerts', emoji: '⚠️' },
-                { value: 'edit', label: 'Edits', emoji: '✏️' },
-            ],
+function logsApp() {
+  return {
+    logs: [],
+    loading: true,
+    stats: {},
 
-            get filteredLogs() {
-                let logs = this.allLogs;
+    // Filters
+    activeCategory: 'ALL',
+    dateRange: 'all',
+    severityFilter: 'ALL',
+    searchQuery: '',
 
-                // Date filter
-                if (this.dateRange !== 'all') {
-                    const now = new Date();
-                    const cutoff = new Date(now);
-                    if (this.dateRange === '24h') cutoff.setHours(cutoff.getHours() - 24);
-                    else if (this.dateRange === '7d') cutoff.setDate(cutoff.getDate() - 7);
-                    else if (this.dateRange === '30d') cutoff.setDate(cutoff.getDate() - 30);
-                    logs = logs.filter(l => new Date(l.timestamp) >= cutoff);
-                }
+    // Pagination
+    page: 1,
+    perPage: 30,
+    totalCount: 0,
 
-                // Category filter
-                if (this.activeCategory !== 'ALL') {
-                    logs = logs.filter(l => l.category === this.activeCategory);
-                }
+    categories: [
+      { value: 'ALL',       label: 'ALL_FEEDS' },
+      { value: 'import',    label: 'IMPORTS' },
+      { value: 'warehouse', label: 'WAREHOUSE' },
+      { value: 'edit',      label: 'EDITS' },
+      { value: 'alert',     label: 'ALERTS' },
+      { value: 'analysis',  label: 'ANALYSIS' },
+      { value: 'system',    label: 'SYSTEM' },
+    ],
 
-                return logs;
-            },
+    get totalPages() {
+      return Math.ceil(this.totalCount / this.perPage) || 1;
+    },
 
-            async init() {
-                try {
-                    const res = await fetch('/api/logs');
-                    const data = await res.json();
-                    if (data.success) {
-                        this.allLogs = (data.data || []).map(l => ({ ...l, _expanded: false }));
-                    }
-                } catch (e) { console.error(e); }
-                this.loading = false;
-            },
+    get visiblePages() {
+      const total = this.totalPages;
+      const cur   = this.page;
+      if (total <= 7) return Array.from({length: total}, (_, i) => i + 1);
+      const pages = new Set([1, total, cur, cur - 1, cur + 1].filter(p => p >= 1 && p <= total));
+      return [...pages].sort((a, b) => a - b);
+    },
 
-            toggleExpand(log) {
-                log._expanded = !log._expanded;
-            },
+    async init() {
+      await Promise.all([this.fetchLogs(), this.fetchStats()]);
+    },
 
-            setDateRange(opt) {
-                this.dateRange = opt.value;
-                this.dateRangeLabel = opt.label;
-            },
-
-            countByCategory(cat) {
-                if (cat === 'ALL') return this.allLogs.length;
-                return this.allLogs.filter(l => l.category === cat).length;
-            },
-
-            formatTime(ts) {
-                if (!ts) return '';
-                try {
-                    const d = new Date(ts);
-                    const now = new Date();
-                    const diff = Math.floor((now - d) / 1000);
-                    if (diff < 60) return 'Just now';
-                    if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
-                    if (diff < 86400) return `${Math.floor(diff / 3600)} hr ago`;
-                    if (diff < 604800) return `${Math.floor(diff / 86400)} days ago`;
-                    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                } catch { return ts; }
-            },
-
-            exportCSV() {
-                const headers = ['ID', 'Title', 'Detail', 'User', 'Category', 'Timestamp'];
-                const rows = this.filteredLogs.map(l => [
-                    l.id, `"${(l.title || '').replace(/"/g, '""')}"`,
-                    `"${(l.detail || '').replace(/"/g, '""')}"`,
-                    l.user, l.category, l.timestamp
-                ]);
-                const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-                const blob = new Blob([csv], { type: 'text/csv' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url; a.download = 'safeware_logs.csv'; a.click();
-                URL.revokeObjectURL(url);
-            }
+    async fetchLogs() {
+      this.loading = true;
+      try {
+        const params = new URLSearchParams({
+          category:   this.activeCategory,
+          severity:   this.severityFilter,
+          date_range: this.dateRange,
+          search:     this.searchQuery,
+          page:       this.page,
+          per_page:   this.perPage,
+        });
+        const res  = await fetch('/api/logs?' + params);
+        const data = await res.json();
+        if (data.success) {
+          this.logs       = (data.data || []).map(l => ({ ...l, _expanded: false }));
+          this.totalCount = data.total || this.logs.length;
         }
-    }
+      } catch (e) { console.error(e); }
+      this.loading = false;
+    },
+
+    async fetchStats() {
+      try {
+        const res  = await fetch('/api/logs/stats');
+        const data = await res.json();
+        if (data.success) this.stats = data.data || {};
+      } catch (e) {}
+    },
+
+    formatTime(ts) {
+      if (!ts) return 'N/A';
+      try {
+        // Strip out timezone offset suffix (e.g. +00:00) so JS Date parser doesn't double-qualify it
+        let cleanTs = ts.replace(' ', 'T');
+        if (cleanTs.includes('+')) {
+          cleanTs = cleanTs.split('+')[0];
+        }
+        if (!cleanTs.endsWith('Z')) {
+          cleanTs += 'Z';
+        }
+        const d = new Date(cleanTs);
+        if (isNaN(d.getTime())) {
+          return ts; // fallback to raw string if invalid
+        }
+        const month = d.toLocaleDateString('en-US', { month: 'short' });
+        const day = d.getDate();
+        const timeStr = d.toLocaleTimeString('en-US', { hour12: false });
+        return `${month} ${day}, ${timeStr}`;
+      } catch {
+        return ts;
+      }
+    },
+
+    exportCSV() {
+      const headers = ['ID','Event Type','Category','Severity','Title','Detail','User','Entity','Timestamp'];
+      const rows = this.logs.map(l => [
+        l.id,
+        l.event_type,
+        l.category,
+        l.severity,
+        `"${(l.title   || '').replace(/"/g,'""')}"`,
+        `"${(l.detail  || '').replace(/"/g,'""')}"`,
+        l.user,
+        l.entity_name || '',
+        l.timestamp,
+      ]);
+      const csv  = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url; a.download = `safeware_activity_${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    },
+  };
+}
 </script>
 {% endblock %}

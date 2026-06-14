@@ -12,6 +12,7 @@ from io import BytesIO
 from flask import Blueprint, current_app, jsonify, render_template, request, send_file, g
 from auth.decorators import login_required, csrf_protect, viewer_readonly
 from db_utils import get_safe_connection
+from activity_logger import log_event
 
 from logic.reactivity_engine import ReactivityEngine
 from logic.constants import Compatibility
@@ -338,6 +339,24 @@ def analyze_inventory():
         conn.close()
 
         logger.info("[Batch %s] Analysis complete (analysis_id=%s)", batch_id[:8], analysis_id)
+        _uid = g.user.get('id') if (hasattr(g, 'user') and g.user) else None
+        log_event(
+            db_path=user_db,
+            event_type='matrix_analysis',
+            category='analysis',
+            severity='warning' if counts['incompatible_pairs'] > 0 else 'info',
+            title='Inventory compatibility analysis run',
+            detail=f"Compatibility matrix run for batch {batch_id[:8]}... | Chemicals: {len(unique_chemical_ids)} | Dangerous Pairs: {counts['incompatible_pairs']} | Warnings: {len(location_warnings)}",
+            user_id=_uid,
+            entity_type='batch',
+            entity_id=batch_id,
+            meta={
+                'batch_id': batch_id,
+                'chemicals_count': len(unique_chemical_ids),
+                'incompatible_pairs': counts['incompatible_pairs'],
+                'storage_warnings': len(location_warnings),
+            }
+        )
         return jsonify({
             'status': 'success',
             'analysis_id': analysis_id,
@@ -492,6 +511,19 @@ def export_inventory_analysis_excel(batch_id):
 
         output.seek(0)
         filename = f"inventory_analysis_{batch_id[:8]}.xlsx"
+        _uid = g.user.get('id') if (hasattr(g, 'user') and g.user) else None
+        log_event(
+            db_path=user_db,
+            event_type='analysis_export',
+            category='analysis',
+            severity='info',
+            title='Analysis exported to Excel',
+            detail=f"Inventory compatibility analysis exported to Excel for batch: {batch_id[:8]}...",
+            user_id=_uid,
+            entity_type='batch',
+            entity_id=batch_id,
+            meta={'batch_id': batch_id, 'format': 'xlsx'},
+        )
         return send_file(
             output,
             as_attachment=True,
@@ -577,6 +609,19 @@ def export_inventory_analysis_pdf(batch_id):
         c.save()
         pdf_buffer.seek(0)
 
+        _uid = g.user.get('id') if (hasattr(g, 'user') and g.user) else None
+        log_event(
+            db_path=user_db,
+            event_type='analysis_export',
+            category='analysis',
+            severity='info',
+            title='Analysis exported to PDF',
+            detail=f"Inventory compatibility analysis exported to PDF for batch: {batch_id[:8]}...",
+            user_id=_uid,
+            entity_type='batch',
+            entity_id=batch_id,
+            meta={'batch_id': batch_id, 'format': 'pdf'},
+        )
         filename = f"inventory_analysis_{batch_id[:8]}.pdf"
         return send_file(pdf_buffer, as_attachment=True, download_name=filename, mimetype='application/pdf')
 

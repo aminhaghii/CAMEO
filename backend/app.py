@@ -14,6 +14,7 @@ from auth.models import init_auth_db, seed_default_company_and_admin, get_auth_d
 from auth.security import hash_password, validate_session, generate_csrf_token
 from auth.decorators import login_required, csrf_protect
 from db_utils import get_safe_connection
+from activity_logger import log_event, migrate_audit_trail, _map_action_category, _map_action_title
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -868,15 +869,123 @@ def get_warehouses():
 
 @app.route('/api/logs', methods=['GET'])
 def get_activity_logs():
-    """Get activity log entries"""
+    """Get activity log entries with filtering, pagination, and search."""
     try:
         user_db = getattr(g, 'tenant_db_path', None) or USER_DB_PATH
-        logs = []
-        if user_db and os.path.exists(user_db):
-            conn = get_safe_connection(user_db)
-            cursor = conn.cursor()
+        if not user_db or not os.path.exists(user_db):
+            return jsonify({'success': True, 'data': [], 'total': 0, 'no_data': True})
 
-            # Get audit trail
+        # ── Query params ────────────────────────────────────
+        category   = request.args.get('category', 'ALL')
+        severity   = request.args.get('severity', 'ALL')
+        search     = (request.args.get('search') or '').strip()
+        date_range = request.args.get('date_range', 'all')   # all | 24h | 7d | 30d
+        page       = max(1, int(request.args.get('page', 1)))
+        per_page   = min(100, max(10, int(request.args.get('per_page', 50))))
+        offset     = (page - 1) * per_page
+
+        # Try to back-fill audit_trail rows on first call
+        try:
+            migrate_audit_trail(user_db)
+        except Exception:
+            pass
+
+        conn = get_safe_connection(user_db)
+        cursor = conn.cursor()
+
+        # ── Ensure activity_logs table exists ───────────────
+        try:
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS activity_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    event_type  TEXT NOT NULL,
+                    category    TEXT NOT NULL DEFAULT 'system',
+                    severity    TEXT NOT NULL DEFAULT 'info',
+                    title       TEXT NOT NULL,
+                    detail      TEXT,
+                    user_id     TEXT,
+                    entity_type TEXT,
+                    entity_id   TEXT,
+                    entity_name TEXT,
+                    meta        TEXT,
+                    ip_address  TEXT,
+                    session_id  TEXT,
+                    duration_ms INTEGER,
+                    created_at  DATETIME DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+                )
+            """)
+        except Exception:
+            pass
+
+        # ── Build WHERE clause ──────────────────────────────
+        conditions = []
+        params = []
+
+        if category and category != 'ALL':
+            conditions.append('category = ?')
+            params.append(category)
+
+        if severity and severity != 'ALL':
+            conditions.append('severity = ?')
+            params.append(severity)
+
+        if search:
+            conditions.append('(title LIKE ? OR detail LIKE ? OR user_id LIKE ? OR entity_name LIKE ?)')
+            like = f'%{search}%'
+            params.extend([like, like, like, like])
+
+        if date_range != 'all':
+            delta_map = {'24h': '-1 day', '7d': '-7 days', '30d': '-30 days'}
+            if date_range in delta_map:
+                conditions.append("created_at >= strftime('%Y-%m-%dT%H:%M:%SZ', 'now', ?)")
+                params.append(delta_map[date_range])
+
+        where = ('WHERE ' + ' AND '.join(conditions)) if conditions else ''
+
+        # ── Count total ─────────────────────────────────────
+        logs = []
+        total = 0
+        try:
+            cursor.execute(f'SELECT COUNT(*) FROM activity_logs {where}', params)
+            total = cursor.fetchone()[0]
+
+            cursor.execute(
+                f'SELECT * FROM activity_logs {where} ORDER BY created_at DESC LIMIT ? OFFSET ?',
+                params + [per_page, offset]
+            )
+            for row in cursor.fetchall():
+                uid = row['user_id']
+                actor = 'System'
+                if uid == 'human':
+                    actor = 'Operator'
+                elif uid and uid not in ('system', None, ''):
+                    actor = str(uid)
+
+                meta_data = None
+                try:
+                    if row['meta']:
+                        meta_data = __import__('json').loads(row['meta'])
+                except Exception:
+                    pass
+
+                logs.append({
+                    'id':          row['id'],
+                    'event_type':  row['event_type'],
+                    'category':    row['category'],
+                    'severity':    row['severity'],
+                    'title':       row['title'],
+                    'detail':      row['detail'],
+                    'user':        actor,
+                    'user_id':     uid,
+                    'entity_type': row['entity_type'],
+                    'entity_id':   row['entity_id'],
+                    'entity_name': row['entity_name'],
+                    'meta':        meta_data,
+                    'timestamp':   row['created_at'],
+                })
+        except Exception as ex:
+            logger.warning(f'activity_logs query failed: {ex}')
+            # Fallback: read from legacy audit_trail
             try:
                 cursor.execute("""
                     SELECT at.timestamp, at.action, at.method,
@@ -884,61 +993,88 @@ def get_activity_logs():
                     FROM audit_trail at
                     LEFT JOIN inventory_batches ib ON at.batch_id = ib.id
                     WHERE (at.is_deleted IS NULL OR at.is_deleted = 0)
-                    ORDER BY at.timestamp DESC
-                    LIMIT 50
+                    ORDER BY at.timestamp DESC LIMIT 100
                 """)
-                for row in cursor.fetchall():
-                    uid = row['user_id'] if 'user_id' in row.keys() else None
-                    if uid and uid not in ('human', 'system', None, ''):
-                        actor = str(uid)
-                    elif uid == 'human':
-                        actor = 'Operator'
-                    else:
-                        actor = 'System'
+                for i, row in enumerate(cursor.fetchall()):
+                    uid = row['user_id']
+                    actor = 'Operator' if uid == 'human' else ('System' if not uid else str(uid))
+                    category_val = _log_category(row['action'])
                     logs.append({
-                        'id': len(logs) + 1,
-                        'type': row['action'] or 'unknown',
-                        'title': _log_title(row['action'], row['filename']),
-                        'detail': f"Method: {row['method'] or 'N/A'} | Confidence: {int((row['confidence'] or 0)*100)}%",
-                        'timestamp': row['timestamp'] or '',
-                        'user': actor,
-                        'category': _log_category(row['action']),
+                        'id':          i + 1,
+                        'event_type':  row['action'] or 'system',
+                        'category':    category_val,
+                        'severity':    'info',
+                        'title':       _log_title(row['action'], row['filename']),
+                        'detail':      f"Method: {row['method'] or 'N/A'} | Confidence: {int((row['confidence'] or 0) * 100)}%",
+                        'user':        actor,
+                        'user_id':     uid,
+                        'entity_type': 'batch',
+                        'entity_id':   row['batch_id'],
+                        'entity_name': row['filename'],
+                        'meta':        None,
+                        'timestamp':   row['timestamp'],
                     })
-            except Exception:
-                pass  # Table may not exist yet
-
-            # Get batch events
-            try:
-                cursor.execute("""
-                    SELECT id, filename, status, created_at, total_rows, processed
-                    FROM inventory_batches
-                    ORDER BY created_at DESC
-                    LIMIT 20
-                """)
-                for row in cursor.fetchall():
-                    logs.append({
-                        'id': len(logs) + 1,
-                        'type': 'upload',
-                        'title': f"File uploaded: {row['filename'] or 'unknown'}",
-                        'detail': f"Status: {row['status']} | {row['processed'] or 0}/{row['total_rows'] or 0} rows processed",
-                        'timestamp': row['created_at'] or '',
-                        'user': 'System',
-                        'category': 'import',
-                    })
+                total = len(logs)
             except Exception:
                 pass
 
-            conn.close()
+        conn.close()
 
         if not logs:
-            # Return no_data indicator instead of hardcoded demo log events (R-06)
-            return jsonify({'success': True, 'data': [], 'no_data': True, 'message': 'No activity logs found.'})
+            return jsonify({'success': True, 'data': [], 'total': 0, 'page': page, 'per_page': per_page, 'no_data': True})
 
-        # Sort by timestamp desc
-        logs.sort(key=lambda x: x['timestamp'], reverse=True)
-        return jsonify({'success': True, 'data': logs})
+        return jsonify({
+            'success':  True,
+            'data':     logs,
+            'total':    total,
+            'page':     page,
+            'per_page': per_page,
+        })
     except Exception as e:
-        logger.error(f"Logs error: {e}")
+        logger.error(f'Logs error: {e}')
+        return jsonify({'success': False, 'error': 'Internal server error'}), 500
+
+
+@app.route('/api/logs/stats', methods=['GET'])
+def get_log_stats():
+    """Return per-category and per-severity counts for dashboard widgets."""
+    try:
+        user_db = getattr(g, 'tenant_db_path', None) or USER_DB_PATH
+        if not user_db or not os.path.exists(user_db):
+            return jsonify({'success': True, 'data': {}})
+
+        conn = get_safe_connection(user_db)
+        cursor = conn.cursor()
+
+        stats = {
+            'total': 0,
+            'by_category': {},
+            'by_severity': {},
+            'recent_24h': 0,
+        }
+        try:
+            cursor.execute('SELECT COUNT(*) FROM activity_logs')
+            stats['total'] = cursor.fetchone()[0]
+
+            cursor.execute('SELECT category, COUNT(*) cnt FROM activity_logs GROUP BY category')
+            for row in cursor.fetchall():
+                stats['by_category'][row[0]] = row[1]
+
+            cursor.execute('SELECT severity, COUNT(*) cnt FROM activity_logs GROUP BY severity')
+            for row in cursor.fetchall():
+                stats['by_severity'][row[0]] = row[1]
+
+            cursor.execute(
+                "SELECT COUNT(*) FROM activity_logs WHERE created_at >= strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '-1 day')"
+            )
+            stats['recent_24h'] = cursor.fetchone()[0]
+        except Exception:
+            pass
+
+        conn.close()
+        return jsonify({'success': True, 'data': stats})
+    except Exception as e:
+        logger.error(f'Log stats error: {e}')
         return jsonify({'success': False, 'error': 'Internal server error'}), 500
 
 

@@ -9,6 +9,7 @@ from logic.reactivity_engine import ReactivityEngine
 from logic.constants import Compatibility, COMPATIBILITY_MAP, WATER_GROUP_ID
 from auth.decorators import login_required, csrf_protect, viewer_readonly
 from db_utils import get_safe_connection
+from activity_logger import log_event
 
 logger = logging.getLogger(__name__)
 
@@ -478,6 +479,20 @@ def move_placement():
         )
         
         conn.commit()
+        # Activity log
+        log_event(
+            db_path=_get_db_path(),
+            event_type=action,
+            category='warehouse',
+            severity='info',
+            title='Chemical moved in warehouse' if action == 'place_chemical' else 'Chemical removed from section',
+            detail=f"{chem_name} — {action.replace('_', ' ')}",
+            user_id=_current_user_id(),
+            entity_type='chemical',
+            entity_id=str(chem_id),
+            entity_name=chem_name,
+            meta={'action': action},
+        )
         conn.close()
         return jsonify({'success': True, 'message': 'Chemical moved successfully'})
     except Exception as e:
@@ -525,6 +540,20 @@ def remove_placement(placement_id):
                 json.dumps({'deleted': True}),
                 _current_user_id()
             )
+        )
+        
+        log_event(
+            db_path=_get_db_path(),
+            event_type='remove_chemical',
+            category='warehouse',
+            severity='info',
+            title=f"Chemical removed from warehouse — {p['chemical_name']}",
+            detail=f"Placement ID: {placement_id} deleted completely",
+            user_id=_current_user_id(),
+            entity_type='chemical',
+            entity_id=str(p['chemical_id']),
+            entity_name=p['chemical_name'],
+            meta={'placement_id': placement_id},
         )
         
         conn.commit()
@@ -699,6 +728,20 @@ def add_from_batch():
         )
         
         conn.commit()
+        # Activity log
+        log_event(
+            db_path=_get_db_path(),
+            event_type='import_batch_to_warehouse',
+            category='import',
+            severity='info',
+            title=f'Batch imported to warehouse — {imported_count} chemicals',
+            detail=f"Warehouse: {warehouse_name} | Imported: {imported_count} | Skipped: {skipped_count}",
+            user_id=_current_user_id(),
+            entity_type='batch',
+            entity_id=str(batch_id),
+            entity_name=warehouse_name,
+            meta={'imported_count': imported_count, 'skipped_count': skipped_count, 'warehouse_id': warehouse_id},
+        )
         conn.close()
         
         return jsonify({
@@ -1141,6 +1184,19 @@ def save_layout():
             )
         )
         
+        log_event(
+            db_path=_get_db_path(),
+            event_type='save_auto_arrange_layout',
+            category='warehouse',
+            severity='info',
+            title='AI auto-arrange layout saved',
+            detail=f"Applied auto-arranged positions for {len(parsed_layout)} chemical placements",
+            user_id=_current_user_id(),
+            entity_type='warehouse',
+            entity_name='Warehouse Layout',
+            meta={'layout_size': len(parsed_layout)},
+        )
+        
         conn.commit()
         conn.close()
         return jsonify({'success': True, 'message': 'Layout saved successfully.'})
@@ -1243,6 +1299,20 @@ def apply_recommended_layout():
                 json.dumps({'saved': True, 'new_section_ids': new_section_ids}),
                 _current_user_id()
             )
+        )
+
+        log_event(
+            db_path=_get_db_path(),
+            event_type='apply_recommended_layout',
+            category='warehouse',
+            severity='info',
+            title='Proximity recommendations applied',
+            detail=f"Created {extra_sections} new sections and placed {len(parsed_layout)} chemical placements",
+            user_id=_current_user_id(),
+            entity_type='warehouse',
+            entity_id=str(warehouse_id),
+            entity_name='Warehouse Layout Recommendation',
+            meta={'warehouse_id': warehouse_id, 'extra_sections': extra_sections, 'new_section_ids': new_section_ids},
         )
 
         conn.commit()

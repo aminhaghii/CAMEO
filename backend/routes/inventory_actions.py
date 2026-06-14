@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from flask import Blueprint, current_app, jsonify, request, g
 from auth.decorators import login_required, csrf_protect, viewer_readonly
 from db_utils import get_safe_connection
+from activity_logger import log_event
 
 logger = logging.getLogger(__name__)
 
@@ -409,7 +410,31 @@ def edit_inventory_row():
             (staging_id,)
         )
         updated = cursor.fetchone()
+
+        # Activity log
+        _edited_name = ''
+        try:
+            _cleaned_tmp = json.loads(updated['cleaned_data']) if updated['cleaned_data'] else {}
+            _edited_name = _cleaned_tmp.get('name', '')
+        except Exception:
+            pass
+        _edit_title = f'Chemical record edited - {_edited_name}' if _edited_name else f'Chemical record edited - Row {updated["row_index"]}'
+        log_event(
+            db_path=_get_db_path(),
+            event_type='manual_edit',
+            category='edit',
+            severity='info',
+            title=_edit_title,
+            detail=f'Batch: {batch_id[:8]}... | Staging row: {staging_id}',
+            user_id=getattr(g, 'user', {}).get('id') if hasattr(g, 'user') and g.user else 'human',
+            entity_type='batch',
+            entity_id=batch_id,
+            entity_name=_edited_name,
+            meta={'staging_id': staging_id, 'chemical_id': new_chemical_id},
+        )
+
         conn.close()
+
 
         cleaned_updated = json.loads(updated['cleaned_data']) if updated['cleaned_data'] else {}
         raw_updated = json.loads(updated['raw_data']) if updated['raw_data'] else {}
@@ -491,6 +516,21 @@ def delete_inventory_row(staging_id):
 
         conn.commit()
         conn.close()
+
+        _uid = g.user.get('id') if (hasattr(g, 'user') and g.user) else None
+        log_event(
+            db_path=user_db,
+            event_type='manual_delete',
+            category='edit',
+            severity='info',
+            title=f"Chemical record deleted - {cleaned.get('name', 'Row ' + str(row['row_index']))}",
+            detail=f"Batch: {batch_id[:8]}... | Staging row: {staging_id}",
+            user_id=_uid,
+            entity_type='batch',
+            entity_id=batch_id,
+            entity_name=cleaned.get('name'),
+            meta={'staging_id': staging_id},
+        )
 
         logger.info("[Batch %s] Row %s deleted (staging_id=%s)", batch_id[:8], row['row_index'], staging_id)
         return jsonify({'success': True, 'deleted_staging_id': staging_id})
@@ -611,7 +651,23 @@ def add_inventory_row():
         )
         # Propagate manually added chemical to warehouse if the batch has already been imported
         _propagate_to_warehouse(cursor, batch_id, None, chemical_id, chem, staging_id)
+
         conn.commit()
+
+        _uid = g.user.get('id') if (hasattr(g, 'user') and g.user) else None
+        log_event(
+            db_path=user_db,
+            event_type='manual_add',
+            category='edit',
+            severity='info',
+            title=f"Manual chemical added - {chem['name']}",
+            detail=f"Batch: {batch_id[:8]}... | Row index: {next_row_index} | Staging ID: {staging_id}",
+            user_id=_uid,
+            entity_type='batch',
+            entity_id=batch_id,
+            entity_name=chem['name'],
+            meta={'staging_id': staging_id, 'chemical_id': chemical_id},
+        )
 
         cursor.execute(
             """

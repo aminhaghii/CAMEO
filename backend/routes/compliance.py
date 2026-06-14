@@ -24,6 +24,7 @@ from flask import (
 
 from auth.decorators import login_required, role_required, csrf_protect
 from db_utils import get_safe_connection
+from activity_logger import log_event
 
 logger = logging.getLogger("compliance")
 
@@ -158,6 +159,21 @@ def export_compliance_report():
                 report_title=custom_title,
             )
 
+            _uid = g.user.get('id') if (hasattr(g, 'user') and g.user) else None
+            log_event(
+                db_path=getattr(g, 'tenant_db_path', None),
+                event_type='compliance_export',
+                category='analysis',
+                severity='info',
+                title=f'Compliance report exported: {clean_name}',
+                detail=f'Unified 3-sheet EU REACH/CLP report exported for batch: {batch_id[:8]}…',
+                user_id=_uid,
+                entity_type='batch',
+                entity_id=batch_id,
+                entity_name=original_filename,
+                meta={'batch_id': batch_id, 'filename': original_filename, 'total_chemicals': len(chemicals)},
+            )
+
             return send_file(
                 output_path,
                 mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -181,6 +197,19 @@ def export_compliance_report():
             cas_numbers=cas_numbers,
             output_path=output_path,
             report_title=custom_title,
+        )
+
+        _uid = g.user.get('id') if (hasattr(g, 'user') and g.user) else None
+        log_event(
+            db_path=getattr(g, 'tenant_db_path', None) or current_app.config['USER_DB_PATH'],
+            event_type='compliance_export',
+            category='analysis',
+            severity='info',
+            title='CAS compliance export',
+            detail=f'Compliance report exported for {len(cas_numbers)} custom CAS numbers',
+            user_id=_uid,
+            entity_type='system',
+            meta={'cas_count': len(cas_numbers)},
         )
 
         return send_file(

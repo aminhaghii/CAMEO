@@ -32,10 +32,16 @@ from auth.security import (
     generate_csrf_token
 )
 from auth.models import get_auth_db_connection
+from activity_logger import log_event
 
 logger = logging.getLogger(__name__)
 
 auth_bp = Blueprint('auth_bp', __name__)
+
+def _get_db_path(company_id):
+    from flask import current_app
+    import os
+    return os.path.join(current_app.config['DATA_DIR'], f"{company_id}_user.db")
 
 
 # ═══════════════════════════════════════════════════════
@@ -112,6 +118,15 @@ def login():
 
     if not user:
         record_login_attempt(email, ip, False, auth_db)
+        log_event(
+            db_path=current_app.config['USER_DB_PATH'],
+            event_type='login_failure',
+            category='system',
+            severity='warning',
+            title='Failed login attempt (Unknown user)',
+            detail=f"Failed login attempt for email {email} from IP {ip}",
+            user_id=None,
+        )
         return jsonify({
             'success': False,
             'error': 'Invalid email or password',
@@ -121,6 +136,15 @@ def login():
     # ── Verify password FIRST (fix P1-9 status leak) ──
     if not verify_password(password, user['password_hash']):
         record_login_attempt(email, ip, False, auth_db)
+        log_event(
+            db_path=_get_db_path(user['company_id']),
+            event_type='login_failure',
+            category='system',
+            severity='warning',
+            title='Failed login attempt (Invalid credentials)',
+            detail=f"Failed login attempt for user {user['email']} from IP {ip}",
+            user_id=user['id'],
+        )
         return jsonify({
             'success': False,
             'error': 'Invalid email or password',
@@ -191,6 +215,15 @@ def login():
     )
 
     logger.info(f"✅ Login successful: {email} (role={user['role']}, IP={ip})")
+    log_event(
+        db_path=_get_db_path(user['company_id']),
+        event_type='login_success',
+        category='system',
+        severity='info',
+        title='User logged in successfully',
+        detail=f"User {user['email']} logged in from IP {ip}",
+        user_id=user['id'],
+    )
     return response
 
 
@@ -315,6 +348,15 @@ def change_password():
     conn.close()
     
     logger.info(f"🔑 Password successfully changed for user ID: {g.user['id']}")
+    log_event(
+        db_path=_get_db_path(g.user['company_id']),
+        event_type='password_change',
+        category='system',
+        severity='info',
+        title='User changed password',
+        detail=f"User {g.user['email']} changed password",
+        user_id=g.user['id'],
+    )
     return jsonify({'success': True, 'message': 'Password changed successfully.'})
 
 
@@ -429,6 +471,15 @@ def register():
     conn.close()
 
     logger.info(f"📝 New registration: {email} for company {company['name']} (PENDING)")
+    log_event(
+        db_path=_get_db_path(company_id),
+        event_type='user_register',
+        category='system',
+        severity='info',
+        title='New user registration pending',
+        detail=f"User {email} registered for company {company['name']} (PENDING approval)",
+        user_id=None,
+    )
 
     return jsonify({
         'success': True,
@@ -448,6 +499,17 @@ def logout():
 
     if session_id:
         invalidate_session(session_id, current_app.config['AUTH_DB_PATH'])
+
+    if hasattr(g, 'user') and g.user:
+        log_event(
+            db_path=_get_db_path(g.user['company_id']),
+            event_type='logout',
+            category='system',
+            severity='info',
+            title='User logged out',
+            detail=f"User {g.user['email']} logged out",
+            user_id=g.user['id'],
+        )
 
     response = make_response(redirect('/auth/login'))
     response.delete_cookie('session_id', path='/')

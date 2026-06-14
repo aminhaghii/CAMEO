@@ -27,10 +27,16 @@ from flask import (
 from auth.decorators import login_required, role_required, super_admin_only
 from auth.models import get_auth_db_connection
 from auth.security import hash_password
+from activity_logger import log_event
 
 logger = logging.getLogger(__name__)
 
 admin_bp = Blueprint('admin_bp', __name__)
+
+def _get_db_path(company_id):
+    from flask import current_app
+    import os
+    return os.path.join(current_app.config['DATA_DIR'], f"{company_id}_user.db")
 
 
 # ═══════════════════════════════════════════════════════
@@ -204,6 +210,18 @@ def approve_user():
         f"✅ User approved: {target_user['email']} → role={assigned_role} "
         f"(by {g.user['email']})"
     )
+    log_event(
+        db_path=_get_db_path(target_user['company_id']),
+        event_type='user_approve',
+        category='system',
+        severity='info',
+        title='User account approved',
+        detail=f"User {target_user['email']} approved as role '{assigned_role}' by admin {g.user['email']}",
+        user_id=g.user['id'],
+        entity_type='user',
+        entity_id=target_user['id'],
+        entity_name=target_user['full_name'],
+    )
     return jsonify({
         'success': True,
         'message': f"User {target_user['full_name']} approved as {assigned_role}"
@@ -256,6 +274,18 @@ def suspend_user():
     conn.close()
 
     logger.info(f"🚫 User suspended: {target_user['email']} (by {g.user['email']})")
+    log_event(
+        db_path=_get_db_path(target_user['company_id']),
+        event_type='user_suspend',
+        category='system',
+        severity='warning',
+        title='User account suspended',
+        detail=f"User {target_user['email']} suspended by admin {g.user['email']}",
+        user_id=g.user['id'],
+        entity_type='user',
+        entity_id=target_user['id'],
+        entity_name=target_user['full_name'],
+    )
     return jsonify({
         'success': True,
         'message': f"User {target_user['full_name']} has been suspended"
@@ -330,6 +360,18 @@ def create_company():
     conn.close()
 
     logger.info(f"🏢 Company created: {name} (id={company_id}, max_users={max_users})")
+    log_event(
+        db_path=current_app.config['USER_DB_PATH'],
+        event_type='company_create',
+        category='system',
+        severity='info',
+        title='Tenant company created',
+        detail=f"Company '{name}' created with max_users={max_users} by super admin {g.user['email']}",
+        user_id=g.user['id'],
+        entity_type='system',
+        entity_id=str(company_id),
+        entity_name=name,
+    )
     return jsonify({
         'success': True,
         'company_id': company_id,

@@ -44,6 +44,10 @@ def init_auth_db(db_path: str):
             license_status  TEXT NOT NULL DEFAULT 'active'
                             CHECK(license_status IN ('active', 'suspended', 'expired')),
             max_users       INTEGER NOT NULL DEFAULT 50,
+            contact_email   TEXT,
+            phone           TEXT,
+            address         TEXT,
+            registration_number TEXT,
             created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP
         )
@@ -135,6 +139,17 @@ def init_auth_db(db_path: str):
         logger.info("Migrating: Adding absolute_expires_at column to sessions table")
         cursor.execute("ALTER TABLE sessions ADD COLUMN absolute_expires_at DATETIME")
         cursor.execute("UPDATE sessions SET absolute_expires_at = datetime(created_at, '+8 hours') WHERE absolute_expires_at IS NULL")
+        conn.commit()
+
+    # Check for new company metadata columns
+    try:
+        cursor.execute("SELECT contact_email FROM companies LIMIT 1")
+    except sqlite3.OperationalError:
+        logger.info("Migrating: Adding metadata columns to companies table")
+        cursor.execute("ALTER TABLE companies ADD COLUMN contact_email TEXT")
+        cursor.execute("ALTER TABLE companies ADD COLUMN phone TEXT")
+        cursor.execute("ALTER TABLE companies ADD COLUMN address TEXT")
+        cursor.execute("ALTER TABLE companies ADD COLUMN registration_number TEXT")
         conn.commit()
 
     conn.close()

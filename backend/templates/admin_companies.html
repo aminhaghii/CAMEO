@@ -1,0 +1,420 @@
+{% extends "base.html" %}
+
+{% block title %}SAFEWARE — Platform Management{% endblock %}
+{% block breadcrumb %}Platform Management{% endblock %}
+
+{% block extra_head %}
+<style>
+  /* ─── Enterprise Command Center Aesthetics (Light) ──────────────────────── */
+  :root {
+    --bg-godmode:   #F8FAFC; /* slate-50 */
+    --bg-panel:     #FFFFFF; /* white */
+    --border-color: #E2E8F0; /* slate-200 */
+    --text-primary: #0F172A; /* slate-900 */
+    --text-muted:   #64748B; /* slate-500 */
+    --c-blue:       #2563EB; /* blue-600 */
+    --c-red:        #EF4444; /* red-500 */
+    --c-amber:      #F59E0B; /* amber-500 */
+    --c-emerald:    #10B981; /* emerald-500 */
+    --font-mono:    'SF Mono', 'JetBrains Mono', 'Fira Code', monospace;
+  }
+
+  .godmode-container {
+    background-color: var(--bg-godmode);
+    color: var(--text-primary);
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  .mono-font {
+    font-family: var(--font-mono);
+  }
+
+  /* Grid layout for the company list */
+  .company-grid-row {
+    display: grid;
+    grid-template-columns: 80px 2fr 1fr 1fr 1fr 150px;
+    gap: 16px;
+    align-items: center;
+  }
+
+  @media (max-width: 768px) {
+    .company-grid-row {
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+  }
+
+  /* Hover effects */
+  .btn-godmode {
+    background: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    font-weight: 500;
+    transition: all 0.2s ease-out;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  }
+  .btn-godmode:hover {
+    border-color: var(--c-blue);
+    color: var(--c-blue);
+    background-color: #EFF6FF; /* blue-50 */
+  }
+
+  .btn-godmode-danger:hover {
+    border-color: var(--c-red);
+    color: var(--c-red);
+    background-color: #FEF2F2; /* red-50 */
+  }
+
+  /* Custom Scrollbar */
+  .custom-scroll::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .custom-scroll::-webkit-scrollbar-track {
+    background: var(--bg-godmode);
+  }
+  .custom-scroll::-webkit-scrollbar-thumb {
+    background: #CBD5E1; /* slate-300 */
+    border-radius: 4px;
+  }
+  .custom-scroll::-webkit-scrollbar-thumb:hover {
+    background: #94A3B8; /* slate-400 */
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div x-data="godModeApp()" x-init="init()" class="godmode-container min-h-full p-6 -m-6 flex flex-col gap-6">
+
+  <!-- Header -->
+  <div class="flex items-start justify-between border-b border-slate-200 pb-4">
+    <div>
+      <div class="flex items-center gap-3">
+        <h1 class="text-xl font-bold tracking-tight uppercase mono-font text-blue-700">
+          GLOBAL_PLATFORM_CORE
+        </h1>
+        <div class="px-2 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700 text-[10px] font-mono tracking-widest flex items-center gap-1.5 shadow-sm">
+          <span class="h-1.5 w-1.5 rounded-full bg-blue-600 animate-pulse"></span>
+          ROOT_ACCESS
+        </div>
+      </div>
+      <p class="text-xs text-slate-500 mt-1 font-mono uppercase tracking-wider">
+        Centralized management of tenant databases, allocations, and global licensing.
+      </p>
+    </div>
+    <button @click="showAddModal = true" class="btn-godmode px-4 py-2 text-xs font-mono tracking-widest flex items-center gap-2 rounded-lg">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+      </svg>
+      INITIATE_TENANT
+    </button>
+  </div>
+
+  <!-- Metric Bar -->
+  <div class="border border-slate-200 bg-white rounded-lg shadow-sm px-4 py-3 font-mono text-xs flex flex-wrap items-center gap-8">
+    <div class="text-slate-500">TOTAL_TENANTS: <span class="text-blue-600 font-bold text-sm ml-1" x-text="companies.length"></span></div>
+    <div class="text-slate-500">ACTIVE_LICENSES: <span class="text-emerald-600 font-bold text-sm ml-1" x-text="companies.filter(c => c.license_status === 'active').length"></span></div>
+    <div class="text-slate-500">TOTAL_USERS: <span class="text-slate-900 font-bold text-sm ml-1" x-text="companies.reduce((sum, c) => sum + (c.user_count || 0), 0)"></span></div>
+    <div class="text-slate-500">PENDING_REQUESTS: <span class="text-amber-500 font-bold text-sm ml-1" x-text="companies.reduce((sum, c) => sum + (c.pending_count || 0), 0)"></span></div>
+  </div>
+
+  <!-- Table Container -->
+  <div class="flex-1 flex flex-col min-h-0 bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
+    <!-- Header -->
+    <div class="hidden md:grid company-grid-row px-4 py-3 bg-slate-50 border-b border-slate-200 text-[10px] font-mono text-slate-500 uppercase tracking-wider font-semibold">
+      <div>ORG_ID</div>
+      <div>TENANT_IDENTIFIER</div>
+      <div>LICENSE_STATE</div>
+      <div>POPULATION</div>
+      <div>MAX_ALLOCATION</div>
+      <div class="text-right">DIRECTIVES</div>
+    </div>
+
+    <!-- Body -->
+    <div class="flex-1 overflow-y-auto custom-scroll divide-y divide-slate-100">
+      <template x-for="company in companies" :key="company.id">
+        <div class="company-grid-row px-4 py-3 hover:bg-slate-50 transition-colors group">
+          <div class="font-mono text-xs text-slate-400 font-medium" x-text="'0x' + company.id.toString(16).padStart(4, '0').toUpperCase()"></div>
+          
+          <div class="flex flex-col">
+            <span class="text-sm font-bold text-slate-900" x-text="company.name"></span>
+            <span class="text-[10px] font-mono text-slate-400 uppercase mt-0.5" x-text="'CREATED: ' + new Date(company.created_at).toISOString().split('T')[0]"></span>
+          </div>
+
+          <div>
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-[10px] font-mono tracking-wider uppercase font-medium"
+                  :class="{
+                    'border-emerald-200 bg-emerald-50 text-emerald-700': company.license_status === 'active',
+                    'border-red-200 bg-red-50 text-red-700': company.license_status === 'suspended' || company.license_status === 'expired'
+                  }">
+              <span class="w-1.5 h-1.5 rounded-full" 
+                    :class="company.license_status === 'active' ? 'bg-emerald-500' : 'bg-red-500'"></span>
+              <span x-text="company.license_status"></span>
+            </span>
+          </div>
+
+          <div class="font-mono text-xs">
+            <span class="text-slate-700 font-medium" x-text="company.user_count"></span>
+            <template x-if="company.pending_count > 0">
+              <span class="text-amber-500 ml-1 font-medium bg-amber-50 px-1.5 py-0.5 rounded" x-text="`+${company.pending_count} p`"></span>
+            </template>
+          </div>
+
+          <div class="font-mono text-xs text-slate-700 font-medium" x-text="company.max_users"></div>
+
+          <div class="flex items-center justify-end gap-2">
+            <button @click="openEditModal(company)" class="btn-godmode px-2.5 py-1.5 rounded text-[10px] font-mono tracking-widest">
+              MODIFY
+            </button>
+            <template x-if="company.license_status === 'active'">
+              <button @click="toggleStatus(company, 'suspended')" class="btn-godmode btn-godmode-danger px-2.5 py-1.5 rounded text-[10px] font-mono tracking-widest">
+                HALT
+              </button>
+            </template>
+            <template x-if="company.license_status !== 'active'">
+              <button @click="toggleStatus(company, 'active')" class="btn-godmode px-2.5 py-1.5 rounded text-[10px] font-mono tracking-widest !border-emerald-300 !text-emerald-600 hover:!bg-emerald-50">
+                RESTORE
+              </button>
+            </template>
+          </div>
+        </div>
+      </template>
+
+      <!-- Empty State -->
+      <div x-show="companies.length === 0" class="p-12 text-center text-slate-400 font-mono text-xs flex flex-col items-center">
+        <svg class="w-10 h-10 mb-3 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+        NO_TENANTS_FOUND
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Modals ───────────────────────────────────────────────────────────── -->
+  
+  <!-- Overlay -->
+  <div x-show="showAddModal || editCompanyData" style="display: none;" 
+       class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 flex items-center justify-center p-4">
+    
+    <!-- ADD Modal -->
+    <div x-show="showAddModal" @click.away="showAddModal = false"
+         class="bg-white border border-slate-200 rounded-xl p-6 w-full max-w-md shadow-2xl relative overflow-hidden">
+      <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-blue-600"></div>
+      
+      <h2 class="text-lg font-mono font-bold text-slate-900 mb-5 uppercase tracking-widest flex items-center gap-2">
+        <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+        Generate Tenant
+      </h2>
+      
+      <div class="space-y-4 max-h-[60vh] overflow-y-auto custom-scroll pr-2">
+        <h3 class="text-xs font-bold text-slate-800 uppercase border-b border-slate-100 pb-2">Company Details</h3>
+        <div>
+          <label class="block text-[10px] font-mono text-slate-500 uppercase mb-1.5 font-bold tracking-wider">Entity Identifier</label>
+          <input type="text" x-model="newCompany.name" placeholder="e.g., Cyberdyne Systems"
+                 class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm font-mono text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-sm">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-[10px] font-mono text-slate-500 uppercase mb-1.5 font-bold tracking-wider">Max Allocation</label>
+              <input type="number" x-model="newCompany.max_users"
+                     class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm font-mono text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-sm">
+            </div>
+            <div>
+              <label class="block text-[10px] font-mono text-slate-500 uppercase mb-1.5 font-bold tracking-wider">Reg. Number</label>
+              <input type="text" x-model="newCompany.registration_number" placeholder="Optional"
+                     class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm font-mono text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-sm">
+            </div>
+        </div>
+        <div>
+          <label class="block text-[10px] font-mono text-slate-500 uppercase mb-1.5 font-bold tracking-wider">Contact Email</label>
+          <input type="email" x-model="newCompany.contact_email" placeholder="corp@example.com"
+                 class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm font-mono text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-sm">
+        </div>
+        <div>
+          <label class="block text-[10px] font-mono text-slate-500 uppercase mb-1.5 font-bold tracking-wider">Phone</label>
+          <input type="text" x-model="newCompany.phone" placeholder="+1..."
+                 class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm font-mono text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-sm">
+        </div>
+        <div>
+          <label class="block text-[10px] font-mono text-slate-500 uppercase mb-1.5 font-bold tracking-wider">Address</label>
+          <input type="text" x-model="newCompany.address" placeholder="HQ Address"
+                 class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm font-mono text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-sm">
+        </div>
+
+        <h3 class="text-xs font-bold text-slate-800 uppercase border-b border-slate-100 pb-2 mt-6">Initial Company Admin</h3>
+        <div>
+          <label class="block text-[10px] font-mono text-slate-500 uppercase mb-1.5 font-bold tracking-wider">Admin Full Name</label>
+          <input type="text" x-model="newCompany.admin_name" placeholder="John Doe"
+                 class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm font-mono text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-sm">
+        </div>
+        <div>
+          <label class="block text-[10px] font-mono text-slate-500 uppercase mb-1.5 font-bold tracking-wider">Admin Email (Login)</label>
+          <input type="email" x-model="newCompany.admin_email" placeholder="admin@example.com"
+                 class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm font-mono text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-sm">
+        </div>
+        <div>
+          <label class="block text-[10px] font-mono text-slate-500 uppercase mb-1.5 font-bold tracking-wider">Admin Initial Password</label>
+          <input type="text" x-model="newCompany.admin_password" placeholder="Strong password..."
+                 class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm font-mono text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-sm">
+        </div>
+      </div>
+
+      <div class="mt-8 flex justify-end gap-3">
+        <button @click="showAddModal = false" class="px-4 py-2 text-xs font-mono font-medium text-slate-500 hover:text-slate-800 uppercase tracking-widest transition-colors">Abort</button>
+        <button @click="createCompany()" class="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs font-mono font-bold uppercase tracking-widest transition-colors shadow-sm shadow-blue-600/20">
+          Execute
+        </button>
+      </div>
+    </div>
+
+    <!-- EDIT Modal -->
+    <div x-show="editCompanyData" @click.away="editCompanyData = null"
+         class="bg-white border border-slate-200 rounded-xl p-6 w-full max-w-md shadow-2xl relative overflow-hidden">
+      <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-400 to-amber-600"></div>
+      
+      <h2 class="text-lg font-mono font-bold text-slate-900 mb-5 uppercase tracking-widest flex items-center gap-2">
+        <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+        Modify Allocation
+      </h2>
+      
+      <div class="mb-4 p-3 bg-slate-50 rounded-lg border border-slate-100">
+        <div class="text-[10px] font-mono text-slate-500 uppercase mb-1">Target Entity</div>
+        <div class="font-mono text-sm font-bold text-slate-800" x-text="editCompanyData?.name"></div>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label class="block text-[10px] font-mono text-slate-500 uppercase mb-1.5 font-bold tracking-wider">New Max Allocation</label>
+          <input type="number" x-model="editCompanyData.max_users"
+                 class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm font-mono text-slate-900 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 focus:outline-none transition-colors shadow-sm">
+        </div>
+      </div>
+
+      <div class="mt-8 flex justify-end gap-3">
+        <button @click="editCompanyData = null" class="px-4 py-2 text-xs font-mono font-medium text-slate-500 hover:text-slate-800 uppercase tracking-widest transition-colors">Abort</button>
+        <button @click="updateCompany()" class="px-5 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 text-xs font-mono font-bold uppercase tracking-widest transition-colors shadow-sm shadow-amber-500/20">
+          Commit
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div x-show="toast" x-transition style="display: none;"
+       class="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-lg border text-xs font-mono tracking-widest uppercase flex items-center gap-3 shadow-lg"
+       :class="toastType === 'error' ? 'bg-red-50 border-red-200 text-red-700' : 'bg-emerald-50 border-emerald-200 text-emerald-700'">
+    <span class="w-2 h-2 rounded-full animate-ping" :class="toastType === 'error' ? 'bg-red-500' : 'bg-emerald-500'"></span>
+    <span class="font-bold" x-text="toast"></span>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function godModeApp() {
+  return {
+    companies: [],
+    showAddModal: false,
+    newCompany: { name: '', max_users: 50, contact_email: '', phone: '', address: '', registration_number: '', admin_email: '', admin_name: '', admin_password: '' },
+    editCompanyData: null,
+    toast: null,
+    toastType: 'success',
+
+    async init() {
+      await this.fetchCompanies();
+    },
+
+    async fetchCompanies() {
+      try {
+        const res = await fetch('/api/admin/companies');
+        if (res.ok) {
+          this.companies = await res.json();
+        }
+      } catch (e) {
+        this.showToast('SYNC_FAILURE', 'error');
+      }
+    },
+
+    async createCompany() {
+      if (!this.newCompany.name) {
+        this.showToast('INVALID_PARAMETERS', 'error');
+        return;
+      }
+      try {
+        const res = await fetch('/api/admin/companies', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(this.newCompany)
+        });
+        const data = await res.json();
+        if (data.success) {
+          this.showToast('TENANT_INITIALIZED');
+          this.showAddModal = false;
+          this.newCompany = { name: '', max_users: 50, contact_email: '', phone: '', address: '', registration_number: '', admin_email: '', admin_name: '', admin_password: '' };
+          await this.fetchCompanies();
+        } else {
+          this.showToast(data.error || 'ALLOCATION_FAILED', 'error');
+        }
+      } catch (e) {
+        this.showToast('NETWORK_ERROR', 'error');
+      }
+    },
+
+    openEditModal(company) {
+      // Create a shallow copy so we don't mutate the live grid before save
+      this.editCompanyData = { ...company };
+    },
+
+    async updateCompany() {
+      try {
+        const payload = {
+          max_users: parseInt(this.editCompanyData.max_users)
+        };
+        const res = await fetch(`/api/admin/companies/${this.editCompanyData.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+          this.showToast('TENANT_MODIFIED');
+          this.editCompanyData = null;
+          await this.fetchCompanies();
+        } else {
+          this.showToast(data.error || 'UPDATE_REJECTED', 'error');
+        }
+      } catch (e) {
+        this.showToast('NETWORK_ERROR', 'error');
+      }
+    },
+
+    async toggleStatus(company, newStatus) {
+      const prompt = newStatus === 'suspended' ? 'HALT' : 'RESTORE';
+      if (!confirm(`CONFIRM DIRECTIVE: ${prompt} [ORG_ID: 0x${company.id.toString(16).padStart(4, '0').toUpperCase()}] ?`)) return;
+      
+      try {
+        const res = await fetch(`/api/admin/companies/${company.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ license_status: newStatus })
+        });
+        const data = await res.json();
+        if (data.success) {
+          this.showToast(`DIRECTIVE_${prompt}_EXECUTED`);
+          await this.fetchCompanies();
+        } else {
+          this.showToast(data.error || 'DIRECTIVE_REJECTED', 'error');
+        }
+      } catch (e) {
+        this.showToast('NETWORK_ERROR', 'error');
+      }
+    },
+
+    showToast(msg, type = 'success') {
+      this.toast = msg;
+      this.toastType = type;
+      setTimeout(() => this.toast = null, 3000);
+    }
+  };
+}
+</script>
+{% endblock %}

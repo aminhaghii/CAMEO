@@ -26,7 +26,7 @@ from flask import (
 
 from auth.decorators import login_required, role_required, super_admin_only
 from auth.models import get_auth_db_connection
-from auth.security import hash_password
+from auth.security import hash_password, validate_password_complexity
 from activity_logger import log_event
 
 logger = logging.getLogger(__name__)
@@ -148,6 +148,69 @@ def pending_count():
     count = cursor.fetchone()['cnt']
     conn.close()
     return jsonify({'count': count})
+
+
+@admin_bp.route('/api/admin/users/create', methods=['POST'])
+@login_required
+@role_required('company_admin', 'super_admin')
+def create_user():
+    """Manually add a user to the company."""
+    from flask import current_app
+    auth_db = current_app.config['AUTH_DB_PATH']
+    data = request.get_json() or {}
+
+    email = (data.get('email') or '').strip().lower()
+    full_name = (data.get('full_name') or '').strip()
+    password = data.get('password') or ''
+    role = data.get('role', 'viewer')
+    company_id = data.get('company_id') if g.user['role'] == 'super_admin' else g.user['company_id']
+
+    if not email or not full_name or not password:
+        return jsonify({'success': False, 'error': 'Email, full name, and password are required'}), 400
+
+    if role not in ('company_admin', 'operator', 'viewer'):
+        return jsonify({'success': False, 'error': 'Invalid role'}), 400
+
+    pwd_valid, pwd_errors = validate_password_complexity(password)
+    if not pwd_valid:
+        return jsonify({'success': False, 'error': ' | '.join(pwd_errors)}), 400
+
+    conn = get_auth_db_connection(auth_db)
+    cursor = conn.cursor()
+
+    # Check max users limit
+    cursor.execute("SELECT max_users FROM companies WHERE id = ?", (company_id,))
+    comp_data = cursor.fetchone()
+    if not comp_data:
+        conn.close()
+        return jsonify({'success': False, 'error': 'Company not found'}), 404
+
+    cursor.execute("SELECT COUNT(*) as cnt FROM users WHERE company_id = ?", (company_id,))
+    current_count = cursor.fetchone()['cnt']
+    
+    if current_count >= comp_data['max_users']:
+        conn.close()
+        return jsonify({'success': False, 'error': 'Company has reached its maximum user allocation'}), 400
+
+    # Check email uniqueness
+    cursor.execute("SELECT id FROM users WHERE email = ?", (email,))
+    if cursor.fetchone():
+        conn.close()
+        return jsonify({'success': False, 'error': 'Email already registered in the system'}), 409
+
+    hashed_pw = hash_password(password)
+    
+    # We set status directly to ACTIVE since an admin is creating them
+    cursor.execute("""
+        INSERT INTO users (email, full_name, password_hash, company_id, role, status)
+        VALUES (?, ?, ?, ?, ?, 'ACTIVE')
+    """, (email, full_name, hashed_pw, company_id, role))
+    
+    conn.commit()
+    conn.close()
+
+    log_event(g.user['id'], 'admin', f"Created new user: {email} with role {role}")
+    return jsonify({'success': True})
 
 
 @admin_bp.route('/api/admin/approve-user', methods=['POST'])
@@ -301,7 +364,7 @@ def suspend_user():
 @super_admin_only
 def companies_page():
     """Render company management page (super admin)."""
-    return render_template('admin_users.html')  # Same template, different mode
+    return render_template('admin_companies.html')
 
 
 @admin_bp.route('/api/admin/companies', methods=['GET'])
@@ -330,50 +393,126 @@ def list_companies():
 @login_required
 @super_admin_only
 def create_company():
-    """Create a new tenant company."""
+    """Create a new tenant company and its initial company_admin."""
     from flask import current_app
     auth_db = current_app.config['AUTH_DB_PATH']
     data = request.get_json() or {}
 
     name = (data.get('name') or '').strip()
     max_users = data.get('max_users', 50)
+    contact_email = (data.get('contact_email') or '').strip()
+    phone = (data.get('phone') or '').strip()
+    address = (data.get('address') or '').strip()
+    registration_number = (data.get('registration_number') or '').strip()
+
+    admin_email = (data.get('admin_email') or '').strip().lower()
+    admin_name = (data.get('admin_name') or '').strip()
+    admin_password = data.get('admin_password') or ''
 
     if not name or len(name) < 2:
         return jsonify({'success': False, 'error': 'Company name is required'}), 400
 
+    if not admin_email or not admin_name or not admin_password:
+        return jsonify({'success': False, 'error': 'Initial admin details (email, name, password) are required'}), 400
+
+    pwd_valid, pwd_errors = validate_password_complexity(admin_password)
+    if not pwd_valid:
+        return jsonify({'success': False, 'error': ' | '.join(pwd_errors)}), 400
+
     conn = get_auth_db_connection(auth_db)
     cursor = conn.cursor()
 
-    # Check uniqueness
+    # Check company uniqueness
     cursor.execute("SELECT id FROM companies WHERE name = ?", (name,))
     if cursor.fetchone():
         conn.close()
         return jsonify({'success': False, 'error': 'Company name already exists'}), 409
 
-    cursor.execute("""
-        INSERT INTO companies (name, license_status, max_users)
-        VALUES (?, 'active', ?)
-    """, (name, max_users))
+    # Check user uniqueness
+    cursor.execute("SELECT id FROM users WHERE email = ?", (admin_email,))
+    if cursor.fetchone():
+        conn.close()
+        return jsonify({'success': False, 'error': 'Admin email already exists in the system'}), 409
 
-    company_id = cursor.lastrowid
-    conn.commit()
+    try:
+        # Insert Company
+        cursor.execute("""
+            INSERT INTO companies (name, license_status, max_users, contact_email, phone, address, registration_number)
+            VALUES (?, 'active', ?, ?, ?, ?, ?)
+        """, (name, max_users, contact_email, phone, address, registration_number))
+        
+        company_id = cursor.lastrowid
+
+        # Insert Admin User
+        hashed_pw = hash_password(admin_password)
+        cursor.execute("""
+            INSERT INTO users (email, full_name, password_hash, company_id, role, status)
+            VALUES (?, ?, ?, ?, 'company_admin', 'ACTIVE')
+        """, (admin_email, admin_name, hashed_pw, company_id))
+
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        conn.close()
+        logger.error(f"Failed to create company and admin: {e}")
+        return jsonify({'success': False, 'error': 'Internal database error'}), 500
+
     conn.close()
 
     logger.info(f"🏢 Company created: {name} (id={company_id}, max_users={max_users})")
-    log_event(
-        db_path=current_app.config['USER_DB_PATH'],
-        event_type='company_create',
-        category='system',
-        severity='info',
-        title='Tenant company created',
-        detail=f"Company '{name}' created with max_users={max_users} by super admin {g.user['email']}",
-        user_id=g.user['id'],
-        entity_type='system',
-        entity_id=str(company_id),
-        entity_name=name,
-    )
     return jsonify({
         'success': True,
         'company_id': company_id,
         'message': f'Company "{name}" created successfully'
     }), 201
+
+
+@admin_bp.route('/api/admin/companies/<int:company_id>', methods=['PUT'])
+@login_required
+@super_admin_only
+def update_company(company_id):
+    """Update a tenant company (e.g., max_users, license_status)."""
+    from flask import current_app
+    auth_db = current_app.config['AUTH_DB_PATH']
+    data = request.get_json() or {}
+
+    max_users = data.get('max_users')
+    license_status = data.get('license_status')
+
+    if max_users is None and not license_status:
+        return jsonify({'success': False, 'error': 'No update fields provided'}), 400
+
+    conn = get_auth_db_connection(auth_db)
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT id FROM companies WHERE id = ?", (company_id,))
+    if not cursor.fetchone():
+        conn.close()
+        return jsonify({'success': False, 'error': 'Company not found'}), 404
+
+    updates = []
+    params = []
+
+    if max_users is not None:
+        updates.append("max_users = ?")
+        params.append(max_users)
+
+    if license_status:
+        if license_status not in ('active', 'suspended', 'expired'):
+            conn.close()
+            return jsonify({'success': False, 'error': 'Invalid license status'}), 400
+        updates.append("license_status = ?")
+        params.append(license_status)
+
+    if updates:
+        params.append(company_id)
+        cursor.execute(f"UPDATE companies SET {', '.join(updates)} WHERE id = ?", params)
+        conn.commit()
+
+    conn.close()
+    
+    logger.info(f"🏢 Company updated: id={company_id}, updates={data}")
+    return jsonify({
+        'success': True,
+        'message': f'Company updated successfully'
+    })

@@ -374,125 +374,19 @@ def change_password():
 
 @auth_bp.route('/auth/register', methods=['GET'])
 def register_page():
-    """Render registration page with company list."""
-    return render_template('register.html')
+    """Registration is disabled. Only admins can create users."""
+    flash("Public registration is disabled. Please contact your administrator.", "error")
+    return redirect(url_for('auth_bp.login_page'))
 
 
 @auth_bp.route('/auth/register', methods=['POST'])
 def register():
-    """
-    Register a new user with PENDING status.
-
-    Accepts JSON: {
-        "email": "...",
-        "full_name": "...",
-        "password": "...",
-        "company_id": 2
-    }
-    """
-    from flask import current_app
-    auth_db = current_app.config['AUTH_DB_PATH']
-
-    if request.is_json:
-        data = request.get_json()
-    else:
-        data = request.form.to_dict()
-
-    email = (data.get('email') or '').strip().lower()
-    full_name = (data.get('full_name') or '').strip()
-    password = data.get('password') or ''
-    confirm_password = data.get('confirm_password') or ''
-    company_id = data.get('company_id')
-
-    # ── Validate inputs ──
-    errors = []
-    if not email or '@' not in email:
-        errors.append('Valid email is required')
-    if not full_name or len(full_name) < 2:
-        errors.append('Full name is required (minimum 2 characters)')
-    if password != confirm_password:
-        errors.append('Passwords do not match')
-    if not company_id:
-        errors.append('Company selection is required')
-
-    # Password complexity
-    pwd_valid, pwd_errors = validate_password_complexity(password)
-    if not pwd_valid:
-        errors.extend(pwd_errors)
-
-    if errors:
-        return jsonify({
-            'success': False,
-            'errors': errors
-        }), 400
-
-    # ── Check company exists and has capacity ──
-    conn = get_auth_db_connection(auth_db)
-    cursor = conn.cursor()
-
-    cursor.execute("SELECT * FROM companies WHERE id = ?", (company_id,))
-    company = cursor.fetchone()
-    if not company:
-        conn.close()
-        return jsonify({
-            'success': False,
-            'errors': ['Selected company does not exist']
-        }), 400
-
-    if company['license_status'] != 'active':
-        conn.close()
-        return jsonify({
-            'success': False,
-            'errors': ['This company is not currently accepting new users']
-        }), 400
-
-    # Check max users
-    cursor.execute(
-        "SELECT COUNT(*) as cnt FROM users WHERE company_id = ?",
-        (company_id,)
-    )
-    user_count = cursor.fetchone()['cnt']
-    if user_count >= company['max_users']:
-        conn.close()
-        return jsonify({
-            'success': False,
-            'errors': ['This company has reached its maximum number of users']
-        }), 400
-
-    # ── Check email uniqueness ──
-    cursor.execute("SELECT id FROM users WHERE email = ? COLLATE NOCASE", (email,))
-    if cursor.fetchone():
-        conn.close()
-        return jsonify({
-            'success': False,
-            'errors': ['An account with this email already exists']
-        }), 409
-
-    # ── Create user ──
-    password_hash = hash_password(password)
-    cursor.execute("""
-        INSERT INTO users (email, full_name, password_hash, company_id, role, status)
-        VALUES (?, ?, ?, ?, 'viewer', 'PENDING')
-    """, (email, full_name, password_hash, company_id))
-
-    conn.commit()
-    conn.close()
-
-    logger.info(f"📝 New registration: {email} for company {company['name']} (PENDING)")
-    log_event(
-        db_path=_get_db_path(company_id),
-        event_type='user_register',
-        category='system',
-        severity='info',
-        title='New user registration pending',
-        detail=f"User {email} registered for company {company['name']} (PENDING approval)",
-        user_id=None,
-    )
-
+    """Registration is disabled. Only admins can create users."""
     return jsonify({
-        'success': True,
-        'message': 'Registration successful! Your account is pending approval by your company administrator.'
-    }), 201
+        'success': False,
+        'errors': ['Public registration is disabled. Please contact your administrator to receive an invite.']
+    }), 403
+
 
 
 # ═══════════════════════════════════════════════════════

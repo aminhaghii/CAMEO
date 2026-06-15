@@ -10,64 +10,13 @@
     <div class="flex items-center justify-between mb-6">
         <div>
             <h1 class="text-2xl font-bold text-slate-900">User Management</h1>
-            <p class="text-sm text-slate-500 mt-1">Approve, manage and assign roles to your team members</p>
+            <p class="text-sm text-slate-500 mt-1">Manage your organization's users and access controls</p>
         </div>
+        <button @click="showAddModal = true" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition shadow-sm hover:shadow-md flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+            Add User
+        </button>
     </div>
-
-    <!-- Pending Users Section -->
-    <template x-if="pendingUsers.length > 0">
-        <div class="mb-8">
-            <div class="flex items-center gap-2 mb-4">
-                <h2 class="text-lg font-semibold text-slate-900">Pending Approval</h2>
-                <span
-                    class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-100 text-amber-700 text-xs font-bold"
-                    x-text="pendingUsers.length"></span>
-            </div>
-
-            <div class="grid gap-3">
-                <template x-for="user in pendingUsers" :key="user.id">
-                    <div
-                        class="bg-white rounded-xl border border-amber-200 shadow-sm p-5 flex items-center justify-between hover:shadow-md transition-shadow">
-                        <div class="flex items-center gap-4">
-                            <div
-                                class="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-400 flex items-center justify-center">
-                                <span class="text-white font-bold text-sm"
-                                    x-text="user.full_name.charAt(0).toUpperCase()"></span>
-                            </div>
-                            <div>
-                                <p class="font-semibold text-slate-900" x-text="user.full_name"></p>
-                                <p class="text-sm text-slate-500" x-text="user.email"></p>
-                                <p class="text-xs text-slate-400 mt-0.5">
-                                    Registered: <span x-text="new Date(user.created_at).toLocaleDateString()"></span>
-                                    <template x-if="user.company_name">
-                                        <span> &middot; <span x-text="user.company_name"></span></span>
-                                    </template>
-                                </p>
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <select x-model="user._assignRole"
-                                class="text-sm border border-slate-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                                <option value="viewer">Viewer (Read-Only)</option>
-                                <option value="operator">Operator</option>
-                                {% if current_user and current_user.role == 'super_admin' %}
-                                <option value="company_admin">Company Admin</option>
-                                {% endif %}
-                            </select>
-                            <button @click="approveUser(user)"
-                                class="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium rounded-lg transition shadow-sm hover:shadow-md flex items-center gap-1.5">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M5 13l4 4L19 7" />
-                                </svg>
-                                Approve
-                            </button>
-                        </div>
-                    </div>
-                </template>
-            </div>
-        </div>
-    </template>
 
     <!-- All Users Table -->
     <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -165,6 +114,66 @@
         </div>
     </div>
 
+    <!-- ── Modals ───────────────────────────────────────────────────────────── -->
+    <!-- Overlay -->
+    <div x-show="showAddModal" style="display: none;" 
+         class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 flex items-center justify-center p-4">
+      
+      <!-- ADD Modal -->
+      <div x-show="showAddModal" @click.away="showAddModal = false"
+           class="bg-white border border-slate-200 rounded-xl p-6 w-full max-w-md shadow-2xl relative overflow-hidden">
+        <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-blue-600"></div>
+        
+        <h2 class="text-lg font-bold text-slate-900 mb-5 tracking-tight flex items-center gap-2">
+          <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+          Register New User
+        </h2>
+        
+        <div class="space-y-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1.5">Full Name</label>
+            <input type="text" x-model="newUser.full_name" placeholder="John Doe"
+                   class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1.5">Email Address</label>
+            <input type="email" x-model="newUser.email" placeholder="john@company.com"
+                   class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1.5">Initial Password</label>
+            <input type="text" x-model="newUser.password" placeholder="Must be strong..."
+                   class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1.5">Role / Access Level</label>
+            <select x-model="newUser.role" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-sm">
+                <option value="viewer">Viewer (Read-Only)</option>
+                <option value="operator">Operator</option>
+                {% if current_user and current_user.role == 'super_admin' %}
+                <option value="company_admin">Company Admin</option>
+                {% endif %}
+            </select>
+          </div>
+          {% if current_user and current_user.role == 'super_admin' %}
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1.5">Target Company ID</label>
+            <input type="number" x-model="newUser.company_id" placeholder="Company ID"
+                   class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-sm">
+            <p class="text-xs text-slate-500 mt-1">Super Admins must specify which company to add the user to.</p>
+          </div>
+          {% endif %}
+        </div>
+  
+        <div class="mt-8 flex justify-end gap-3">
+          <button @click="showAddModal = false" class="px-4 py-2 text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors">Cancel</button>
+          <button @click="createUser()" class="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors shadow-sm shadow-blue-600/20">
+            Create User
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Toast Notification -->
     <div x-show="toast" x-transition
         class="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl shadow-2xl border text-sm font-medium flex items-center gap-2"
@@ -177,24 +186,15 @@
 <script>
     function userManagement() {
         return {
-            pendingUsers: [],
             allUsers: [],
             toast: null,
             toastType: 'success',
             currentUserId: {{ current_user.id if current_user else 0 }},
+            showAddModal: false,
+            newUser: { email: '', full_name: '', password: '', role: 'viewer', company_id: '' },
 
             async init() {
-                await Promise.all([this.loadPending(), this.loadAll()]);
-            },
-
-            async loadPending() {
-                try {
-                    const resp = await fetch('/api/admin/pending-users');
-                    if (resp.ok) {
-                        const data = await resp.json();
-                        this.pendingUsers = data.map(u => ({ ...u, _assignRole: 'viewer' }));
-                    }
-                } catch (e) { console.error(e); }
+                await this.loadAll();
             },
 
             async loadAll() {
@@ -204,21 +204,31 @@
                 } catch (e) { console.error(e); }
             },
 
-            async approveUser(user) {
+            async createUser() {
+                if (!this.newUser.email || !this.newUser.full_name || !this.newUser.password) {
+                    this.showToast('Please fill all required fields', 'error');
+                    return;
+                }
+
                 try {
-                    const resp = await fetch('/api/admin/approve-user', {
+                    const resp = await fetch('/api/admin/users/create', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ user_id: user.id, role: user._assignRole })
+                        body: JSON.stringify(this.newUser)
                     });
                     const data = await resp.json();
+                    
                     if (data.success) {
-                        this.showToast(`${user.full_name} approved as ${user._assignRole}`, 'success');
+                        this.showToast('User created successfully', 'success');
+                        this.showAddModal = false;
+                        this.newUser = { email: '', full_name: '', password: '', role: 'viewer', company_id: '' };
                         await this.init();
                     } else {
-                        this.showToast(data.error, 'error');
+                        this.showToast(data.error || 'Failed to create user', 'error');
                     }
-                } catch (e) { this.showToast('Network error', 'error'); }
+                } catch (e) { 
+                    this.showToast('Network error', 'error'); 
+                }
             },
 
             async suspendUser(user) {

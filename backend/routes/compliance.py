@@ -15,11 +15,12 @@ import os
 import json
 import sqlite3
 import logging
+import tempfile
+from io import BytesIO
 from datetime import datetime
-
 from flask import (
     Blueprint, request, jsonify, send_file,
-    current_app, render_template, g,
+    current_app, render_template, g, after_this_request,
 )
 
 from auth.decorators import login_required, role_required, csrf_protect
@@ -29,6 +30,41 @@ from activity_logger import log_event
 logger = logging.getLogger("compliance")
 
 compliance_bp = Blueprint("compliance", __name__)
+
+
+OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "uploads")
+
+
+def _make_tmp_xlsx(prefix: str):
+    """Materialise a temp xlsx path inside OUTPUT_DIR.
+
+    The file is generated to disk because the report builders require a
+    path-based target. Cleaning is then deferred until the response body has
+    been written and the open file handle is released (see
+    :func:`_delete_after_send`).
+    """
+    fd, path = tempfile.mkstemp(prefix=prefix, suffix='.xlsx', dir=OUTPUT_DIR)
+    os.close(fd)
+    return path
+
+
+def _delete_after_send(path: str):
+    """Schedule ``os.remove(path)`` to run after the response is fully sent.
+
+    On Windows, an open file handle makes ``os.remove`` fail with
+    ``WinError 32``. The handle is held by Werkzeug's FileWrapper until the
+    response is fully consumed. ``flask.after_this_request`` runs after the
+    WSGI response body iteration completes, by which point the handle has
+    been released and the deletion succeeds.
+    """
+    @after_this_request
+    def _cleanup(response):
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+        return response
+    return _cleanup
 
 
 @compliance_bp.route("/compliance")
@@ -69,8 +105,6 @@ def export_compliance_report():
         from logic.excel_generator import ComplianceExcelGenerator, query_eu_compliance
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "uploads")
-        os.makedirs(output_dir, exist_ok=True)
 
         generator = ComplianceExcelGenerator(db_path)
 
@@ -147,39 +181,47 @@ def export_compliance_report():
 
             # Format: ANALYSE_{clean_name}_{timestamp}_{batch_id}.xlsx
             filename = f"ANALYSE_{clean_name}_{timestamp}_{batch_id[:8]}.xlsx"
-            os.makedirs(output_dir, exist_ok=True)
-            output_path = os.path.join(output_dir, filename)
+            output_path = _make_tmp_xlsx(prefix=f"ANALYSE_{clean_name}_{batch_id[:8]}_")
+            try:
+                generator.generate_unified(
+                    inventory_data=eu_data,
+                    chemicals=chemicals,
+                    reactivity_pairs=pair_details,
+                    matrix_data=matrix_data,
+                    output_path=output_path,
+                    report_title=custom_title,
+                )
 
-            generator.generate_unified(
-                inventory_data=eu_data,
-                chemicals=chemicals,
-                reactivity_pairs=pair_details,
-                matrix_data=matrix_data,
-                output_path=output_path,
-                report_title=custom_title,
-            )
+                _uid = g.user.get('id') if (hasattr(g, 'user') and g.user) else None
+                log_event(
+                    db_path=getattr(g, 'tenant_db_path', None),
+                    event_type='compliance_export',
+                    category='analysis',
+                    severity='info',
+                    title=f'Compliance report exported: {clean_name}',
+                    detail=f'Unified 3-sheet EU REACH/CLP report exported for batch: {batch_id[:8]}…',
+                    user_id=_uid,
+                    entity_type='batch',
+                    entity_id=batch_id,
+                    entity_name=original_filename,
+                    meta={'batch_id': batch_id, 'filename': original_filename, 'total_chemicals': len(chemicals)},
+                )
 
-            _uid = g.user.get('id') if (hasattr(g, 'user') and g.user) else None
-            log_event(
-                db_path=getattr(g, 'tenant_db_path', None),
-                event_type='compliance_export',
-                category='analysis',
-                severity='info',
-                title=f'Compliance report exported: {clean_name}',
-                detail=f'Unified 3-sheet EU REACH/CLP report exported for batch: {batch_id[:8]}…',
-                user_id=_uid,
-                entity_type='batch',
-                entity_id=batch_id,
-                entity_name=original_filename,
-                meta={'batch_id': batch_id, 'filename': original_filename, 'total_chemicals': len(chemicals)},
-            )
-
-            return send_file(
-                output_path,
-                mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                as_attachment=True,
-                download_name=filename,
-            )
+                with open(output_path, 'rb') as f:
+                    body_bytes = f.read()
+                _delete_after_send(output_path)
+                return send_file(
+                    BytesIO(body_bytes),
+                    mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    as_attachment=True,
+                    download_name=filename,
+                )
+            except Exception:
+                try:
+                    os.remove(output_path)
+                except OSError:
+                    pass
+                raise
 
         # ── Mode 1: CAS-only single-sheet ──
         if not cas_numbers or not isinstance(cas_numbers, list):
@@ -191,33 +233,47 @@ def export_compliance_report():
 
         logger.info("CAS-only export for %d CAS numbers", len(cas_numbers))
         filename = f"SAFEWARE_Compliance_Report_{timestamp}.xlsx"
-        output_path = os.path.join(output_dir, filename)
 
-        generator.generate(
-            cas_numbers=cas_numbers,
-            output_path=output_path,
-            report_title=custom_title,
-        )
+        user_db = getattr(g, 'tenant_db_path', None)
+        if not user_db:
+            return jsonify({"error": "Access Denied: Invalid tenant context"}), 403
 
-        _uid = g.user.get('id') if (hasattr(g, 'user') and g.user) else None
-        log_event(
-            db_path=getattr(g, 'tenant_db_path', None) or current_app.config['USER_DB_PATH'],
-            event_type='compliance_export',
-            category='analysis',
-            severity='info',
-            title='CAS compliance export',
-            detail=f'Compliance report exported for {len(cas_numbers)} custom CAS numbers',
-            user_id=_uid,
-            entity_type='system',
-            meta={'cas_count': len(cas_numbers)},
-        )
+        output_path = _make_tmp_xlsx(prefix="SAFEWARE_Compliance_Report_")
+        try:
+            generator.generate(
+                cas_numbers=cas_numbers,
+                output_path=output_path,
+                report_title=custom_title,
+            )
 
-        return send_file(
-            output_path,
-            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            as_attachment=True,
-            download_name=filename,
-        )
+            _uid = g.user.get('id') if (hasattr(g, 'user') and g.user) else None
+            log_event(
+                db_path=user_db,
+                event_type='compliance_export',
+                category='analysis',
+                severity='info',
+                title='CAS compliance export',
+                detail=f'Compliance report exported for {len(cas_numbers)} custom CAS numbers',
+                user_id=_uid,
+                entity_type='system',
+                meta={'cas_count': len(cas_numbers)},
+            )
+
+            with open(output_path, 'rb') as f:
+                body_bytes = f.read()
+            _delete_after_send(output_path)
+            return send_file(
+                BytesIO(body_bytes),
+                mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                as_attachment=True,
+                download_name=filename,
+            )
+        except Exception:
+            try:
+                os.remove(output_path)
+            except OSError:
+                pass
+            raise
 
     except FileNotFoundError as e:
         logger.error("Database not found: %s", e)

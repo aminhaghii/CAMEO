@@ -145,6 +145,7 @@
                         </a>
                     </li>
 
+                    {% if current_user and current_user.role in ['company_admin', 'super_admin'] %}
                     <!-- Activity Logs -->
                     <li>
                         <a href="/logs"
@@ -157,6 +158,7 @@
                             <span x-show="sidebarOpen" x-transition class="font-medium">Activity Logs</span>
                         </a>
                     </li>
+                    {% endif %}
 
                     <!-- Compliance Reports (Operator+ only) -->
                     {% if current_user and current_user.role in ('operator', 'company_admin', 'super_admin') %}

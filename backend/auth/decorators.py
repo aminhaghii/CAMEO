@@ -190,18 +190,22 @@ def viewer_readonly(f):
     """
     @functools.wraps(f)
     def decorated(*args, **kwargs):
-        if (hasattr(g, 'user') and g.user and
-                g.user.get('role') == 'viewer' and
-                request.method in ('POST', 'PUT', 'DELETE', 'PATCH')):
-            logger.warning(
-                f"🔒 Viewer tried mutating operation: {g.user['email']} "
-                f"{request.method} {request.path}"
-            )
-            if _is_api_request():
-                return jsonify({
-                    'error': 'Viewers have read-only access',
-                    'code': 'VIEWER_READONLY'
-                }), 403
-            abort(403)
+        if hasattr(g, 'user') and g.user:
+            role = g.user.get('role')
+            if role in ('viewer', 'operator') and request.method in ('POST', 'PUT', 'DELETE', 'PATCH'):
+                # Exception: Allow operators to use Matrix Analysis endpoint
+                if role == 'operator' and request.path.endswith('/analyze'):
+                    return f(*args, **kwargs)
+
+                logger.warning(
+                    f"🔒 {role.capitalize()} tried mutating operation: {g.user['email']} "
+                    f"{request.method} {request.path}"
+                )
+                if _is_api_request():
+                    return jsonify({
+                        'error': f'{role.capitalize()}s have read-only access',
+                        'code': f'{role.upper()}_READONLY'
+                    }), 403
+                abort(403)
         return f(*args, **kwargs)
     return decorated

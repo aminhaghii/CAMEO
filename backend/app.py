@@ -12,7 +12,7 @@ from logic.reactivity_engine import ReactivityEngine
 from logic.constants import Compatibility, COMPATIBILITY_MAP
 from auth.models import init_auth_db, seed_default_company_and_admin, get_auth_db_connection
 from auth.security import hash_password, validate_session, generate_csrf_token
-from auth.decorators import login_required, csrf_protect
+from auth.decorators import login_required, csrf_protect, role_required
 from db_utils import get_safe_connection
 from activity_logger import log_event, migrate_audit_trail, _map_action_category, _map_action_title
 
@@ -30,8 +30,13 @@ CORS(app, supports_credentials=True, origins=[
 # ═══════════════════════════════════════════════════════
 #  Security Configuration
 # ═══════════════════════════════════════════════════════
+_is_prod = (
+    os.environ.get('FLASK_ENV') == 'production'
+    or os.environ.get('COOKIE_SECURE') == '1'
+)
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = _is_prod
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50 MB limit (P1-7)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -224,8 +229,20 @@ def tenant_router():
 
     # ── Tenant Routing ──
     if user['role'] == 'super_admin':
-        # 🔴 BLIND SPOT: Super Admin has NO access to tenant data
-        g.tenant_db_path = None
+        # Give super_admin complete system access by mapping them to the primary tenant DB (or fallback)
+        from auth.models import get_auth_db_connection
+        try:
+            conn = get_auth_db_connection()
+            cur = conn.cursor()
+            cur.execute("SELECT id FROM companies WHERE id != 1 ORDER BY id ASC LIMIT 1")
+            row = cur.fetchone()
+            if row:
+                g.tenant_db_path = os.path.join(DATA_DIR, f"{row['id']}_user.db")
+            else:
+                g.tenant_db_path = USER_DB_PATH
+            conn.close()
+        except Exception:
+            g.tenant_db_path = USER_DB_PATH
     else:
         # Build tenant DB path: data/{company_id}_user.db
         company_id = user['company_id']
@@ -284,6 +301,18 @@ def get_user_db_connection():
         _init_tenant_db(db_path)
 
     return get_safe_connection(db_path)
+
+
+def _require_tenant_db():
+    """Fail-closed resolver for tenant-data routes.
+
+    Returns the tenant DB path or None if no tenant context exists
+    (e.g. for super_admin). Routes must explicitly check the return
+    and return 403 when None — we do not raise/abort here because the
+    surrounding route bodies wrap generic `except Exception` handlers
+    that would otherwise turn the abort into a 500.
+    """
+    return getattr(g, 'tenant_db_path', None) or None
 
 def init_user_db():
     conn = get_safe_connection(USER_DB_PATH)
@@ -684,6 +713,7 @@ def warehouse_page():
     return render_template('warehouse.html')
 
 @app.route('/logs')
+@role_required('company_admin', 'super_admin')
 def logs_page():
     """Render the activity logs page"""
     return render_template('logs.html')
@@ -691,6 +721,7 @@ def logs_page():
 
 
 @app.route('/api/matrix/data', methods=['GET'])
+@login_required
 def matrix_data():
     """
     Return compatibility matrix data as pure JSON for JS virtual-scroll rendering.
@@ -782,6 +813,7 @@ def matrix_data():
 
 
 @app.route('/api/dashboard/stats', methods=['GET'])
+@login_required
 def dashboard_stats():
     """Get dashboard KPI stats"""
     try:
@@ -818,11 +850,14 @@ def dashboard_stats():
 
 
 @app.route('/api/warehouse', methods=['GET'])
+@login_required
 def get_warehouses():
     """Get warehouse overview data"""
     try:
-        user_db = getattr(g, 'tenant_db_path', None) or USER_DB_PATH
-        if user_db and os.path.exists(user_db):
+        user_db = _require_tenant_db()
+        if not user_db:
+            return jsonify({'success': False, 'error': 'Tenant context required. Super admins must use the admin UI.'}), 403
+        if os.path.exists(user_db):
             conn = get_safe_connection(user_db)
             cursor = conn.cursor()
             # Get distinct locations from inventory staging
@@ -868,11 +903,15 @@ def get_warehouses():
 
 
 @app.route('/api/logs', methods=['GET'])
+@login_required
+@role_required('company_admin', 'super_admin')
 def get_activity_logs():
     """Get activity log entries with filtering, pagination, and search."""
     try:
-        user_db = getattr(g, 'tenant_db_path', None) or USER_DB_PATH
-        if not user_db or not os.path.exists(user_db):
+        user_db = _require_tenant_db()
+        if not user_db:
+            return jsonify({'success': False, 'error': 'Tenant context required. Super admins must use the admin UI.'}), 403
+        if not os.path.exists(user_db):
             return jsonify({'success': True, 'data': [], 'total': 0, 'no_data': True})
 
         # ── Query params ────────────────────────────────────
@@ -880,6 +919,7 @@ def get_activity_logs():
         severity   = request.args.get('severity', 'ALL')
         search     = (request.args.get('search') or '').strip()
         date_range = request.args.get('date_range', 'all')   # all | 24h | 7d | 30d
+        user_id    = request.args.get('user_id', 'ALL')
         page       = max(1, int(request.args.get('page', 1)))
         per_page   = min(100, max(10, int(request.args.get('per_page', 50))))
         offset     = (page - 1) * per_page
@@ -928,6 +968,10 @@ def get_activity_logs():
         if severity and severity != 'ALL':
             conditions.append('severity = ?')
             params.append(severity)
+
+        if user_id and user_id != 'ALL':
+            conditions.append('user_id = ?')
+            params.append(user_id)
 
         if search:
             conditions.append('(title LIKE ? OR detail LIKE ? OR user_id LIKE ? OR entity_name LIKE ?)')
@@ -1035,12 +1079,43 @@ def get_activity_logs():
         return jsonify({'success': False, 'error': 'Internal server error'}), 500
 
 
+@app.route('/api/logs/users', methods=['GET'])
+@login_required
+@role_required('company_admin', 'super_admin')
+def get_log_users():
+    """Return a list of all distinct users that have log entries."""
+    try:
+        user_db = _require_tenant_db()
+        if not user_db or not os.path.exists(user_db):
+            return jsonify({'success': True, 'data': []})
+
+        conn = get_safe_connection(user_db)
+        cursor = conn.cursor()
+        
+        # Make sure table exists
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='activity_logs'")
+        if not cursor.fetchone():
+            return jsonify({'success': True, 'data': []})
+            
+        cursor.execute("SELECT DISTINCT user_id FROM activity_logs WHERE user_id IS NOT NULL AND user_id != 'system' ORDER BY user_id")
+        users = [row[0] for row in cursor.fetchall()]
+        conn.close()
+        return jsonify({'success': True, 'data': users})
+    except Exception as e:
+        logger.error(f'Logs error (users): {e}')
+        return jsonify({'success': False, 'error': 'Internal server error'}), 500
+
+
 @app.route('/api/logs/stats', methods=['GET'])
+@login_required
+@role_required('company_admin', 'super_admin')
 def get_log_stats():
     """Return per-category and per-severity counts for dashboard widgets."""
     try:
-        user_db = getattr(g, 'tenant_db_path', None) or USER_DB_PATH
-        if not user_db or not os.path.exists(user_db):
+        user_db = _require_tenant_db()
+        if not user_db:
+            return jsonify({'success': False, 'error': 'Tenant context required. Super admins must use the admin UI.'}), 403
+        if not os.path.exists(user_db):
             return jsonify({'success': True, 'data': {}})
 
         conn = get_safe_connection(user_db)

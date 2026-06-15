@@ -243,8 +243,10 @@
         <div class="content-card xl:col-span-2 border border-slate-100">
             <div class="flex items-center justify-between mb-4">
                 <h3 class="font-bold text-slate-900">Recent Activity</h3>
+                {% if current_user and current_user.role in ['company_admin', 'super_admin'] %}
                 <a href="/logs" class="text-xs font-semibold text-blue-600 hover:text-blue-700 transition">View all
                     →</a>
+                {% endif %}
             </div>
             <div class="space-y-1" id="recent-activity">
                 <template x-for="log in recentLogs" :key="log.id">

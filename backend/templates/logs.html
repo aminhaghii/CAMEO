@@ -125,6 +125,16 @@
       <div class="text-[#64748B]">IMPORTS: <span class="text-[#22D3EE] font-bold" x-text="(stats.by_category && stats.by_category['import']) ?? 0"></span></div>
       <div class="text-[#64748B]">EDITS: <span class="text-[#F59E0B] font-bold" x-text="(stats.by_category && stats.by_category['edit']) ?? 0"></span></div>
       <div class="text-[#64748B]">WAREHOUSE: <span class="text-[#10B981] font-bold" x-text="(stats.by_category && stats.by_category['warehouse']) ?? 0"></span></div>
+      
+      <template x-if="userFilter !== 'ALL'">
+        <div class="flex items-center gap-2 ml-4 px-2 py-0.5 rounded border border-[#E5FF00] bg-[#E5FF00]/10 text-[#E5FF00] font-bold uppercase tracking-wider">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+          </svg>
+          TARGET_AUDIT: <span x-text="userFilter"></span>
+        </div>
+      </template>
     </div>
     <div class="text-[#64748B] text-[10px] uppercase font-bold tracking-widest" x-text="'LOC_TIME: ' + new Date().toLocaleTimeString()"></div>
   </div>
@@ -153,6 +163,15 @@
 
     <!-- Dropdowns & Tools -->
     <div class="flex items-center gap-2 font-mono text-xs">
+      
+      <select x-model="userFilter" @change="fetchLogs()"
+        class="bg-[#0E1626] border border-[#1E293B] rounded px-2 py-1.5 text-xs text-[#F8FAFC] focus:outline-none focus:border-[#E5FF00] max-w-[200px] truncate uppercase">
+        <option value="ALL">ALL IDENTITIES</option>
+        <template x-for="usr in activeUsers" :key="usr">
+          <option :value="usr" x-text="usr"></option>
+        </template>
+      </select>
+
       <select x-model="dateRange" @change="fetchLogs()"
         class="bg-[#0E1626] border border-[#1E293B] rounded px-2 py-1.5 text-xs text-[#F8FAFC] focus:outline-none focus:border-[#E5FF00]">
         <option value="all">ALL TIME</option>
@@ -352,7 +371,11 @@ function logsApp() {
     activeCategory: 'ALL',
     dateRange: 'all',
     severityFilter: 'ALL',
+    userFilter: 'ALL',
     searchQuery: '',
+
+    // Dynamic Lists
+    activeUsers: [],
 
     // Pagination
     page: 1,
@@ -382,7 +405,15 @@ function logsApp() {
     },
 
     async init() {
-      await Promise.all([this.fetchLogs(), this.fetchStats()]);
+      await Promise.all([this.fetchUsers(), this.fetchLogs(), this.fetchStats()]);
+    },
+
+    async fetchUsers() {
+      try {
+        const res = await fetch('/api/logs/users');
+        const data = await res.json();
+        if (data.success) this.activeUsers = data.data || [];
+      } catch (e) { console.error('Failed to fetch active users', e); }
     },
 
     async fetchLogs() {
@@ -392,6 +423,7 @@ function logsApp() {
           category:   this.activeCategory,
           severity:   this.severityFilter,
           date_range: this.dateRange,
+          user_id:    this.userFilter,
           search:     this.searchQuery,
           page:       this.page,
           per_page:   this.perPage,

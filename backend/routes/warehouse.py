@@ -542,6 +542,8 @@ def remove_placement(placement_id):
             )
         )
         
+        conn.commit()
+        
         log_event(
             db_path=_get_db_path(),
             event_type='remove_chemical',
@@ -556,7 +558,6 @@ def remove_placement(placement_id):
             meta={'placement_id': placement_id},
         )
         
-        conn.commit()
         conn.close()
         return jsonify({'success': True, 'message': 'Placement removed completely'})
     except Exception as e:
@@ -1077,8 +1078,8 @@ def auto_arrange():
             if best_extra_sections > 0:
                 recommendation['has_recommendation'] = True
                 recommendation['add_sections_needed'] = best_extra_sections
-                recommendation['can_auto_create'] = best_virtual_complete and best_unplaced_count == 0
-                recommendation['virtual_layout'] = best_virtual_layout if recommendation['can_auto_create'] else None
+                recommendation['can_auto_create'] = True
+                recommendation['virtual_layout'] = best_virtual_layout
                 placed_percentage = int(((total_placements - best_unplaced_count) / total_placements) * 100)
                 recommendation['message'] = (
                     f"We left {initial_unplaced_count} chemicals unplaced to prevent hazards. "
@@ -1184,6 +1185,9 @@ def save_layout():
             )
         )
         
+        conn.commit()
+        conn.close()
+
         log_event(
             db_path=_get_db_path(),
             event_type='save_auto_arrange_layout',
@@ -1197,8 +1201,6 @@ def save_layout():
             meta={'layout_size': len(parsed_layout)},
         )
         
-        conn.commit()
-        conn.close()
         return jsonify({'success': True, 'message': 'Layout saved successfully.'})
     except Exception as e:
         logger.error(f"Save layout failed: {e}", exc_info=True)
@@ -1301,6 +1303,9 @@ def apply_recommended_layout():
             )
         )
 
+        conn.commit()
+        conn.close()
+
         log_event(
             db_path=_get_db_path(),
             event_type='apply_recommended_layout',
@@ -1315,8 +1320,6 @@ def apply_recommended_layout():
             meta={'warehouse_id': warehouse_id, 'extra_sections': extra_sections, 'new_section_ids': new_section_ids},
         )
 
-        conn.commit()
-        conn.close()
         return jsonify({
             'success': True,
             'message': f'Created {extra_sections} sections and applied the recommended layout.',

@@ -32,6 +32,7 @@
                 <span class="text-base font-bold">+</span>
                 Create Custom List
             </button>
+            {% if current_user and current_user.role in ['company_admin', 'super_admin'] %}
             <a :href="'/admin/import' + (selectedBatch ? '?batch_id=' + selectedBatch : '')"
                 class="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition shadow-sm">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -40,6 +41,7 @@
                 </svg>
                 Import New File
             </a>
+            {% endif %}
             <a href="/mixer"
                 class="inline-flex items-center gap-2 px-4 py-2.5 bg-purple-600 text-white text-sm font-semibold rounded-lg hover:bg-purple-700 transition shadow-sm">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -279,6 +281,7 @@
         </svg>
         <h3 class="text-lg font-semibold text-slate-600 mb-2">No Inventory Loaded</h3>
         <p class="text-sm text-slate-400 mb-6">Upload a CSV or Excel file to get started</p>
+        {% if current_user and current_user.role in ['company_admin', 'super_admin'] %}
         <a href="/admin/import"
             class="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition shadow-sm">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -287,6 +290,7 @@
             </svg>
             Import Inventory
         </a>
+        {% endif %}
     </div>
 
     <!-- Edit Modal -->

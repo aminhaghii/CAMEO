@@ -18,6 +18,7 @@ Security:
   - CSRF tokens on all forms
 """
 
+import os
 import sqlite3
 import logging
 from flask import (
@@ -37,6 +38,11 @@ from activity_logger import log_event
 logger = logging.getLogger(__name__)
 
 auth_bp = Blueprint('auth_bp', __name__)
+
+_is_prod = (
+    os.environ.get('FLASK_ENV') == 'production'
+    or os.environ.get('COOKIE_SECURE') == '1'
+)
 
 def _get_db_path(company_id):
     from flask import current_app
@@ -201,7 +207,8 @@ def login():
         httponly=True,
         samesite='Lax',
         max_age=30 * 60,  # 30 minutes
-        path='/'
+        path='/',
+        secure=_is_prod,
     )
 
     # Set CSRF cookie (accessible by JavaScript for header submission)
@@ -211,7 +218,8 @@ def login():
         httponly=False,  # JS needs to read this
         samesite='Lax',
         max_age=30 * 60,
-        path='/'
+        path='/',
+        secure=_is_prod,
     )
 
     logger.info(f"✅ Login successful: {email} (role={user['role']}, IP={ip})")
@@ -512,8 +520,8 @@ def logout():
         )
 
     response = make_response(redirect('/auth/login'))
-    response.delete_cookie('session_id', path='/')
-    response.delete_cookie('csrf_token', path='/')
+    response.delete_cookie('session_id', path='/', secure=_is_prod)
+    response.delete_cookie('csrf_token', path='/', secure=_is_prod)
 
     logger.info(f"👋 Logout: session invalidated")
     return response
@@ -542,7 +550,8 @@ def get_csrf():
     response = make_response(jsonify({'csrf_token': token}))
     response.set_cookie(
         'csrf_token', token,
-        httponly=False, samesite='Lax', max_age=30*60, path='/'
+        httponly=False, samesite='Lax', max_age=30*60, path='/',
+        secure=_is_prod,
     )
     return response
 

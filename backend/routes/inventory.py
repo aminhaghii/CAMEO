@@ -10,7 +10,7 @@ import json
 import hashlib
 import sqlite3
 import logging
-from auth.decorators import login_required, csrf_protect, viewer_readonly
+from auth.decorators import login_required, csrf_protect, viewer_readonly, role_required
 from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify, render_template, current_app, g
 from db_utils import get_safe_connection
@@ -358,6 +358,8 @@ def _row_version_hash(row: sqlite3.Row) -> str:
 
 
 @inventory_bp.route('/admin/import')
+@login_required
+@role_required('operator', 'company_admin', 'super_admin')
 def admin_import_page():
     """Render the inventory import UI."""
     return render_template('admin_import.html')

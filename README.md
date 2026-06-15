@@ -122,11 +122,23 @@ By default, the server will run on `http://127.0.0.1:5000`. Open this address in
 
 ## Testing & Quality Assurance
 
-The codebase is fully tested using the `pytest` framework. 
+The codebase is fully tested using the `pytest` framework.
 
-To execute the test suite, run the following command from the `CAMEO` directory:
+To execute the test suite, run the following command from the
+`CAMEO/backend` directory (the live suite lives under `backend/tests/`;
+running from `CAMEO/` walks an unrelated `tests/` tree of older
+scripts and Playwright E2E):
+
 ```bash
+cd CAMEO/backend
 python -m pytest tests/ -v
+```
+
+You can also target a single file or test:
+
+```bash
+python -m pytest tests/test_warehouse.py -v
+python -m pytest tests/test_warehouse.py::TestWarehouse -k auto_arrange -v
 ```
 
 ### Key Test Scenarios Covered

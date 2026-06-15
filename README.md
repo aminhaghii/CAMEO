@@ -147,3 +147,6 @@ python -m pytest tests/test_warehouse.py::TestWarehouse -k auto_arrange -v
 - **Synonym Guard**: Guarantees generic synonyms do not auto-match incorrectly.
 - **Container Conversions**: Validates exact conversion of container units (e.g., drums, cylinders) to weight values.
 - **Layout Integrity**: Verifies layout isolation controls, auto-arrange section groupings, and admin override validation logic.
+
+---
+*Last Updated: June 15, 2026*

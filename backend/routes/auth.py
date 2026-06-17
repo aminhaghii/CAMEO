@@ -32,6 +32,7 @@ from auth.security import (
     create_session, validate_session, invalidate_session,
     generate_csrf_token
 )
+from auth.decorators import csrf_protect
 from auth.models import get_auth_db_connection
 from activity_logger import log_event
 
@@ -315,6 +316,7 @@ def change_password_page():
 
 
 @auth_bp.route('/api/auth/change-password', methods=['POST'])
+@csrf_protect
 def change_password():
     """Change password for the authenticated user, clearing the force_password_change flag."""
     if not hasattr(g, 'user') or g.user is None:

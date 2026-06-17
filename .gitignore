@@ -67,7 +67,7 @@ backend/data/user.db
 backend/data/2_user.db
 backend/data/global_auth.db
 backend/data/chemicals.db
-
+C:\Users\aminh\OneDrive\Desktop\CAMEO\AGENTS.md
 # --- Project Uploads & Temp Files ---
 # Ignore uploaded files, but keep the directory (using .gitkeep)
 backend/uploads/*
@@ -104,6 +104,7 @@ tests/
 *.swp
 *.swo
 *~
+.md
 
 # Operating system files
 .DS_Store

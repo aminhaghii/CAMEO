@@ -24,7 +24,7 @@ from flask import (
     Blueprint, request, render_template, jsonify, g
 )
 
-from auth.decorators import login_required, role_required, super_admin_only
+from auth.decorators import login_required, role_required, csrf_protect, super_admin_only
 from auth.models import get_auth_db_connection
 from auth.security import hash_password, validate_password_complexity
 from activity_logger import log_event
@@ -153,6 +153,7 @@ def pending_count():
 @admin_bp.route('/api/admin/users/create', methods=['POST'])
 @login_required
 @role_required('company_admin', 'super_admin')
+@csrf_protect
 def create_user():
     """Manually add a user to the company."""
     from flask import current_app
@@ -216,6 +217,7 @@ def create_user():
 @admin_bp.route('/api/admin/approve-user', methods=['POST'])
 @login_required
 @role_required('company_admin', 'super_admin')
+@csrf_protect
 def approve_user():
     """
     Approve a PENDING user and assign their role.
@@ -294,6 +296,7 @@ def approve_user():
 @admin_bp.route('/api/admin/suspend-user', methods=['POST'])
 @login_required
 @role_required('company_admin', 'super_admin')
+@csrf_protect
 def suspend_user():
     """Suspend a user account."""
     from flask import current_app
@@ -392,6 +395,7 @@ def list_companies():
 @admin_bp.route('/api/admin/companies', methods=['POST'])
 @login_required
 @super_admin_only
+@csrf_protect
 def create_company():
     """Create a new tenant company and its initial company_admin."""
     from flask import current_app
@@ -470,6 +474,7 @@ def create_company():
 @admin_bp.route('/api/admin/companies/<int:company_id>', methods=['PUT'])
 @login_required
 @super_admin_only
+@csrf_protect
 def update_company(company_id):
     """Update a tenant company (e.g., max_users, license_status)."""
     from flask import current_app

@@ -47,14 +47,19 @@ os.makedirs(DATA_DIR, exist_ok=True)
 _secret_path = os.path.join(DATA_DIR, '.flask_secret_key')
 if os.environ.get('FLASK_SECRET_KEY'):
     app.secret_key = os.environ['FLASK_SECRET_KEY']
-elif os.path.exists(_secret_path):
-    with open(_secret_path, 'r') as f:
-        app.secret_key = f.read().strip()
 else:
-    _generated = secrets.token_hex(32)
-    with open(_secret_path, 'w') as f:
-        f.write(_generated)
-    app.secret_key = _generated
+    try:
+        if os.path.exists(_secret_path):
+            with open(_secret_path, 'r') as f:
+                app.secret_key = f.read().strip()
+        else:
+            _generated = secrets.token_hex(32)
+            with open(_secret_path, 'w') as f:
+                f.write(_generated)
+            app.secret_key = _generated
+    except Exception as e:
+        logger.warning(f"Could not read/write secret key file at {_secret_path}: {e}")
+        app.secret_key = secrets.token_hex(32)
 
 CHEMICALS_DB_PATH = os.path.join(DATA_DIR, 'chemicals.db')
 USER_DB_PATH = os.path.join(DATA_DIR, 'user.db')  # Legacy fallback
@@ -1171,6 +1176,7 @@ def _log_category(action):
 
 @app.route('/api/analyze', methods=['POST'])
 @login_required
+@csrf_protect
 def analyze_chemicals():
     """
     POST /api/analyze

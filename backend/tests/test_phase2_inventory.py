@@ -1,6 +1,7 @@
 """Phase 2 integration smoke tests for inventory interactions and batch analysis."""
 
 import json
+import os
 import sqlite3
 import uuid
 from pathlib import Path
@@ -122,20 +123,23 @@ def _cleanup_batch(user_db_path: str, batch_id: str):
 
 @pytest.fixture
 def client():
+    import os
     from unittest.mock import patch
-    user_db = app.config['USER_DB_PATH']
-    init_inventory_tables(user_db)
-    _ensure_phase2_tables(user_db)
+    tenant_db = os.path.join(app.config['DATA_DIR'], '1_user.db')
+    if os.path.exists(tenant_db):
+        os.remove(tenant_db)
+    init_inventory_tables(tenant_db)
+    _ensure_phase2_tables(tenant_db)
     app.testing = True
     mock_user = {
         'id': 1,
-        'email': 'super@cameo.com',
-        'full_name': 'Super Admin',
-        'role': 'super_admin',
+        'email': 'admin@cameo.com',
+        'full_name': 'Test Admin',
+        'role': 'company_admin',
         'status': 'ACTIVE',
         'company_id': 1,
-        'company_name': 'Global Corp',
-        'tenant_db_path': user_db
+        'company_name': 'Test Corp',
+        'tenant_db_path': tenant_db
     }
     with patch('app.validate_session', return_value=mock_user):
         with app.test_client() as c:
@@ -144,7 +148,7 @@ def client():
 
 
 def test_inventory_actions_flow(client):
-    user_db = app.config['USER_DB_PATH']
+    user_db = os.path.join(app.config['DATA_DIR'], '1_user.db')
     chemicals = _get_test_chemicals(app.config['CHEMICALS_DB_PATH'])
     batch_id = f"phase2-{uuid.uuid4()}"
     _create_batch_with_rows(user_db, batch_id, chemicals)
@@ -194,7 +198,7 @@ def test_inventory_actions_flow(client):
 
 
 def test_inventory_analysis_flow(client):
-    user_db = app.config['USER_DB_PATH']
+    user_db = os.path.join(app.config['DATA_DIR'], '1_user.db')
     chemicals = _get_test_chemicals(app.config['CHEMICALS_DB_PATH'])
     batch_id = f"phase2-{uuid.uuid4()}"
     _create_batch_with_rows(user_db, batch_id, chemicals)
@@ -226,7 +230,7 @@ def test_inventory_analysis_flow(client):
 
 
 def test_manual_batch_crud_and_counts(client):
-    user_db = app.config['USER_DB_PATH']
+    user_db = os.path.join(app.config['DATA_DIR'], '1_user.db')
     chemicals = _get_test_chemicals(app.config['CHEMICALS_DB_PATH'])
 
     # 1. Create a custom manual list/batch
@@ -302,7 +306,7 @@ def test_manual_batch_crud_and_counts(client):
 
 
 def test_upload_to_existing_batch(client):
-    user_db = app.config['USER_DB_PATH']
+    user_db = os.path.join(app.config['DATA_DIR'], '1_user.db')
 
     # 1. Create a custom manual list/batch
     create_res = client.post('/api/inventory/batches/create', json={'name': 'List to Upload Into'})

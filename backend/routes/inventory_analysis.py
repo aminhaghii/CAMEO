@@ -19,7 +19,29 @@ from logic.constants import Compatibility
 
 logger = logging.getLogger(__name__)
 
+
+def _get_db_path() -> str:
+    tenant_db = getattr(g, 'tenant_db_path', None)
+    if not tenant_db:
+        from flask import abort
+        abort(403, description="Tenant context required. Super Admins cannot access tenant-specific routes directly.")
+    return tenant_db
+
 inventory_analysis_bp = Blueprint('inventory_analysis', __name__)
+
+
+@inventory_analysis_bp.before_request
+def _enforce_tenant_context():
+    """Fail-closed guard: reject ALL inventory_analysis requests without a tenant DB context."""
+    if not getattr(g, 'user', None):
+        return None
+    tenant_db = getattr(g, 'tenant_db_path', None)
+    if not tenant_db:
+        return jsonify({
+            'error': 'Tenant context required. Super Admins cannot access tenant-specific routes directly.',
+            'code': 'NO_TENANT_CONTEXT'
+        }), 403
+
 
 # NOAA-Standard Compatibility Colors (3 categories only)
 _COMPAT_COLORS = {
@@ -230,7 +252,7 @@ def analyze_inventory():
         if not batch_id:
             return jsonify({'error': 'batch_id is required'}), 400
 
-        user_db = getattr(g, 'tenant_db_path', None) or current_app.config['USER_DB_PATH']
+        user_db = _get_db_path()
         chemicals_db = current_app.config['CHEMICALS_DB_PATH']
 
         inventory_rows, unresolved_count = _fetch_inventory_rows_for_analysis(user_db, batch_id)
@@ -381,7 +403,7 @@ def inventory_analysis_page(batch_id):
 def get_inventory_analysis(batch_id):
     """Fetch latest saved analysis payload for a batch, enriched with EU data."""
     try:
-        user_db = getattr(g, 'tenant_db_path', None) or current_app.config['USER_DB_PATH']
+        user_db = _get_db_path()
         conn = get_safe_connection(user_db)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -483,7 +505,7 @@ def export_inventory_analysis_excel(batch_id):
         except Exception:
             return jsonify({'error': 'Excel export requires pandas/openpyxl'}), 501
 
-        user_db = getattr(g, 'tenant_db_path', None) or current_app.config['USER_DB_PATH']
+        user_db = _get_db_path()
         conn = get_safe_connection(user_db)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -547,7 +569,7 @@ def export_inventory_analysis_pdf(batch_id):
         except Exception:
             return jsonify({'error': 'PDF export requires reportlab. Install with: pip install reportlab'}), 501
 
-        user_db = getattr(g, 'tenant_db_path', None) or current_app.config['USER_DB_PATH']
+        user_db = _get_db_path()
         conn = get_safe_connection(user_db)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()

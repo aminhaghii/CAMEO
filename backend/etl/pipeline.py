@@ -177,8 +177,10 @@ def init_inventory_tables(user_db_path: str):
             quantity_kg REAL,
             reactive_groups TEXT,
             status TEXT DEFAULT 'placed',
-            placed_by TEXT,
-            placed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            batch_id TEXT REFERENCES inventory_batches(id) ON DELETE CASCADE,
+            staging_row_id INTEGER,
+            placed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(warehouse_id, batch_id, staging_row_id)
         )
     """)
 
@@ -242,6 +244,17 @@ def init_inventory_tables(user_db_path: str):
     _safe_add_column(cursor, 'warehouse_sections', 'warehouse_id', 'INTEGER REFERENCES warehouses(id) ON DELETE CASCADE')
     _safe_add_column(cursor, 'chemical_placements', 'warehouse_id', 'INTEGER REFERENCES warehouses(id) ON DELETE CASCADE')
     _safe_add_column(cursor, 'audit_trail', 'is_deleted', 'INTEGER DEFAULT 0')
+    # Phase-2 schema migration: replace placed_by string with relational columns
+    _safe_add_column(cursor, 'chemical_placements', 'batch_id', 'TEXT REFERENCES inventory_batches(id) ON DELETE CASCADE')
+    _safe_add_column(cursor, 'chemical_placements', 'staging_row_id', 'INTEGER')
+    # Unique index enforces duplicate-import prevention for existing AND new DBs.
+    # WHERE clause excludes legacy/manual rows where batch_id or staging_row_id is NULL,
+    # allowing those to coexist without conflicting.
+    cursor.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_placements_unique_import
+        ON chemical_placements(warehouse_id, batch_id, staging_row_id)
+        WHERE batch_id IS NOT NULL AND staging_row_id IS NOT NULL
+    """)
 
     # Seed default warehouse if none exist and migrate existing data
     cursor.execute("SELECT COUNT(*) FROM warehouses")

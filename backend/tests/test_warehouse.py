@@ -96,10 +96,15 @@ def tenant_db_path(mock_user):
 
 @pytest.fixture
 def client(tenant_db_path, mock_user):
+    # Remove stale DB so init_inventory_tables always applies the current schema
+    # (including any new indexes or columns added in migrations).
+    import os
+    if os.path.exists(tenant_db_path):
+        os.remove(tenant_db_path)
+
     init_inventory_tables(tenant_db_path)
     _ensure_phase2_tables(tenant_db_path)
-    
-    # Clean up existing tables to ensure isolation
+
     conn = sqlite3.connect(tenant_db_path)
     cursor = conn.cursor()
     cursor.execute("DELETE FROM chemical_placements")

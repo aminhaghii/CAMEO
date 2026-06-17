@@ -25,12 +25,31 @@ logger = logging.getLogger(__name__)
 
 inventory_bp = Blueprint('inventory', __name__)
 
+
+@inventory_bp.before_request
+def _enforce_tenant_context():
+    """Fail-closed guard: reject ALL inventory requests without a tenant DB context."""
+    # Auth-exempt paths (upload status polling, etc.) don't set g.user — skip those.
+    if not getattr(g, 'user', None):
+        return None
+    tenant_db = getattr(g, 'tenant_db_path', None)
+    if not tenant_db:
+        return jsonify({
+            'error': 'Tenant context required. Super Admins cannot access tenant-specific routes directly.',
+            'code': 'NO_TENANT_CONTEXT'
+        }), 403
+
+
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'uploads')
 ALLOWED_EXTENSIONS = {'csv', 'xlsx', 'xls', 'json', 'txt', 'tsv'}
 
 
 def _get_db_path() -> str:
-    return getattr(g, 'tenant_db_path', None) or current_app.config['USER_DB_PATH']
+    tenant_db = getattr(g, 'tenant_db_path', None)
+    if not tenant_db:
+        from flask import abort
+        abort(403, description="Tenant context required. Super Admins cannot access tenant-specific routes directly.")
+    return tenant_db
 
 
 def _propagate_to_warehouse(cursor, batch_id, old_chemical_id, new_chemical_id, chem, staging_id=None):
@@ -61,38 +80,21 @@ def _propagate_to_warehouse(cursor, batch_id, old_chemical_id, new_chemical_id, 
     conn_g.close()
     groups_json = json.dumps(groups)
 
-    import_tag = f"import:{batch_id}"
-
-    # If old_chemical_id is None, it means the chemical was previously unmatched.
-    # If the batch was already imported, we must INSERT a new placement for it.
+    # If old_chemical_id is None, the staging row was previously unmatched and
+    # now has a chemical. If the batch was already imported, INSERT a new placement.
     if old_chemical_id is None:
+        if not staging_id:
+            return
         cursor.execute(
-            "SELECT DISTINCT warehouse_id FROM chemical_placements WHERE placed_by = ? OR placed_by LIKE ?",
-            (import_tag, f"import:{batch_id}:%")
+            "SELECT DISTINCT warehouse_id FROM chemical_placements WHERE batch_id = ?",
+            (batch_id,)
         )
         imported_warehouses = [r[0] for r in cursor.fetchall()]
         if not imported_warehouses:
             return
 
-        # Fetch quantity, unit, etc. from inventory_staging
-        if staging_id:
-            cursor.execute(
-                "SELECT cleaned_data FROM inventory_staging WHERE id = ?",
-                (staging_id,)
-            )
-        else:
-            cursor.execute(
-                "SELECT id, cleaned_data FROM inventory_staging WHERE batch_id = ? AND chemical_id = ? LIMIT 1",
-                (batch_id, new_chemical_id)
-            )
+        cursor.execute("SELECT cleaned_data FROM inventory_staging WHERE id = ?", (staging_id,))
         st_row = cursor.fetchone()
-        
-        # Determine staging_id if not passed
-        if st_row and staging_id is None:
-            try:
-                staging_id = st_row['id']
-            except (TypeError, KeyError, IndexError):
-                staging_id = st_row[0]
 
         qty = None
         if st_row and st_row['cleaned_data']:
@@ -100,18 +102,12 @@ def _propagate_to_warehouse(cursor, batch_id, old_chemical_id, new_chemical_id, 
                 cleaned_data = json.loads(st_row['cleaned_data'])
                 qty_str = cleaned_data.get('quantity', '1.0')
                 unit_str = cleaned_data.get('unit', 'kg').lower()
-                
                 CONTAINER_KG = {
-                    'drum': 200, 'drums': 200,
-                    'cylinder': 50, 'cylinders': 50,
-                    'bottle': 2, 'bottles': 2,
-                    'jug': 4, 'jugs': 4,
-                    'container': 10, 'containers': 10,
-                    'tank': 500, 'tanks': 500,
-                    'pail': 20, 'pails': 20,
-                    'bag': 25, 'bags': 25,
-                    'sack': 50, 'sacks': 50,
-                    'tote': 1000, 'totes': 1000,
+                    'drum': 200, 'drums': 200, 'cylinder': 50, 'cylinders': 50,
+                    'bottle': 2, 'bottles': 2, 'jug': 4, 'jugs': 4,
+                    'container': 10, 'containers': 10, 'tank': 500, 'tanks': 500,
+                    'pail': 20, 'pails': 20, 'bag': 25, 'bags': 25,
+                    'sack': 50, 'sacks': 50, 'tote': 1000, 'totes': 1000,
                     'keg': 60, 'kegs': 60,
                 }
                 qty = float(qty_str)
@@ -131,44 +127,38 @@ def _propagate_to_warehouse(cursor, batch_id, old_chemical_id, new_chemical_id, 
                 qty = None
 
         for wh_id in imported_warehouses:
-            # Check if it already exists to prevent duplicate insertion
-            tag = f"import:{batch_id}:{staging_id}" if staging_id else import_tag
             cursor.execute(
-                "SELECT id FROM chemical_placements WHERE placed_by = ? AND warehouse_id = ?",
-                (tag, wh_id)
+                """INSERT OR IGNORE INTO chemical_placements
+                    (warehouse_id, section_id, chemical_id, chemical_name, cas_number,
+                     quantity_kg, reactive_groups, status, batch_id, staging_row_id)
+                   VALUES (?, NULL, ?, ?, ?, ?, ?, 'placed', ?, ?)""",
+                (wh_id, new_chemical_id, chem_name, cas_number, qty, groups_json, batch_id, staging_id)
             )
-            if cursor.fetchone():
-                continue
-            
-            cursor.execute(
-                """INSERT INTO chemical_placements 
-                    (warehouse_id, section_id, chemical_id, chemical_name, cas_number, quantity_kg, reactive_groups, status, placed_by)
-                   VALUES (?, NULL, ?, ?, ?, ?, ?, 'placed', ?)""",
-                (wh_id, new_chemical_id, chem_name, cas_number, qty, groups_json, tag)
-            )
-            logger.info(
-                "Added new placement to warehouse %d: %s (%s kg, batch=%s)",
-                wh_id, chem_name, qty, batch_id[:8]
-            )
+            if cursor.rowcount:
+                logger.info(
+                    "Added new placement to warehouse %d: %s (%s kg, batch=%s)",
+                    wh_id, chem_name, qty, batch_id[:8]
+                )
         return
 
     if old_chemical_id == new_chemical_id:
         return
 
-    # Update warehouse placements imported from this batch
+    # Identity changed — update the exact placement row identified by (batch_id, staging_row_id).
     if staging_id:
         cursor.execute(
             """UPDATE chemical_placements
                SET chemical_id = ?, chemical_name = ?, cas_number = ?, reactive_groups = ?
-               WHERE placed_by = ?""",
-            (new_chemical_id, chem_name, cas_number, groups_json, f"import:{batch_id}:{staging_id}")
+               WHERE batch_id = ? AND staging_row_id = ?""",
+            (new_chemical_id, chem_name, cas_number, groups_json, batch_id, staging_id)
         )
     else:
+        # Fallback for legacy rows without staging_row_id (pre-migration data).
         cursor.execute(
             """UPDATE chemical_placements
                SET chemical_id = ?, chemical_name = ?, cas_number = ?, reactive_groups = ?
-               WHERE chemical_id = ? AND (placed_by = ? OR placed_by LIKE ?)""",
-            (new_chemical_id, chem_name, cas_number, groups_json, old_chemical_id, import_tag, f"import:{batch_id}:%")
+               WHERE chemical_id = ? AND batch_id = ?""",
+            (new_chemical_id, chem_name, cas_number, groups_json, old_chemical_id, batch_id)
         )
     if cursor.rowcount > 0:
         logger.info(
@@ -179,21 +169,13 @@ def _propagate_to_warehouse(cursor, batch_id, old_chemical_id, new_chemical_id, 
 
 
 def _propagate_quantity_to_warehouse(cursor, batch_id, staging_id, new_quantity, new_unit):
-    """Update quantity_kg in chemical_placements when inventory quantity changes."""
-    if new_quantity is None:
+    """Update quantity_kg in chemical_placements when inventory quantity changes.
+
+    Fix 1.2: matches by (batch_id, staging_row_id) — the exact placement row.
+    """
+    if new_quantity is None or staging_id is None:
         return
 
-    import_tag = f"import:{batch_id}"
-
-    # Get the chemical_id from the staging row
-    cursor.execute("SELECT chemical_id FROM inventory_staging WHERE id = ?", (staging_id,))
-    staging_row = cursor.fetchone()
-    if not staging_row or not staging_row['chemical_id']:
-        return
-
-    chem_id = staging_row['chemical_id']
-
-    # Convert quantity to kg
     CONTAINER_KG = {
         'drum': 200, 'drums': 200, 'cylinder': 50, 'cylinders': 50,
         'bottle': 2, 'bottles': 2, 'jug': 4, 'jugs': 4,
@@ -209,6 +191,12 @@ def _propagate_quantity_to_warehouse(cursor, batch_id, staging_id, new_quantity,
             qty /= 1000.0
         elif unit_lower in ('lb', 'lbs', 'pounds'):
             qty *= 0.453592
+        elif unit_lower in ('oz', 'ounces'):
+            qty *= 0.0283495
+        elif unit_lower in ('ton', 'tons'):
+            qty *= 907.185
+        elif unit_lower in ('mt', 'metric ton', 'metric tons', 'tonnes'):
+            qty *= 1000.0
         elif unit_lower in CONTAINER_KG:
             qty *= CONTAINER_KG[unit_lower]
     except (ValueError, TypeError):
@@ -220,14 +208,14 @@ def _propagate_quantity_to_warehouse(cursor, batch_id, staging_id, new_quantity,
     cursor.execute(
         """UPDATE chemical_placements
            SET quantity_kg = ?
-           WHERE chemical_id = ? AND placed_by = ?""",
-        (qty, chem_id, import_tag)
+           WHERE batch_id = ? AND staging_row_id = ?""",
+        (qty, batch_id, staging_id)
     )
     if cursor.rowcount > 0:
         logger.info(
             "Propagated quantity to warehouse: %d placement(s) updated "
-            "(chem_id=%s, qty=%.1f kg)",
-            cursor.rowcount, chem_id, qty
+            "(staging_row_id=%s, qty=%.1f kg, batch=%s)",
+            cursor.rowcount, staging_id, qty, batch_id[:8]
         )
 
 
@@ -318,7 +306,9 @@ def delete_inventory_batch(batch_id):
             conn.close()
             return jsonify({'error': 'Batch not found'}), 404
 
-        # Delete related data
+        # Delete related data — explicit placement delete before batch row (Fix 1.1:
+        # guarantees cascade even on connections where FK pragma is off at startup).
+        cursor.execute("DELETE FROM chemical_placements WHERE batch_id = ?", (batch_id,))
         cursor.execute("DELETE FROM review_queue WHERE batch_id = ?", (batch_id,))
         cursor.execute("UPDATE audit_trail SET is_deleted = 1 WHERE batch_id = ?", (batch_id,))
         cursor.execute("DELETE FROM inventory_staging WHERE batch_id = ?", (batch_id,))

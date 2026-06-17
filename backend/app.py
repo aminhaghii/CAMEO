@@ -179,7 +179,10 @@ def tenant_router():
     4. Set g.tenant_db_path for tenant isolation
     5. Redirect to login if unauthenticated
 
-    Super Admin blind spot: g.tenant_db_path = None
+    Fail-closed tenancy model:
+    - super_admin: g.tenant_db_path = None (true blind spot; tenant routes will 403)
+    - missing company_id: g.tenant_db_path = None (never builds "None_user.db")
+    - any other user: g.tenant_db_path = data/{company_id}_user.db
     """
     g.user = None
     g.tenant_db_path = None
@@ -192,26 +195,22 @@ def tenant_router():
     # Validate session
     session_id = request.cookies.get('session_id')
     if not session_id:
-        # Not authenticated — redirect to login
         if request.path.startswith('/api/'):
             return jsonify({'error': 'Authentication required', 'code': 'AUTH_REQUIRED'}), 401
         return redirect('/auth/login')
 
     user = validate_session(session_id, AUTH_DB_PATH)
     if not user:
-        # Invalid/expired session
         if request.path.startswith('/api/'):
             return jsonify({'error': 'Session expired', 'code': 'SESSION_EXPIRED'}), 401
         response = redirect('/auth/login')
         response.delete_cookie('session_id', path='/')
         return response
 
-    # Set user in request context
     g.user = user
 
-    # ── Forced Password Change check (P1-1) ──
+    # ── Forced Password Change check ──
     if user.get('force_password_change'):
-        # If user has force_password_change flag set, we only allow access to logout and change password endpoints
         allowed = (
             '/auth/logout',
             '/api/auth/change-password',
@@ -219,11 +218,7 @@ def tenant_router():
             '/api/auth/me',
             '/api/auth/csrf'
         )
-        is_allowed = False
-        for path in allowed:
-            if request.path.startswith(path):
-                is_allowed = True
-                break
+        is_allowed = any(request.path.startswith(p) for p in allowed)
         if not is_allowed:
             if request.path.startswith('/api/'):
                 return jsonify({
@@ -232,31 +227,28 @@ def tenant_router():
                 }), 403
             return redirect('/auth/change-password')
 
-    # ── Tenant Routing ──
+    # ── Tenant Routing (fail-closed) ──
+    # FIX 4.2: super_admin has a true blind spot — no tenant DB assigned.
+    #           Tenant routes will reject them with 403 via _require_tenant_db().
     if user['role'] == 'super_admin':
-        # Give super_admin complete system access by mapping them to the primary tenant DB (or fallback)
-        from auth.models import get_auth_db_connection
-        try:
-            conn = get_auth_db_connection()
-            cur = conn.cursor()
-            cur.execute("SELECT id FROM companies WHERE id != 1 ORDER BY id ASC LIMIT 1")
-            row = cur.fetchone()
-            if row:
-                g.tenant_db_path = os.path.join(DATA_DIR, f"{row['id']}_user.db")
-            else:
-                g.tenant_db_path = USER_DB_PATH
-            conn.close()
-        except Exception:
-            g.tenant_db_path = USER_DB_PATH
-    else:
-        # Build tenant DB path: data/{company_id}_user.db
-        company_id = user['company_id']
-        tenant_filename = f"{company_id}_user.db"
-        g.tenant_db_path = os.path.join(DATA_DIR, tenant_filename)
+        g.tenant_db_path = None
+        return None
 
-        # Initialize tenant DB if it doesn't exist
-        if not os.path.exists(g.tenant_db_path):
-            _init_tenant_db(g.tenant_db_path)
+    # FIX 4.3: Guard against null/missing company_id — never build "None_user.db".
+    company_id = user.get('company_id')
+    if not company_id:
+        logger.warning(
+            "tenant_router: user %s has no company_id — denying tenant context",
+            user.get('id') or user.get('email', '?')
+        )
+        g.tenant_db_path = None
+        return None
+
+    tenant_filename = f"{company_id}_user.db"
+    g.tenant_db_path = os.path.join(DATA_DIR, tenant_filename)
+
+    if not os.path.exists(g.tenant_db_path):
+        _init_tenant_db(g.tenant_db_path)
 
     return None  # Continue to the route handler
 
@@ -297,14 +289,19 @@ def get_chemicals_db_connection():
 def get_user_db_connection():
     """
     Get connection to the current tenant's user database.
-    Uses g.tenant_db_path for multi-tenant isolation.
-    Falls back to legacy USER_DB_PATH if no tenant context.
-    """
-    db_path = getattr(g, 'tenant_db_path', None) or USER_DB_PATH
 
+    Fail-closed: raises ValueError if no tenant context exists.
+    Callers are expected to only invoke this inside authenticated,
+    tenant-scoped request handlers.
+    """
+    db_path = getattr(g, 'tenant_db_path', None)
+    if not db_path:
+        raise ValueError(
+            "No tenant context available. "
+            "Super Admins cannot access tenant-specific routes directly."
+        )
     if not os.path.exists(db_path):
         _init_tenant_db(db_path)
-
     return get_safe_connection(db_path)
 
 

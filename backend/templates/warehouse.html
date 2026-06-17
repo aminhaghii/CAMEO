@@ -285,7 +285,12 @@
             </div>
             <div class="flex items-center gap-2">
                 <span class="text-xs font-bold text-amber-700 bg-white/50 px-2 py-1 rounded" x-text="`Optimization Score: ${suggestedScore}%`"></span>
-                <button @click="saveSuggestedLayout()" class="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 transition shadow">Accept Layout</button>
+                <button @click="saveSuggestedLayout()"
+                        :disabled="isProcessing"
+                        :class="isProcessing ? 'opacity-60 cursor-not-allowed' : 'hover:bg-emerald-700'"
+                        class="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-lg transition shadow">
+                    <span x-text="isProcessing ? 'Saving...' : 'Accept Layout'"></span>
+                </button>
                 <button @click="cancelSuggestedLayout()" class="px-4 py-2 bg-slate-200 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-300 transition">Cancel</button>
             </div>
         </div>
@@ -342,11 +347,14 @@
                 </svg>
                 Configure Sections
             </button>
-            <button @click="triggerAutoArrange()" class="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition shadow">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <button @click="triggerAutoArrange()"
+                    :disabled="isProcessing"
+                    :class="isProcessing ? 'opacity-60 cursor-not-allowed' : 'hover:bg-indigo-700'"
+                    class="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-lg transition shadow">
+                <svg class="w-4 h-4" :class="isProcessing ? 'animate-spin' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 9.172V5L8 4z" />
                 </svg>
-                Auto-Arrange (AI Proposal)
+                <span x-text="isProcessing ? 'Processing...' : 'Auto-Arrange (AI Proposal)'"></span>
             </button>
             {% endif %}
         </div>
@@ -725,6 +733,12 @@
             suggestedLayoutRecommendation: null,
             requiresAdminOverride: false,
             cautionSections: 0,
+
+            // In-flight lock: prevents double-submit on Auto-Arrange / Accept Layout
+            isProcessing: false,
+
+            // Role injected from server — drives client-side drag validation (Task 3)
+            userRole: '{{ current_user.role if current_user else "" }}',
 
             get activePool() {
                 const allWarehousePlacements = [...this.inventory, ...this.sections.flatMap(s => s.chemicals)];
@@ -1116,10 +1130,18 @@
                 const placementId = this.draggedItem.id;
                 const targetSecId = sec.id;
                 
-                // Enforce Stop Hard for INCOMPATIBLE (client-side block)
+                // Fix 2.4: role-aware drop validation — mirrors backend policy.
+                // Admins: only INCOMPATIBLE is hard-blocked (CAUTION/NO_DATA require override on save).
+                // Non-admins: INCOMPATIBLE, CAUTION, and NO_DATA are all blocked client-side,
+                // matching _validate_layout_update which returns 403 CAUTION_REQUIRES_ADMIN for them.
                 const compatStatus = this.evalCompatibility(this.draggedItem, sec);
+                const isAdmin = ['company_admin', 'super_admin'].includes(this.userRole);
                 if (compatStatus === 'INCOMPATIBLE') {
-                    alert('Severe Safety Warning: This chemical is incompatible with other chemicals in this section. Placement is strictly prohibited!');
+                    alert('Safety Block: This chemical is incompatible with chemicals in this section. Placement is strictly prohibited.');
+                    return;
+                }
+                if (!isAdmin && (compatStatus === 'CAUTION' || compatStatus === 'NO_DATA')) {
+                    alert('Permission Denied: Placing chemicals with CAUTION or unknown reactivity (NO DATA) requires a Company Admin or Super Admin. Contact your administrator.');
                     return;
                 }
                 
@@ -1215,6 +1237,8 @@
 
             // ── AUTO-ARRANGE IMPLEMENTATION ──
             async triggerAutoArrange() {
+                if (this.isProcessing) return;
+                this.isProcessing = true;
                 try {
                     const res = await fetch('/api/warehouse/auto_arrange', {
                         method: 'POST',
@@ -1233,6 +1257,8 @@
                     }
                 } catch (e) {
                     alert('Error: ' + e);
+                } finally {
+                    this.isProcessing = false;
                 }
             },
 
@@ -1305,6 +1331,8 @@
             },
 
             async saveSuggestedLayout() {
+                if (this.isProcessing) return;
+                this.isProcessing = true;
                 try {
                     const recommendation = this.suggestedLayoutRecommendation;
                     const canApplyRecommendation = recommendation &&
@@ -1335,10 +1363,18 @@
                         await this.loadWarehouses();
                         await this.loadData();
                     } else {
-                        alert(data.error || 'Failed to save suggested layout');
+                        // Fix 2.3: always clear ghost state on failure so the UI
+                        // accurately reflects the rejected/unsaved state.
+                        this.suggestedLayout = null;
+                        this.suggestedLayoutRecommendation = null;
+                        alert(data.error || 'Failed to save layout. The proposed arrangement has been cleared. Please run Auto-Arrange again.');
                     }
                 } catch (e) {
-                    alert('Error saving layout: ' + e);
+                    this.suggestedLayout = null;
+                    this.suggestedLayoutRecommendation = null;
+                    alert('Network error saving layout. The proposed arrangement has been cleared.');
+                } finally {
+                    this.isProcessing = false;
                 }
             },
 

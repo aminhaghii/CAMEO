@@ -53,11 +53,18 @@ CREATE TABLE IF NOT EXISTS chemical_placements (
     chemical_name TEXT NOT NULL,
     cas_number TEXT,
     quantity_kg REAL,
-    reactive_groups TEXT, -- JSON array of group IDs (e.g. [24, 28])
-    status TEXT DEFAULT 'placed', -- 'placed' or 'ghost' (for suggestions)
-    placed_by TEXT, -- 'human' or 'auto_arrange'
+    reactive_groups TEXT,  -- JSON array of group IDs (e.g. [24, 28])
+    status TEXT DEFAULT 'placed',
+    batch_id TEXT REFERENCES inventory_batches(id) ON DELETE CASCADE,
+    staging_row_id INTEGER,
     placed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Partial unique index: prevents duplicate imports while allowing NULL batch/staging rows
+-- (manual placements or legacy data with no batch origin).
+CREATE UNIQUE INDEX IF NOT EXISTS idx_placements_unique_import
+    ON chemical_placements(warehouse_id, batch_id, staging_row_id)
+    WHERE batch_id IS NOT NULL AND staging_row_id IS NOT NULL;
 
 -- Placement Compatibility Violations
 CREATE TABLE IF NOT EXISTS placement_violations (

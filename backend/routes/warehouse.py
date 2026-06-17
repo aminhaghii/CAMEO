@@ -15,6 +15,21 @@ logger = logging.getLogger(__name__)
 
 warehouse_bp = Blueprint('warehouse', __name__)
 
+
+@warehouse_bp.before_request
+def _enforce_tenant_context():
+    """Fail-closed guard: reject ALL warehouse requests without a tenant DB context.
+
+    Runs before every route handler in this blueprint, so abort(403) here
+    bypasses the route's own except-Exception block and produces a clean 403.
+    """
+    tenant_db = getattr(g, 'tenant_db_path', None)
+    if not tenant_db:
+        return jsonify({
+            'error': 'Tenant context required. Super Admins cannot access tenant-specific routes directly.',
+            'code': 'NO_TENANT_CONTEXT'
+        }), 403
+
 ADMIN_OVERRIDE_ROLES = {'company_admin', 'super_admin'}
 
 # Hard conflict on manual save/move: always blocked, no override possible.
@@ -33,7 +48,12 @@ AUTO_ARRANGE_CONFLICT_COMPATIBILITIES = {
 }
 
 def _get_db_path():
-    return getattr(g, 'tenant_db_path', None) or current_app.config['USER_DB_PATH']
+    # before_request already guaranteed tenant_db_path is set; this is a defensive fallback.
+    tenant_db = getattr(g, 'tenant_db_path', None)
+    if not tenant_db:
+        from flask import abort
+        abort(403, description="Tenant context required.")
+    return tenant_db
 
 def _get_db_connection():
     db_path = _get_db_path()
@@ -700,23 +720,20 @@ def add_from_batch():
             groups_json = json.dumps(groups)
             
             staging_row_id = r['id']
-            # Check if this staging row already exists in warehouse to prevent duplicates
-            cursor.execute(
-                "SELECT id FROM chemical_placements WHERE placed_by = ? AND warehouse_id = ?",
-                (f"import:{batch_id}:{staging_row_id}", warehouse_id)
-            )
-            if cursor.fetchone():
-                continue # Skip duplicate import of this staging row
-                
+            # Fix 1.4: INSERT OR IGNORE relies on UNIQUE(warehouse_id, batch_id, staging_row_id)
+            # to atomically prevent duplicates — no separate SELECT needed.
             cursor.execute(
                 """
-                INSERT INTO chemical_placements 
-                    (warehouse_id, section_id, chemical_id, chemical_name, cas_number, quantity_kg, reactive_groups, status, placed_by)
-                VALUES (?, NULL, ?, ?, ?, ?, ?, 'placed', ?)
+                INSERT OR IGNORE INTO chemical_placements
+                    (warehouse_id, section_id, chemical_id, chemical_name, cas_number,
+                     quantity_kg, reactive_groups, status, batch_id, staging_row_id)
+                VALUES (?, NULL, ?, ?, ?, ?, ?, 'placed', ?, ?)
                 """,
-                (warehouse_id, chem_id, chem_name, cas_number, qty, groups_json, f"import:{batch_id}:{staging_row_id}")
+                (warehouse_id, chem_id, chem_name, cas_number, qty,
+                 groups_json, batch_id, staging_row_id)
             )
-            imported_count += 1
+            if cursor.rowcount:
+                imported_count += 1
             
         # Log to audit trail
         cursor.execute(

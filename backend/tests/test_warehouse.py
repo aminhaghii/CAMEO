@@ -372,9 +372,8 @@ def test_move_placements_and_safety_rules(client, mock_user, tenant_db_path):
     })
     assert res.status_code == 200
 
-    # 4. Role-based check on CAUTION placement
-    # Let's mock a scenario where placement produces caution or no_data.
-    # We'll use a chemical with NO reactive groups.
+    # 4. NO_DATA placement (chemical with NO reactive groups) next to Acetone.
+    # Policy: NO_DATA is NOT a hard block on manual save/move — it is admin-overridable.
     # Insert a chemical with NO reactive groups to unplaced pool.
     conn = sqlite3.connect(tenant_db_path)
     cursor = conn.cursor()
@@ -388,17 +387,17 @@ def test_move_placements_and_safety_rules(client, mock_user, tenant_db_path):
     conn.commit()
     conn.close()
 
-    # As regular operator role, attempting to place next to Acetone (Section 1)
-    # should trigger CAUTION/NO_DATA check and return 403 Forbidden.
+    # As operator (read-only role) the mutating request is rejected up-front.
     mock_user['role'] = 'operator'
     res = client.post('/api/warehouse/placements/move', json={
         'placement_id': no_group_placement_id,
         'section_id': sec1_id
     })
     assert res.status_code == 403
-    assert res.get_json()['code'] == 'CAUTION_REQUIRES_ADMIN'
+    assert res.get_json()['code'] == 'OPERATOR_READONLY'
 
-    # As company_admin role, it should succeed
+    # As company_admin the NO_DATA placement is allowed (admin override of the
+    # caution/no-data gate). NO_DATA only forces hard separation in auto-arrange.
     mock_user['role'] = 'company_admin'
     res = client.post('/api/warehouse/placements/move', json={
         'placement_id': no_group_placement_id,
@@ -538,6 +537,79 @@ def test_auto_arrange_and_save_layout(client, tenant_db_path):
     cursor.execute("SELECT section_id FROM chemical_placements WHERE id = ?", (p2_id,))
     assert cursor.fetchone()[0] == sulfuric_sec
     conn.close()
+
+
+def _seed_placement(tenant_db_path, chem_id, name, cas, groups):
+    conn = sqlite3.connect(tenant_db_path)
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        INSERT INTO chemical_placements (warehouse_id, section_id, chemical_id, chemical_name, cas_number, quantity_kg, reactive_groups)
+        VALUES (1, NULL, ?, ?, ?, 10.0, ?)
+        """,
+        (chem_id, name, cas, json.dumps(groups))
+    )
+    pid = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return pid
+
+
+def _groups_from_chemicals_db(chem_id):
+    conn = sqlite3.connect(app.config['CHEMICALS_DB_PATH'])
+    cursor = conn.cursor()
+    cursor.execute("SELECT react_id FROM mm_chemical_react WHERE chem_id = ?", (chem_id,))
+    groups = [r[0] for r in cursor.fetchall()]
+    conn.close()
+    return groups
+
+
+def test_auto_arrange_allows_caution_pair(client, tenant_db_path):
+    """A CAUTION pair (Acetone + Ethanol) may co-locate: both fit in a single section."""
+    client.post('/api/warehouse/sections/init', json={'count': 1})
+    acetone, _sulfuric, ethanol = _get_chemicals_for_test(app.config['CHEMICALS_DB_PATH'])
+
+    p1 = _seed_placement(tenant_db_path, acetone['id'], acetone['name'], acetone['cas_id'],
+                         _groups_from_chemicals_db(acetone['id']))
+    p2 = _seed_placement(tenant_db_path, ethanol['id'], ethanol['name'], ethanol['cas_id'],
+                         _groups_from_chemicals_db(ethanol['id']))
+
+    res = client.post('/api/warehouse/auto_arrange')
+    assert res.status_code == 200
+    payload = res.get_json()
+    suggested = payload['suggested_layout']
+
+    # Both placed (nothing left in the pool) and in the SAME single section.
+    assert payload['unplaced'] == []
+    assert suggested[str(p1)] is not None
+    assert suggested[str(p1)] == suggested[str(p2)]
+
+
+def test_auto_arrange_isolates_no_data(client, tenant_db_path):
+    """A NO_DATA chemical (no reactive groups) is force-separated from everything else."""
+    client.post('/api/warehouse/sections/init', json={'count': 1})
+    acetone, _sulfuric, _ethanol = _get_chemicals_for_test(app.config['CHEMICALS_DB_PATH'])
+
+    p1 = _seed_placement(tenant_db_path, acetone['id'], acetone['name'], acetone['cas_id'],
+                         _groups_from_chemicals_db(acetone['id']))
+    # Unknown chemical with no reactive groups → NO_DATA against Acetone.
+    p2 = _seed_placement(tenant_db_path, 999999, 'Mystery Chem', '000-00-0', [])
+
+    res = client.post('/api/warehouse/auto_arrange')
+    assert res.status_code == 200
+    payload = res.get_json()
+    suggested = payload['suggested_layout']
+
+    # Only one section exists, so one of them cannot be placed (they must not share).
+    s1 = suggested.get(str(p1))
+    s2 = suggested.get(str(p2))
+    assert s1 != s2
+    assert None in (s1, s2)
+    assert len(payload['unplaced']) == 1
+    # The solver should recommend adding exactly one more section to fit both.
+    rec = payload['recommendation']
+    assert rec['has_recommendation'] is True
+    assert rec['add_sections_needed'] == 1
 
 
 def test_save_layout_blocks_incompatible_payload(client, tenant_db_path):

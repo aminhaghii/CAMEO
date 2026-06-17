@@ -131,20 +131,98 @@
         border-color: rgba(245, 158, 11, 0.5) !important;
     }
     
-    /* Slide out panel */
-    .slide-panel {
+    /* Section Detail Modal */
+    .section-modal-backdrop {
         position: fixed;
-        right: 0;
-        top: 0;
-        bottom: 0;
-        width: 440px;
-        background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(16px);
-        box-shadow: -10px 0 40px rgba(15, 23, 42, 0.12);
-        z-index: 100;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.55);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        z-index: 200;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+    }
+
+    .section-modal {
+        background: #ffffff;
+        border-radius: 28px;
+        width: 100%;
+        max-width: 680px;
+        max-height: 88vh;
         display: flex;
         flex-direction: column;
-        border-left: 1px solid rgba(226, 232, 240, 0.8);
+        box-shadow: 0 32px 80px rgba(15, 23, 42, 0.22), 0 0 0 1px rgba(226, 232, 240, 0.6);
+        overflow: hidden;
+        transform: scale(0.96);
+        opacity: 0;
+        transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.18s ease;
+    }
+
+    .section-modal.modal-visible {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+    .modal-status-bar {
+        height: 5px;
+        width: 100%;
+        transition: background 0.3s ease;
+    }
+
+    .modal-header-compatible  { background: linear-gradient(135deg, #10b981, #059669); }
+    .modal-header-caution     { background: linear-gradient(135deg, #f59e0b, #d97706); }
+    .modal-header-no-data     { background: linear-gradient(135deg, #f97316, #ea580c); }
+    .modal-header-incompatible{ background: linear-gradient(135deg, #ef4444, #dc2626); }
+    .modal-header-empty       { background: linear-gradient(135deg, #94a3b8, #64748b); }
+
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 10px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+    }
+
+    .chem-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 12px 14px;
+        border-radius: 14px;
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        background: #f8fafc;
+        transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .chem-row:hover {
+        border-color: rgba(99, 102, 241, 0.3);
+        box-shadow: 0 2px 8px rgba(99, 102, 241, 0.06);
+    }
+
+    .group-tag {
+        font-size: 9px;
+        font-weight: 700;
+        padding: 2px 6px;
+        border-radius: 5px;
+        background: #eef2ff;
+        color: #4f46e5;
+        font-family: monospace;
+    }
+
+    .matrix-cell {
+        width: 36px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.02em;
     }
     
     /* Live custom tooltip */
@@ -335,8 +413,12 @@
                         
                         <!-- Header -->
                         <div class="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
-                            <h3 class="font-bold text-slate-900 text-sm tracking-wide" x-text="sec.name"></h3>
-                            <span class="text-[10px] bg-slate-100 font-bold px-2 py-0.5 rounded text-slate-600" x-text="`${sec.chemicals.length} items`"></span>
+                            <div class="flex items-center gap-2 min-w-0">
+                                <div class="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                                     :class="getSectionDotClass(sec)"></div>
+                                <h3 class="font-bold text-slate-900 text-sm tracking-wide truncate" x-text="sec.name"></h3>
+                            </div>
+                            <span class="text-[10px] bg-slate-100 font-bold px-2 py-0.5 rounded text-slate-600 flex-shrink-0 ml-2" x-text="`${getMergedPlacements(sec).length} items`"></span>
                         </div>
                         
                         <!-- Chemicals inside Section -->
@@ -382,88 +464,215 @@
     <!-- Live Tooltip during drag -->
     <div id="drag-tooltip" class="drag-tooltip"></div>
 
-    <!-- SLIDE-OUT DETAIL PANEL -->
-    <div x-show="panelOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0" class="slide-panel border-l border-slate-200" style="display:none;" @click.away="panelOpen = false">
-        <!-- Panel Header -->
-        <div class="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-900 text-white">
-            <div>
-                <input type="text" x-model="selectedSectionName" @blur="renameSection()" @keyup.enter="renameSection()" class="bg-transparent border-b border-dashed border-white/50 focus:border-white font-bold text-base text-white focus:outline-none py-0.5">
-                <p class="text-[10px] text-slate-400 mt-1">Section Details & Matrix Analysis</p>
-            </div>
-            <button @click="panelOpen = false" class="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 transition">✕</button>
-        </div>
-        
-        <!-- Panel Body -->
-        <div class="flex-1 overflow-y-auto p-5 space-y-6">
-            <!-- Chemicals List -->
-            <div>
-                <h4 class="font-bold text-slate-800 text-xs uppercase tracking-wider mb-3">Stored Chemicals</h4>
-                <div class="space-y-2">
-                    <template x-for="item in selectedSection?.chemicals" :key="item.id">
-                        <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-4">
-                            <div>
-                                <p class="font-bold text-xs text-slate-800" x-text="item.chemical_name"></p>
-                                <p class="text-[10px] text-slate-500 mt-1" x-text="`CAS: ${item.cas_number || '—'} • ${item.quantity_kg} kg`"></p>
+    <!-- SECTION DETAIL MODAL -->
+    <template x-if="panelOpen">
+        <div class="section-modal-backdrop" @click.self="closeModal()">
+            <div class="section-modal" :class="{ 'modal-visible': modalAnimated }" @click.stop>
+
+                <!-- Colored status bar on top -->
+                <div class="modal-status-bar" :class="getSectionStatusBarClass()"></div>
+
+                <!-- Modal Header -->
+                <div class="px-6 pt-5 pb-4 border-b border-slate-100">
+                    <div class="flex items-start justify-between gap-4">
+                        <div class="flex-1 min-w-0">
+                            <!-- Editable section name -->
+                            <div class="flex items-center gap-2 mb-1">
+                                <svg class="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                                </svg>
+                                <input type="text" x-model="selectedSectionName"
+                                    @blur="renameSection()"
+                                    @keyup.enter="$el.blur()"
+                                    class="font-bold text-lg text-slate-900 bg-transparent border-b-2 border-transparent hover:border-slate-200 focus:border-indigo-400 focus:outline-none transition-colors w-full pr-2 py-0.5"
+                                    title="Click to rename section">
                             </div>
-                            <div class="flex items-center gap-2">
-                                <button @click="moveBackToSidebar(item.id)" title="Move to pool" class="p-1.5 hover:bg-slate-200 text-slate-500 rounded bg-white border border-slate-200 transition">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                                    </svg>
-                                </button>
-                                <template x-if="!suggestedLayout">
-                                    <button @click="deletePlacement(item.id)" title="Delete completely" class="p-1.5 hover:bg-red-50 text-red-600 rounded bg-white border border-slate-200 transition">
-                                        🗑
-                                    </button>
+                            <!-- Stats row -->
+                            <div class="flex flex-wrap items-center gap-2 mt-2">
+                                <span class="status-badge" :class="getSectionStatusBadgeClass()" x-text="getSectionStatusLabel()"></span>
+                                <span class="text-xs text-slate-500" x-text="`${selectedSection?.chemicals?.length || 0} chemical${(selectedSection?.chemicals?.length || 0) !== 1 ? 's' : ''} stored`"></span>
+                                <template x-if="selectedSection?.chemicals?.length >= 2">
+                                    <span class="text-xs text-slate-400">
+                                        • <span x-text="getSectionPairCount()"></span> reactive pair<span x-text="getSectionPairCount() !== 1 ? 's' : ''"></span> checked
+                                    </span>
+                                </template>
+                            </div>
+                        </div>
+                        <button @click="closeModal()" class="p-2 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition flex-shrink-0 mt-0.5">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Modal Body (scrollable) -->
+                <div class="flex-1 overflow-y-auto p-6 space-y-6">
+
+                    <!-- Empty state -->
+                    <template x-if="!selectedSection || selectedSection.chemicals.length === 0">
+                        <div class="flex flex-col items-center justify-center py-16 text-center">
+                            <div class="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
+                                <svg class="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                                </svg>
+                            </div>
+                            <p class="text-sm font-semibold text-slate-500">Section is empty</p>
+                            <p class="text-xs text-slate-400 mt-1">Drag chemicals here from the pool to store them.</p>
+                        </div>
+                    </template>
+
+                    <!-- Chemicals List -->
+                    <template x-if="selectedSection && selectedSection.chemicals.length > 0">
+                        <div>
+                            <div class="flex items-center justify-between mb-3">
+                                <h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest">Stored Chemicals</h4>
+                                <span class="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full font-semibold" x-text="`${selectedSection.chemicals.length} total`"></span>
+                            </div>
+                            <div class="space-y-2.5">
+                                <template x-for="(item, idx) in selectedSection.chemicals" :key="item.id">
+                                    <div class="chem-row">
+                                        <!-- Index badge -->
+                                        <div class="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                            <span class="text-[10px] font-black text-indigo-600" x-text="idx + 1"></span>
+                                        </div>
+                                        <!-- Info -->
+                                        <div class="flex-1 min-w-0">
+                                            <p class="font-bold text-sm text-slate-800 leading-tight" x-text="item.chemical_name"></p>
+                                            <div class="flex flex-wrap items-center gap-2 mt-1.5">
+                                                <span class="text-[10px] text-slate-500 font-mono" x-text="`CAS: ${item.cas_number || '—'}`"></span>
+                                                <template x-if="item.quantity_kg">
+                                                    <span class="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded" x-text="`${item.quantity_kg} kg`"></span>
+                                                </template>
+                                                <template x-if="item.water_reactive">
+                                                    <span class="text-[10px] font-bold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded border border-sky-200">💧 Water-Reactive</span>
+                                                </template>
+                                            </div>
+                                            <!-- Reactive groups -->
+                                            <template x-if="item.reactive_groups && item.reactive_groups.length > 0">
+                                                <div class="flex flex-wrap gap-1 mt-1.5">
+                                                    <template x-for="grp in item.reactive_groups" :key="grp">
+                                                        <span class="group-tag" x-text="`G-${grp}`"></span>
+                                                    </template>
+                                                </div>
+                                            </template>
+                                            <template x-if="!item.reactive_groups || item.reactive_groups.length === 0">
+                                                <span class="inline-block mt-1.5 text-[10px] font-semibold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-200">No Group Data</span>
+                                            </template>
+                                        </div>
+                                        <!-- Actions -->
+                                        <div class="flex flex-col gap-1.5 flex-shrink-0">
+                                            <button @click="moveBackToSidebar(item.id); selectedSection.chemicals = selectedSection.chemicals.filter(c => c.id !== item.id)"
+                                                title="Return to pool"
+                                                class="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition border border-transparent hover:border-indigo-200">
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                                                </svg>
+                                            </button>
+                                            <template x-if="!suggestedLayout">
+                                                <button @click="deletePlacement(item.id)"
+                                                    title="Remove from warehouse"
+                                                    class="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition border border-transparent hover:border-red-200">
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                                    </svg>
+                                                </button>
+                                            </template>
+                                        </div>
+                                    </div>
                                 </template>
                             </div>
                         </div>
                     </template>
-                    <template x-if="!selectedSection || selectedSection.chemicals.length === 0">
-                        <p class="text-xs text-slate-400 text-center py-6">No chemicals placed in this section.</p>
-                    </template>
-                </div>
-            </div>
-            
-            <!-- Compatibility Matrix -->
-            <template x-if="selectedSection && selectedSection.chemicals.length >= 2">
-                <div>
-                    <h4 class="font-bold text-slate-800 text-xs uppercase tracking-wider mb-3">Internal Reactivity Matrix</h4>
-                    <div class="border border-slate-200 rounded-xl overflow-hidden bg-slate-50 p-3">
-                        <table class="w-full text-[10px] text-left border-collapse">
-                            <thead>
-                                <tr>
-                                    <th class="p-1"></th>
-                                    <template x-for="(chem, i) in selectedSection.chemicals" :key="chem.id">
-                                        <th class="p-1 font-bold text-slate-500 truncate max-w-[80px]" x-text="`#${i+1}`" :title="chem.chemical_name"></th>
-                                    </template>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <template x-for="(rowChem, rIdx) in selectedSection.chemicals" :key="rowChem.id">
-                                    <tr>
-                                        <td class="p-1 font-semibold text-slate-700 truncate max-w-[90px]" x-text="`#${rIdx+1} ${rowChem.chemical_name.slice(0, 10)}…`" :title="rowChem.chemical_name"></td>
-                                        <template x-for="(colChem, cIdx) in selectedSection.chemicals" :key="colChem.id">
-                                            <td class="p-1 text-center font-bold">
-                                                <template x-if="rIdx === cIdx">
-                                                    <span class="text-slate-300">—</span>
+
+                    <!-- Compatibility Matrix -->
+                    <template x-if="selectedSection && selectedSection.chemicals.length >= 2">
+                        <div>
+                            <div class="flex items-center justify-between mb-3">
+                                <h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest">Reactivity Matrix</h4>
+                                <div class="flex items-center gap-2 text-[10px]">
+                                    <span class="matrix-cell bg-emerald-100 text-emerald-700 text-[9px]">✓</span>
+                                    <span class="text-slate-400">Safe</span>
+                                    <span class="matrix-cell bg-amber-100 text-amber-700">C</span>
+                                    <span class="text-slate-400">Caution</span>
+                                    <span class="matrix-cell bg-orange-100 text-orange-700">N</span>
+                                    <span class="text-slate-400">No Data</span>
+                                    <span class="matrix-cell bg-rose-100 text-rose-700">I</span>
+                                    <span class="text-slate-400">Incompatible</span>
+                                </div>
+                            </div>
+
+                            <div class="overflow-x-auto rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                                <table class="border-collapse" style="min-width: 100%">
+                                    <thead>
+                                        <tr>
+                                            <td class="p-1 w-32"></td>
+                                            <template x-for="(chem, ci) in selectedSection.chemicals" :key="chem.id">
+                                                <th class="p-1 text-center">
+                                                    <div class="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center mx-auto">
+                                                        <span class="text-[10px] font-black text-indigo-700" x-text="ci + 1"></span>
+                                                    </div>
+                                                </th>
+                                            </template>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <template x-for="(rowChem, ri) in selectedSection.chemicals" :key="rowChem.id">
+                                            <tr>
+                                                <td class="py-1 pr-3">
+                                                    <div class="flex items-center gap-2">
+                                                        <div class="w-5 h-5 rounded-md bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                                                            <span class="text-[9px] font-black text-indigo-700" x-text="ri + 1"></span>
+                                                        </div>
+                                                        <span class="text-[11px] font-semibold text-slate-700 truncate max-w-[110px]" :title="rowChem.chemical_name" x-text="rowChem.chemical_name"></span>
+                                                    </div>
+                                                </td>
+                                                <template x-for="(colChem, ci) in selectedSection.chemicals" :key="colChem.id">
+                                                    <td class="p-1 text-center">
+                                                        <template x-if="ri === ci">
+                                                            <div class="matrix-cell bg-slate-100 text-slate-400 mx-auto">—</div>
+                                                        </template>
+                                                        <template x-if="ri !== ci">
+                                                            <div class="matrix-cell mx-auto"
+                                                                 :class="getMatrixCellClass(rowChem, colChem)"
+                                                                 :title="`${rowChem.chemical_name} × ${colChem.chemical_name}`"
+                                                                 x-text="getPairStatusLabel(rowChem, colChem)">
+                                                            </div>
+                                                        </template>
+                                                    </td>
                                                 </template>
-                                                <template x-if="rIdx !== cIdx">
-                                                    <span class="px-1.5 py-0.5 rounded text-[9px]" 
-                                                          :class="getPairStatusClass(rowChem, colChem)"
-                                                          x-text="getPairStatusLabel(rowChem, colChem)"></span>
-                                                </template>
-                                            </td>
+                                            </tr>
                                         </template>
-                                    </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- Legend: chemical names -->
+                            <div class="mt-3 space-y-1">
+                                <template x-for="(chem, ci) in selectedSection.chemicals" :key="chem.id">
+                                    <div class="flex items-center gap-2 text-[10px] text-slate-500">
+                                        <span class="w-5 h-5 rounded-md bg-indigo-100 flex items-center justify-center font-black text-indigo-700 flex-shrink-0" x-text="ci + 1"></span>
+                                        <span x-text="chem.chemical_name"></span>
+                                        <span class="text-slate-300 font-mono" x-text="`• ${chem.cas_number || 'No CAS'}`"></span>
+                                    </div>
                                 </template>
-                            </tbody>
-                        </table>
-                    </div>
+                            </div>
+                        </div>
+                    </template>
+
                 </div>
-            </template>
+
+                <!-- Modal Footer -->
+                <div class="px-6 py-4 border-t border-slate-100 bg-slate-50/60 flex items-center justify-between">
+                    <p class="text-[10px] text-slate-400">Click outside or press Esc to close</p>
+                    <button @click="closeModal()" class="px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl hover:bg-slate-700 transition">
+                        Done
+                    </button>
+                </div>
+
+            </div>
         </div>
-    </div>
+    </template>
 
     <!-- CONFIG SECTIONS MODAL -->
     <div x-show="initModalOpen" x-transition class="fixed inset-0 z-50 flex items-center justify-center p-4" style="display:none;">
@@ -499,9 +708,10 @@
             searchQuery: '',
             loading: true,
             panelOpen: false,
+            modalAnimated: false,
             initModalOpen: false,
             initCount: 10,
-            
+
             selectedSection: null,
             selectedSectionName: '',
             
@@ -542,6 +752,10 @@
                 }
                 await this.loadWarehouses();
                 await this.loadData();
+                // Esc closes modal
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape' && this.panelOpen) this.closeModal();
+                });
             },
 
             async loadWarehouses() {
@@ -683,7 +897,86 @@
                     chemicals: this.getMergedPlacements(sec)
                 };
                 this.selectedSectionName = sec.name;
+                this.modalAnimated = false;
                 this.panelOpen = true;
+                // trigger animation on next tick
+                this.$nextTick(() => { this.modalAnimated = true; });
+            },
+
+            closeModal() {
+                this.modalAnimated = false;
+                setTimeout(() => { this.panelOpen = false; }, 180);
+            },
+
+            getSectionOverallStatus() {
+                const chems = this.selectedSection?.chemicals || [];
+                if (chems.length === 0) return 'EMPTY';
+                if (chems.length === 1) return 'COMPATIBLE';
+                let worst = 'COMPATIBLE';
+                for (let i = 0; i < chems.length; i++) {
+                    for (let j = i + 1; j < chems.length; j++) {
+                        const s = this.getPairStatus(chems[i], chems[j]);
+                        if (s === 'INCOMPATIBLE') return 'INCOMPATIBLE';
+                        if (s === 'NO_DATA' && worst !== 'INCOMPATIBLE') worst = 'NO_DATA';
+                        if (s === 'CAUTION' && worst === 'COMPATIBLE') worst = 'CAUTION';
+                    }
+                }
+                return worst;
+            },
+
+            getSectionStatusBarClass() {
+                const s = this.getSectionOverallStatus();
+                if (s === 'INCOMPATIBLE') return 'modal-header-incompatible';
+                if (s === 'NO_DATA')      return 'modal-header-no-data';
+                if (s === 'CAUTION')      return 'modal-header-caution';
+                if (s === 'EMPTY')        return 'modal-header-empty';
+                return 'modal-header-compatible';
+            },
+
+            getSectionStatusBadgeClass() {
+                const s = this.getSectionOverallStatus();
+                if (s === 'INCOMPATIBLE') return 'bg-rose-100 text-rose-700';
+                if (s === 'NO_DATA')      return 'bg-orange-100 text-orange-700';
+                if (s === 'CAUTION')      return 'bg-amber-100 text-amber-700';
+                if (s === 'EMPTY')        return 'bg-slate-100 text-slate-500';
+                return 'bg-emerald-100 text-emerald-700';
+            },
+
+            getSectionStatusLabel() {
+                const s = this.getSectionOverallStatus();
+                const map = { INCOMPATIBLE: '⛔ Incompatible', NO_DATA: '🟠 Unknown Data', CAUTION: '⚠️ Caution', EMPTY: 'Empty', COMPATIBLE: '✅ All Compatible' };
+                return map[s] || s;
+            },
+
+            getSectionDotClass(sec) {
+                const chems = this.getMergedPlacements(sec);
+                if (chems.length === 0) return 'bg-slate-300';
+                if (chems.length === 1) return 'bg-emerald-400';
+                let worst = 'COMPATIBLE';
+                for (let i = 0; i < chems.length; i++) {
+                    for (let j = i + 1; j < chems.length; j++) {
+                        const s = this.getPairStatus(chems[i], chems[j]);
+                        if (s === 'INCOMPATIBLE') return 'bg-rose-500';
+                        if (s === 'NO_DATA' && worst !== 'INCOMPATIBLE') worst = 'NO_DATA';
+                        if (s === 'CAUTION' && worst === 'COMPATIBLE') worst = 'CAUTION';
+                    }
+                }
+                if (worst === 'NO_DATA') return 'bg-orange-400';
+                if (worst === 'CAUTION') return 'bg-amber-400';
+                return 'bg-emerald-400';
+            },
+
+            getSectionPairCount() {
+                const n = this.selectedSection?.chemicals?.length || 0;
+                return (n * (n - 1)) / 2;
+            },
+
+            getMatrixCellClass(c1, c2) {
+                const s = this.getPairStatus(c1, c2);
+                if (s === 'INCOMPATIBLE') return 'bg-rose-100 text-rose-700';
+                if (s === 'NO_DATA')      return 'bg-orange-100 text-orange-700';
+                if (s === 'CAUTION')      return 'bg-amber-100 text-amber-700';
+                return 'bg-emerald-100 text-emerald-700';
             },
 
             async renameSection() {
@@ -1075,19 +1368,11 @@
                 return worst;
             },
 
-            getPairStatusClass(c1, c2) {
-                const s = this.getPairStatus(c1, c2);
-                if (s === 'INCOMPATIBLE') return 'bg-rose-100 text-rose-700';
-                if (s === 'NO_DATA') return 'bg-orange-100 text-orange-700';
-                if (s === 'CAUTION') return 'bg-amber-100 text-amber-700';
-                return 'bg-emerald-100 text-emerald-700';
-            },
-
             getPairStatusLabel(c1, c2) {
                 const s = this.getPairStatus(c1, c2);
                 if (s === 'INCOMPATIBLE') return 'I';
-                if (s === 'NO_DATA') return 'N';
-                if (s === 'CAUTION') return 'C';
+                if (s === 'NO_DATA')      return 'N';
+                if (s === 'CAUTION')      return 'C';
                 return '✓';
             }
         }

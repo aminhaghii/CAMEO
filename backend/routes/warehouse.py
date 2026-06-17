@@ -16,14 +16,20 @@ logger = logging.getLogger(__name__)
 warehouse_bp = Blueprint('warehouse', __name__)
 
 ADMIN_OVERRIDE_ROLES = {'company_admin', 'super_admin'}
-SECTION_BLOCKING_COMPATIBILITIES = {
-    Compatibility.INCOMPATIBLE,
-    Compatibility.CAUTION,
-    Compatibility.NO_DATA,
-}
 
+# Hard conflict on manual save/move: always blocked, no override possible.
+# Only INCOMPATIBLE (red) is a true hard block here; CAUTION/NO_DATA remain
+# admin-overridable (see _validate_layout_update).
 SECTION_CONFLICT_COMPATIBILITIES = {
     Compatibility.INCOMPATIBLE,
+}
+
+# Conflict edges for the auto-arrange solver. Policy: the algorithm isolates
+# both INCOMPATIBLE (red) and NO_DATA (orange/unknown) by default — unknowns are
+# kept apart for safety. CAUTION (yellow) is allowed to co-locate.
+AUTO_ARRANGE_CONFLICT_COMPATIBILITIES = {
+    Compatibility.INCOMPATIBLE,
+    Compatibility.NO_DATA,
 }
 
 def _get_db_path():
@@ -806,7 +812,7 @@ def _has_water_group(placement):
     return WATER_GROUP_ID in groups
 
 
-def _is_section_conflict(engine, placement_a, placement_b):
+def _is_section_conflict(engine, placement_a, placement_b, conflict_set=SECTION_CONFLICT_COMPATIBILITIES):
     pair_res = engine._analyze_pair(
         placement_a['chemical_id'],
         placement_b['chemical_id'],
@@ -815,7 +821,7 @@ def _is_section_conflict(engine, placement_a, placement_b):
         _groups_for_placement(placement_a),
         _groups_for_placement(placement_b),
     )
-    if pair_res.compatibility in SECTION_CONFLICT_COMPATIBILITIES:
+    if pair_res.compatibility in conflict_set:
         return True
 
     # Water-reactive self-hazard check:
@@ -832,12 +838,16 @@ def _is_section_conflict(engine, placement_a, placement_b):
     return False
 
 def _build_conflict_graph(placements, engine):
-    """Build a graph where edges mean two placements must not share a section."""
+    """Build a graph where edges mean two placements must not share a section.
+
+    Auto-arrange isolates INCOMPATIBLE and NO_DATA pairs (plus water-reactive
+    hazards); CAUTION pairs are allowed to share a section.
+    """
     adjacency = {p['placement_id']: set() for p in placements}
     by_id = {p['placement_id']: p for p in placements}
     for i, p_a in enumerate(placements):
         for p_b in placements[i + 1:]:
-            if _is_section_conflict(engine, p_a, p_b):
+            if _is_section_conflict(engine, p_a, p_b, conflict_set=AUTO_ARRANGE_CONFLICT_COMPATIBILITIES):
                 adjacency[p_a['placement_id']].add(p_b['placement_id'])
                 adjacency[p_b['placement_id']].add(p_a['placement_id'])
     return adjacency, by_id

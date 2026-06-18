@@ -242,77 +242,17 @@ def login():
 
 @auth_bp.route('/auth/change-password', methods=['GET'])
 def change_password_page():
-    """Render a simple, secure page to change password on first login."""
+    """Render the forced password change page (first login)."""
     session_id = request.cookies.get('session_id')
     if not session_id:
         return redirect('/auth/login')
-        
+
     from flask import current_app
     user = validate_session(session_id, current_app.config['AUTH_DB_PATH'])
     if not user:
         return redirect('/auth/login')
-        
-    return '''
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <title>Change Password - SAFEWARE</title>
-        <style>
-            body { font-family: sans-serif; background: #0f172a; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-            .card { background: #1e293b; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); width: 320px; }
-            h2 { margin-top: 0; text-align: center; }
-            input { width: 100%; padding: 0.5rem; margin: 0.5rem 0; border: 1px solid #475569; background: #0f172a; color: white; border-radius: 4px; box-sizing: border-box; }
-            button { width: 100%; padding: 0.75rem; background: #2563eb; border: none; color: white; font-weight: bold; border-radius: 4px; margin-top: 1rem; cursor: pointer; }
-            button:hover { background: #1d4ed8; }
-            .error { color: #f87171; font-size: 0.875rem; margin-top: 0.5rem; text-align: center; }
-        </style>
-    </head>
-    <body>
-        <div class="card">
-            <h2>Change Password</h2>
-            <p style="font-size: 0.875rem; color: #94a3b8; text-align: center;">You are using a default password and must change it to continue.</p>
-            <form id="changeForm">
-                <input type="password" id="old_password" placeholder="Current Password" required>
-                <input type="password" id="new_password" placeholder="New Password" required>
-                <button type="submit">Update Password</button>
-                <div class="error" id="msg"></div>
-            </form>
-        </div>
-        <script>
-            function getCookie(name) {
-                let matches = document.cookie.match(new RegExp(
-                    "(?:^|; )" + name.replace(/([\.$?*|{}\(\)\[\]\\\/\+^])/g, '\\\\$1') + "=([^;]*)"
-                ));
-                return matches ? decodeURIComponent(matches[1]) : undefined;
-            }
-            
-            document.getElementById('changeForm').onsubmit = async (e) => {
-                e.preventDefault();
-                const old_password = document.getElementById('old_password').value;
-                const new_password = document.getElementById('new_password').value;
-                const token = getCookie('csrf_token');
-                
-                const res = await fetch('/api/auth/change-password', {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'X-CSRF-Token': token
-                    },
-                    body: JSON.stringify({ old_password, new_password })
-                });
-                const data = await res.json();
-                if (res.ok) {
-                    alert('Password changed successfully. Please log in again.');
-                    window.location.href = '/auth/logout';
-                } else {
-                    document.getElementById('msg').innerText = data.error || 'An error occurred';
-                }
-            };
-        </script>
-    </body>
-    </html>
-    '''
+
+    return render_template('change_password_forced.html')
 
 
 @auth_bp.route('/api/auth/change-password', methods=['POST'])

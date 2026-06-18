@@ -1,6 +1,6 @@
 # 🧪 CAMEO FULL DATABASE STRESS TEST REPORT
 
-**Date:** 2026-06-18 01:22:49  
+**Date:** 2026-06-18 19:16:20  
 **Test File:** FULL_DATABASE_EXPORT.xlsx  
 **File Size:** 0.29 MB  
 **Total Chemicals:** 5097  
@@ -11,9 +11,9 @@
 
 - **Total Rows Processed:** 5097
 - **Match Rate:** 97.4%
-- **Total Processing Time:** 11.34 seconds
-- **Processing Rate:** 449.3 rows/second
-- **Peak Memory Usage:** 217.23 MB
+- **Total Processing Time:** 10.58 seconds
+- **Processing Rate:** 482.0 rows/second
+- **Peak Memory Usage:** 217.25 MB
 - **Status:** ✅ **PASSED**
 
 ---
@@ -24,23 +24,23 @@
 
 | Phase | Time (seconds) | Percentage |
 |-------|----------------|------------|
-| File Ingestion | 0.42 | 3.7% |
-| Column Mapping | 0.01 | 0.0% |
-| Chemical Matching | 10.92 | 96.2% |
-| **Total** | **11.34** | **100%** |
+| File Ingestion | 0.38 | 3.6% |
+| Column Mapping | 0.00 | 0.0% |
+| Chemical Matching | 10.19 | 96.4% |
+| **Total** | **10.58** | **100%** |
 
-**Processing Rate:** 449.3 rows/second
+**Processing Rate:** 482.0 rows/second
 
 ### Memory Usage
 
 | Metric | Value (MB) |
 |--------|------------|
-| Start Memory | 191.36 |
-| After Ingestion | 192.09 |
-| After Column Mapping | 192.09 |
-| After Matching | 217.23 |
-| **Peak Memory** | **217.23** |
-| Memory Increase | 25.87 |
+| Start Memory | 189.43 |
+| After Ingestion | 189.62 |
+| After Column Mapping | 189.62 |
+| After Matching | 217.25 |
+| **Peak Memory** | **217.25** |
+| Memory Increase | 27.82 |
 
 ---
 
@@ -71,8 +71,8 @@
 |-------|--------|---------|
 | All rows processed | ✅ PASS | 5097 rows processed |
 | Match rate ≥ 95% | ✅ PASS | 97.4% match rate |
-| Processing time < 5 min | ✅ PASS | 11.3s < 300s |
-| Peak memory < 2GB | ✅ PASS | 217.2MB < 2048MB |
+| Processing time < 5 min | ✅ PASS | 10.6s < 300s |
+| Peak memory < 2GB | ✅ PASS | 217.3MB < 2048MB |
 | No crashes | ✅ PASS | Completed successfully |
 
 ---
@@ -81,15 +81,15 @@
 
 ### Performance Assessment
 
-**Processing Speed:** 449.3 rows/second is excellent for a dataset of this size.
+**Processing Speed:** 482.0 rows/second is excellent for a dataset of this size.
 
-**Memory Efficiency:** Peak memory usage of 217.23 MB for 5097 rows is excellent.
+**Memory Efficiency:** Peak memory usage of 217.25 MB for 5097 rows is excellent.
 
 **Match Accuracy:** 97.4% match rate on CAMEO's own data is very good.
 
 ### Bottleneck Analysis
 
-The matching phase took 96.2% of total processing time, which is expected as it involves:
+The matching phase took 96.4% of total processing time, which is expected as it involves:
 - Database lookups for each chemical
 - Multi-signal fusion (CAS, name, formula, UN)
 - Fuzzy matching for name variations
@@ -98,9 +98,9 @@ The matching phase took 96.2% of total processing time, which is expected as it 
 ### Scalability
 
 Based on these results:
-- **10,000 rows:** Estimated 22.3 seconds
-- **50,000 rows:** Estimated 1.9 minutes
-- **100,000 rows:** Estimated 3.7 minutes
+- **10,000 rows:** Estimated 20.7 seconds
+- **50,000 rows:** Estimated 1.7 minutes
+- **100,000 rows:** Estimated 3.5 minutes
 
 Memory usage scales linearly, so 100K rows would require approximately 4262 MB.
 
@@ -111,16 +111,16 @@ Memory usage scales linearly, so 100K rows would require approximately 4262 MB.
 The SAFEWARE ETL system successfully processed the **complete CAMEO database** (5097 chemicals) with:
 
 ✅ **97.4% match rate** (near-perfect accuracy on CAMEO data)  
-✅ **449.3 rows/second** processing speed  
-✅ **217.23 MB** peak memory (efficient resource usage)  
+✅ **482.0 rows/second** processing speed  
+✅ **217.25 MB** peak memory (efficient resource usage)  
 ✅ **No crashes or timeouts** (robust and stable)  
 
 **The system is production-ready for large-scale chemical inventory processing.**
 
 ---
 
-**Report Generated:** 2026-06-18 01:23:00  
-**Test Duration:** 11.34 seconds  
+**Report Generated:** 2026-06-18 19:16:31  
+**Test Duration:** 10.58 seconds  
 
 ---
 

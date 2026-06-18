@@ -382,7 +382,11 @@ class ReactivityEngine:
                 if tenant_db:
                     conn = get_safe_connection(tenant_db)
                 else:
-                    logger.warning("No writable database for reactivity engine audit logging. Skipping.")
+                    logger.warning(
+                        "ReactivityEngine._save_audit_log: no tenant_db_path in request context "
+                        "and no explicit audit_db_path provided. Audit row intentionally skipped "
+                        "(fail-closed: no fallback to shared DB)."
+                    )
                     return None
             cursor = conn.cursor()
             

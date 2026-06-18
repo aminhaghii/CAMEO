@@ -2,30 +2,36 @@
 admin.py — Admin Routes Blueprint (Company Admin + Super Admin).
 
 Endpoints:
-  GET  /admin/users               → User management page
-  GET  /api/admin/pending-users   → List PENDING users
-  POST /api/admin/approve-user    → Approve user + assign role
-  POST /api/admin/suspend-user    → Suspend a user
-  GET  /api/admin/users           → List all company users
-  GET  /admin/companies           → Company management (Super Admin)
-  GET  /api/admin/companies       → List companies (Super Admin)
-  POST /api/admin/companies       → Create company (Super Admin)
+  GET  /admin/users                       → User management page
+  GET  /api/admin/pending-users           → List PENDING users
+  POST /api/admin/approve-user            → Approve user + assign role
+  POST /api/admin/suspend-user            → Suspend a user
+  GET  /api/admin/users                   → List all company users
+  GET  /admin/companies                   → Company management (Super Admin)
+  GET  /api/admin/companies               → List companies (Super Admin)
+  POST /api/admin/companies               → Create company (Super Admin)
+  GET  /admin/platform-logs               → Platform-wide log dashboard (Super Admin)
+  GET  /api/admin/platform-logs           → Cross-tenant log data API (Super Admin)
+  GET  /api/admin/platform-logs/stats     → Cross-tenant log stats (Super Admin)
+  GET  /api/admin/platform-logs/export    → Enterprise Excel export (Super Admin)
 
 RBAC:
   - Company Admin: manage their own company's users
   - Super Admin: manage companies + platform-wide (NO tenant data access)
 """
 
+import re
 import sqlite3
 import logging
 import os
 from datetime import datetime
 from flask import (
-    Blueprint, request, render_template, jsonify, g
+    Blueprint, request, render_template, jsonify, g, send_file
 )
 
 from auth.decorators import login_required, role_required, csrf_protect, super_admin_only
 from auth.models import get_auth_db_connection
+from db_utils import get_safe_connection
 from auth.security import hash_password, validate_password_complexity
 from activity_logger import log_event
 
@@ -263,6 +269,20 @@ def approve_user():
         conn.close()
         return jsonify({'success': False, 'error': 'You can only manage users in your company'}), 403
 
+    # Guard: if re-activating a company_admin with a lower role, ensure they are not the last admin
+    if target_user['role'] == 'company_admin' and assigned_role != 'company_admin':
+        cursor.execute(
+            "SELECT COUNT(*) as cnt FROM users WHERE company_id = ? AND role = 'company_admin' AND status = 'ACTIVE'",
+            (target_user['company_id'],)
+        )
+        remaining_admins = cursor.fetchone()['cnt']
+        if remaining_admins == 0:
+            conn.close()
+            return jsonify({
+                'success': False,
+                'error': 'Cannot demote the last active administrator of this company. Promote another user to Company Admin first.'
+            }), 400
+
     # Approve
     cursor.execute("""
         UPDATE users SET status = 'ACTIVE', role = ?
@@ -330,6 +350,20 @@ def suspend_user():
     if g.user['role'] != 'super_admin' and target_user['company_id'] != g.user['company_id']:
         conn.close()
         return jsonify({'success': False, 'error': 'You can only manage users in your company'}), 403
+
+    # Guard: cannot suspend the last active company_admin of a company
+    if target_user['role'] == 'company_admin':
+        cursor.execute(
+            "SELECT COUNT(*) as cnt FROM users WHERE company_id = ? AND role = 'company_admin' AND status = 'ACTIVE' AND id != ?",
+            (target_user['company_id'], user_id)
+        )
+        remaining_admins = cursor.fetchone()['cnt']
+        if remaining_admins == 0:
+            conn.close()
+            return jsonify({
+                'success': False,
+                'error': 'Cannot suspend the last active administrator of this company. Promote another user to Company Admin first.'
+            }), 400
 
     cursor.execute("UPDATE users SET status = 'SUSPENDED' WHERE id = ?", (user_id,))
 
@@ -521,3 +555,373 @@ def update_company(company_id):
         'success': True,
         'message': f'Company updated successfully'
     })
+
+
+# ═══════════════════════════════════════════════════════
+#  Platform-Wide Logs (Super Admin Only)
+# ═══════════════════════════════════════════════════════
+
+def _get_all_tenant_db_paths(data_dir, company_filter=None):
+    """Return list of (company_id, db_path) for every *_user.db in data_dir.
+
+    company_filter: int company_id to restrict to one tenant, or None for all.
+    Includes user.db mapped as company_id=0 (legacy/unknown-user events).
+    """
+    results = []
+    try:
+        for fname in os.listdir(data_dir):
+            m = re.match(r'^(\d+)_user\.db$', fname)
+            if m:
+                cid = int(m.group(1))
+                if company_filter is None or cid == company_filter:
+                    results.append((cid, os.path.join(data_dir, fname)))
+            elif fname == 'user.db' and (company_filter is None or company_filter == 0):
+                results.append((0, os.path.join(data_dir, fname)))
+    except OSError:
+        pass
+    return results
+
+
+def _build_log_where(args):
+    """Build (WHERE clause, params list) from request.args for activity_logs queries."""
+    conditions = []
+    params = []
+
+    category = args.get('category', 'ALL')
+    if category and category != 'ALL':
+        conditions.append("category = ?")
+        params.append(category)
+
+    severity = args.get('severity', 'ALL')
+    if severity and severity != 'ALL':
+        conditions.append("severity = ?")
+        params.append(severity)
+
+    search = (args.get('search') or '').strip()
+    if search:
+        conditions.append("(title LIKE ? OR detail LIKE ? OR user_id LIKE ? OR entity_name LIKE ?)")
+        params.extend([f'%{search}%'] * 4)
+
+    date_range = args.get('date_range', 'all')
+    if date_range == '24h':
+        conditions.append("created_at >= strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '-1 day')")
+    elif date_range == '7d':
+        conditions.append("created_at >= strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '-7 days')")
+    elif date_range == '30d':
+        conditions.append("created_at >= strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '-30 days')")
+
+    user_filter = args.get('user_id', 'ALL')
+    if user_filter and user_filter != 'ALL':
+        conditions.append("user_id = ?")
+        params.append(user_filter)
+
+    where_sql = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+    return where_sql, params
+
+
+@admin_bp.route('/admin/platform-logs', methods=['GET'])
+@login_required
+@super_admin_only
+def platform_logs_page():
+    """Render super-admin platform-wide activity log dashboard."""
+    return render_template('admin_platform_logs.html')
+
+
+@admin_bp.route('/api/admin/platform-logs', methods=['GET'])
+@login_required
+@super_admin_only
+def platform_logs_api():
+    """Return paginated cross-tenant activity logs for all companies."""
+    from flask import current_app
+    data_dir = current_app.config['DATA_DIR']
+    auth_db = current_app.config['AUTH_DB_PATH']
+
+    # Build company_id → name map
+    company_map = {0: 'Legacy / Unknown'}
+    try:
+        conn_auth = get_auth_db_connection(auth_db)
+        for row in conn_auth.execute("SELECT id, name FROM companies").fetchall():
+            company_map[row['id']] = row['name']
+        conn_auth.close()
+    except Exception:
+        pass
+
+    # Parse filters
+    try:
+        company_filter_raw = request.args.get('company_id', 'ALL')
+        company_filter = int(company_filter_raw) if company_filter_raw not in ('ALL', '', None) else None
+    except (ValueError, TypeError):
+        company_filter = None
+
+    try:
+        page = max(1, int(request.args.get('page', 1)))
+    except (ValueError, TypeError):
+        page = 1
+    try:
+        per_page = min(100, max(10, int(request.args.get('per_page', 50))))
+    except (ValueError, TypeError):
+        per_page = 50
+
+    where_sql, where_params = _build_log_where(request.args)
+
+    all_rows = []
+    tenant_dbs = _get_all_tenant_db_paths(data_dir, company_filter)
+
+    for (cid, db_path) in tenant_dbs:
+        if not os.path.exists(db_path):
+            continue
+        company_name = company_map.get(cid, f'Company {cid}')
+        try:
+            conn = get_safe_connection(db_path, readonly=True)
+            # Verify table exists
+            tbl = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='activity_logs'"
+            ).fetchone()
+            if not tbl:
+                conn.close()
+                continue
+            rows = conn.execute(
+                f"SELECT * FROM activity_logs {where_sql} ORDER BY created_at DESC",
+                where_params
+            ).fetchall()
+            for r in rows:
+                entry = dict(r)
+                entry['company_id'] = cid
+                entry['company_name'] = company_name
+                # Parse meta JSON safely
+                try:
+                    import json as _json
+                    entry['meta'] = _json.loads(entry['meta']) if entry.get('meta') else None
+                except Exception:
+                    entry['meta'] = None
+                all_rows.append(entry)
+            conn.close()
+        except Exception as e:
+            logger.warning(f"platform_logs_api: error reading {db_path}: {e}")
+
+    # Sort merged results
+    all_rows.sort(key=lambda x: x.get('created_at') or '', reverse=True)
+
+    total = len(all_rows)
+    offset = (page - 1) * per_page
+    page_rows = all_rows[offset: offset + per_page]
+
+    return jsonify({
+        'success': True,
+        'data': page_rows,
+        'total': total,
+        'page': page,
+        'per_page': per_page,
+    })
+
+
+@admin_bp.route('/api/admin/platform-logs/stats', methods=['GET'])
+@login_required
+@super_admin_only
+def platform_logs_stats():
+    """Return aggregate stats across all tenant DBs for the platform log dashboard."""
+    from flask import current_app
+    data_dir = current_app.config['DATA_DIR']
+    auth_db = current_app.config['AUTH_DB_PATH']
+
+    company_map = {0: 'Legacy / Unknown'}
+    try:
+        conn_auth = get_auth_db_connection(auth_db)
+        for row in conn_auth.execute("SELECT id, name FROM companies").fetchall():
+            company_map[row['id']] = row['name']
+        conn_auth.close()
+    except Exception:
+        pass
+
+    total = 0
+    by_category = {}
+    by_severity = {}
+    recent_24h = 0
+    errors_warnings = 0
+    per_company = {}
+
+    tenant_dbs = _get_all_tenant_db_paths(data_dir)
+
+    for (cid, db_path) in tenant_dbs:
+        if not os.path.exists(db_path):
+            continue
+        company_name = company_map.get(cid, f'Company {cid}')
+        try:
+            conn = get_safe_connection(db_path, readonly=True)
+            tbl = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='activity_logs'"
+            ).fetchone()
+            if not tbl:
+                conn.close()
+                continue
+
+            c_total = conn.execute("SELECT COUNT(*) FROM activity_logs").fetchone()[0]
+            total += c_total
+
+            for row in conn.execute(
+                "SELECT category, COUNT(*) as cnt FROM activity_logs GROUP BY category"
+            ).fetchall():
+                by_category[row['category']] = by_category.get(row['category'], 0) + row['cnt']
+
+            for row in conn.execute(
+                "SELECT severity, COUNT(*) as cnt FROM activity_logs GROUP BY severity"
+            ).fetchall():
+                by_severity[row['severity']] = by_severity.get(row['severity'], 0) + row['cnt']
+
+            c_24h = conn.execute(
+                "SELECT COUNT(*) FROM activity_logs WHERE created_at >= strftime('%Y-%m-%dT%H:%M:%SZ','now','-1 day')"
+            ).fetchone()[0]
+            recent_24h += c_24h
+
+            c_err = conn.execute(
+                "SELECT COUNT(*) FROM activity_logs WHERE severity IN ('error','critical','warning')"
+            ).fetchone()[0]
+            errors_warnings += c_err
+
+            per_company[str(cid)] = {
+                'company_id': cid,
+                'company_name': company_name,
+                'total': c_total,
+                'errors_warnings': c_err,
+                'recent_24h': c_24h,
+            }
+            conn.close()
+        except Exception as e:
+            logger.warning(f"platform_logs_stats: error reading {db_path}: {e}")
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'total': total,
+            'by_category': by_category,
+            'by_severity': by_severity,
+            'recent_24h': recent_24h,
+            'errors_warnings': errors_warnings,
+            'companies_count': len(per_company),
+            'per_company': per_company,
+        }
+    })
+
+
+@admin_bp.route('/api/admin/platform-logs/export', methods=['GET'])
+@login_required
+@super_admin_only
+def platform_logs_export():
+    """Export cross-tenant activity logs as enterprise multi-sheet Excel workbook."""
+    from flask import current_app
+    from logic.platform_logs_excel import generate_platform_logs_excel
+
+    data_dir = current_app.config['DATA_DIR']
+    auth_db = current_app.config['AUTH_DB_PATH']
+
+    company_map = {0: 'Legacy / Unknown'}
+    try:
+        conn_auth = get_auth_db_connection(auth_db)
+        for row in conn_auth.execute("SELECT id, name FROM companies").fetchall():
+            company_map[row['id']] = row['name']
+        conn_auth.close()
+    except Exception:
+        pass
+
+    try:
+        company_filter_raw = request.args.get('company_id', 'ALL')
+        company_filter = int(company_filter_raw) if company_filter_raw not in ('ALL', '', None) else None
+    except (ValueError, TypeError):
+        company_filter = None
+
+    where_sql, where_params = _build_log_where(request.args)
+
+    all_rows = []
+    tenant_dbs = _get_all_tenant_db_paths(data_dir, company_filter)
+
+    for (cid, db_path) in tenant_dbs:
+        if not os.path.exists(db_path):
+            continue
+        company_name = company_map.get(cid, f'Company {cid}')
+        try:
+            conn = get_safe_connection(db_path, readonly=True)
+            tbl = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='activity_logs'"
+            ).fetchone()
+            if not tbl:
+                conn.close()
+                continue
+            rows = conn.execute(
+                f"SELECT * FROM activity_logs {where_sql} ORDER BY created_at DESC",
+                where_params
+            ).fetchall()
+            for r in rows:
+                entry = dict(r)
+                entry['company_id'] = cid
+                entry['company_name'] = company_name
+                try:
+                    import json as _json
+                    entry['meta'] = _json.loads(entry['meta']) if entry.get('meta') else None
+                except Exception:
+                    entry['meta'] = None
+                all_rows.append(entry)
+            conn.close()
+        except Exception as e:
+            logger.warning(f"platform_logs_export: error reading {db_path}: {e}")
+
+    all_rows.sort(key=lambda x: x.get('created_at') or '', reverse=True)
+
+    # Build stats for analytics sheets
+    total = len(all_rows)
+    by_category = {}
+    by_severity = {}
+    per_company_stats = {}
+    errors_warnings = 0
+    recent_24h = 0
+    cutoff_24h = (datetime.utcnow().replace(microsecond=0)
+                  .strftime('%Y-%m-%dT%H:%M:%SZ'))
+    # compute cutoff as a simple string-comparable ISO timestamp 24h ago
+    from datetime import timedelta
+    cutoff_24h = (datetime.utcnow() - timedelta(hours=24)).strftime('%Y-%m-%dT%H:%M:%SZ')
+
+    for entry in all_rows:
+        cat = entry.get('category') or 'system'
+        sev = entry.get('severity') or 'info'
+        ts  = entry.get('created_at') or ''
+        by_category[cat] = by_category.get(cat, 0) + 1
+        by_severity[sev] = by_severity.get(sev, 0) + 1
+        is_alert = sev in ('error', 'critical', 'warning')
+        if is_alert:
+            errors_warnings += 1
+        if ts >= cutoff_24h:
+            recent_24h += 1
+
+        cid_str = str(entry.get('company_id', 0))
+        if cid_str not in per_company_stats:
+            per_company_stats[cid_str] = {
+                'company_id': entry.get('company_id', 0),
+                'company_name': entry.get('company_name', 'Unknown'),
+                'total': 0,
+                'errors_warnings': 0,
+                'recent_24h': 0,
+            }
+        per_company_stats[cid_str]['total'] += 1
+        if is_alert:
+            per_company_stats[cid_str]['errors_warnings'] += 1
+        if ts >= cutoff_24h:
+            per_company_stats[cid_str]['recent_24h'] += 1
+
+    stats = {
+        'total': total,
+        'by_category': by_category,
+        'by_severity': by_severity,
+        'errors_warnings': errors_warnings,
+        'recent_24h': recent_24h,
+        'companies_count': len(per_company_stats),
+        'per_company': per_company_stats,
+    }
+
+    xlsx_bytes = generate_platform_logs_excel(all_rows, stats)
+
+    filename = f"safeware_platform_logs_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    return send_file(
+        xlsx_bytes,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name=filename,
+    )

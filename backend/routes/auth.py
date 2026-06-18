@@ -263,11 +263,11 @@ def change_password():
         return jsonify({'error': 'Authentication required'}), 401
         
     data = request.get_json() or {}
-    old_password = data.get('old_password')
+    old_password = data.get('old_password') or data.get('current_password')
     new_password = data.get('new_password')
-    
+
     if not old_password or not new_password:
-        return jsonify({'error': 'Old and new passwords are required'}), 400
+        return jsonify({'error': 'Current and new passwords are required'}), 400
         
     from flask import current_app
     auth_db = current_app.config['AUTH_DB_PATH']
@@ -390,6 +390,23 @@ def get_csrf():
         secure=_is_prod,
     )
     return response
+
+
+@auth_bp.route('/settings', methods=['GET'])
+def settings_page():
+    """User settings page."""
+    from auth.decorators import login_required
+    if not hasattr(g, 'user') or g.user is None:
+        return redirect(url_for('auth_bp.login_page'))
+    return render_template('settings.html')
+
+
+@auth_bp.route('/help', methods=['GET'])
+def help_page():
+    """Help & support page."""
+    if not hasattr(g, 'user') or g.user is None:
+        return redirect(url_for('auth_bp.login_page'))
+    return render_template('help.html')
 
 
 @auth_bp.route('/api/auth/companies', methods=['GET'])

@@ -1,275 +1,718 @@
 {% extends "base.html" %}
-
-{% block title %}SAFEWARE — User Management{% endblock %}
+{% block title %}User Management — SAFEWARE{% endblock %}
 {% block breadcrumb %}User Management{% endblock %}
 
+{% block extra_head %}
+<style>
+:root {
+  --um-bg:     #F1F5F9;
+  --um-panel:  #FFFFFF;
+  --um-border: #E2E8F0;
+  --um-ink:    #0F172A;
+  --um-sub:    #475569;
+  --um-muted:  #94A3B8;
+  --um-accent: #2563EB;
+  --um-adim:   #DBEAFE;
+  --um-red:    #EF4444;
+  --um-rdim:   #FEE2E2;
+  --um-green:  #10B981;
+  --um-gdim:   #D1FAE5;
+  --um-amber:  #F59E0B;
+  --um-amdim:  #FFFBEB;
+}
+
+.um-page   { background:var(--um-bg); min-height:100vh; padding:28px 32px 72px; }
+.um-hdr    { display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:24px; gap:16px; }
+.um-hdr-left { display:flex; flex-direction:column; gap:3px; }
+.um-eyebrow  { font-size:10px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--um-accent); display:flex; align-items:center; gap:6px; }
+.um-eyebrow span { display:inline-block; width:18px; height:2px; background:var(--um-accent); border-radius:2px; }
+.um-title    { font-size:22px; font-weight:800; color:var(--um-ink); letter-spacing:-.02em; }
+.um-sub      { font-size:12.5px; color:var(--um-sub); }
+
+/* Stats bar */
+.um-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:20px; }
+.um-stat {
+  background:var(--um-panel); border:1px solid var(--um-border); border-radius:10px;
+  padding:14px 18px; position:relative; overflow:hidden;
+}
+.um-stat::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; border-radius:3px 0 0 3px; }
+.um-stat-blue::before   { background:var(--um-accent); }
+.um-stat-green::before  { background:var(--um-green); }
+.um-stat-amber::before  { background:var(--um-amber); }
+.um-stat-red::before    { background:var(--um-red); }
+.um-stat-label { font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--um-muted); margin-bottom:5px; }
+.um-stat-val   { font-size:26px; font-weight:800; letter-spacing:-.03em; line-height:1; }
+.val-blue  { color:var(--um-accent); }
+.val-green { color:var(--um-green); }
+.val-amber { color:var(--um-amber); }
+.val-red   { color:var(--um-red); }
+
+/* Toolbar */
+.um-toolbar {
+  background:var(--um-panel); border:1px solid var(--um-border); border-radius:12px;
+  padding:14px 18px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  margin-bottom:16px;
+}
+.um-search-wrap { position:relative; }
+.um-search-icon { position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--um-muted); pointer-events:none; }
+.um-search-icon svg { width:14px; height:14px; }
+.um-search {
+  height:36px; width:240px; padding:0 12px 0 34px;
+  border:1px solid var(--um-border); border-radius:8px; font-size:13px;
+  color:var(--um-ink); background:#FAFAFA; outline:none; transition:border .15s;
+}
+.um-search:focus { border-color:var(--um-accent); background:#fff; }
+.um-sel {
+  height:36px; padding:0 10px; border:1px solid var(--um-border);
+  border-radius:8px; font-size:12.5px; color:var(--um-sub); background:#FAFAFA; outline:none;
+}
+.um-sel:focus { border-color:var(--um-accent); }
+.um-count { font-size:11.5px; color:var(--um-muted); margin-left:auto; }
+
+/* Add button */
+.um-add-btn {
+  height:36px; padding:0 18px; border-radius:8px; font-size:13px; font-weight:600;
+  background:var(--um-accent); color:#fff; border:none; cursor:pointer;
+  display:inline-flex; align-items:center; gap:7px; transition:background .15s;
+}
+.um-add-btn:hover { background:#1D4ED8; }
+.um-add-btn svg { width:15px; height:15px; }
+
+/* Table card */
+.um-card { background:var(--um-panel); border:1px solid var(--um-border); border-radius:12px; overflow:hidden; }
+
+/* Grid columns — avatar | user | role | status | [company] | login | created | chevron */
+{% if current_user and current_user.role == 'super_admin' %}
+.um-grid-head, .um-grid-row { display:grid; grid-template-columns:42px 1fr 120px 110px 140px 155px 95px 36px; align-items:center; gap:0; }
+{% else %}
+.um-grid-head, .um-grid-row { display:grid; grid-template-columns:42px 1fr 120px 110px 155px 95px 36px; align-items:center; gap:0; }
+{% endif %}
+
+.um-grid-head {
+  padding:0; background:#F8FAFC; border-bottom:1px solid var(--um-border);
+  font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--um-muted);
+}
+.um-grid-head > div { padding:10px 14px; white-space:nowrap; }
+.um-col-avatar { padding-left:16px !important; }
+
+.um-grid-row {
+  padding:0; border-bottom:1px solid #F8FAFC; cursor:pointer; transition:background .1s;
+}
+.um-grid-row > div { padding:11px 14px; }
+.um-grid-row:hover { background:#F8FAFC; }
+.um-row-expanded, .um-row-expanded:hover { background:#EFF6FF !important; border-bottom:none; }
+
+.um-user-wrap { border-bottom:1px solid var(--um-border); }
+.um-user-wrap:last-child { border-bottom:none; }
+
+.um-row-name { font-weight:600; color:var(--um-ink); font-size:13px; }
+.um-row-email { font-size:11px; color:var(--um-muted); }
+
+/* Avatar */
+.um-avatar {
+  width:30px; height:30px; border-radius:8px; display:inline-flex; align-items:center;
+  justify-content:center; font-size:12px; font-weight:700; color:#fff; flex-shrink:0;
+}
+
+/* Badges */
+.badge { display:inline-block; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; white-space:nowrap; }
+.b-super    { background:#EDE9FE; color:#5B21B6; }
+.b-cadmin   { background:var(--um-adim); color:#1E40AF; }
+.b-operator { background:#CCFBF1; color:#0F766E; }
+.b-viewer   { background:#F1F5F9; color:#475569; }
+.b-active   { background:var(--um-gdim); color:#166534; }
+.b-pending  { background:var(--um-amdim); color:#92400E; }
+.b-suspended{ background:var(--um-rdim); color:#991B1B; }
+
+/* Chevron */
+.um-chev { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:5px; border:1px solid var(--um-border); color:var(--um-muted); transition:all .15s; }
+.um-chev svg { width:12px; height:12px; transition:transform .2s; }
+.um-chev.open svg { transform:rotate(180deg); }
+tr:hover .um-chev { border-color:var(--um-accent); color:var(--um-accent); }
+
+/* Expanded panel */
+.um-detail-row td { background:#EFF6FF !important; padding:0 !important; border-bottom:2px solid var(--um-adim) !important; cursor:default; }
+.um-detail-inner { padding:20px 20px 20px 62px; }
+.um-detail-grid  { display:grid; grid-template-columns:repeat(3,1fr); gap:16px 28px; margin-bottom:20px; }
+.um-detail-field { display:flex; flex-direction:column; gap:4px; }
+.um-detail-key   { font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--um-muted); }
+.um-detail-val   { font-size:13px; color:var(--um-ink); }
+.um-mono         { font-family:'Courier New',monospace; font-size:12px; color:var(--um-sub); }
+
+/* Edit form inside expanded panel */
+.um-edit-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px 20px; max-width:600px; margin-bottom:16px; }
+.um-edit-full { grid-column:1/-1; }
+.um-lbl { font-size:11px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--um-sub); display:block; margin-bottom:5px; }
+.um-inp {
+  width:100%; height:36px; padding:0 10px;
+  border:1px solid var(--um-border); border-radius:7px; font-size:13px;
+  color:var(--um-ink); background:#fff; outline:none; transition:border .15s;
+  box-sizing:border-box;
+}
+.um-inp:focus { border-color:var(--um-accent); box-shadow:0 0 0 3px rgba(37,99,235,.1); }
+.um-inp-wrap { position:relative; }
+.um-eye {
+  position:absolute; right:8px; top:50%; transform:translateY(-50%);
+  background:none; border:none; cursor:pointer; color:var(--um-muted); padding:3px;
+}
+.um-eye:hover { color:var(--um-sub); }
+.um-eye svg { width:15px; height:15px; display:block; }
+
+/* Action buttons row */
+.um-actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; padding-top:14px; border-top:1px solid var(--um-adim); }
+.btn {
+  height:33px; padding:0 14px; border-radius:7px; font-size:12px; font-weight:600;
+  cursor:pointer; border:1px solid transparent; transition:all .15s;
+  display:inline-flex; align-items:center; gap:6px;
+}
+.btn-primary { background:var(--um-accent); color:#fff; border-color:var(--um-accent); }
+.btn-primary:hover { background:#1D4ED8; }
+.btn-ghost   { background:#fff; color:var(--um-sub); border-color:var(--um-border); }
+.btn-ghost:hover { border-color:var(--um-accent); color:var(--um-accent); }
+.btn-red     { background:var(--um-rdim); color:#991B1B; border-color:#FECACA; }
+.btn-red:hover { background:#FEE2E2; }
+.btn-green   { background:var(--um-gdim); color:#166534; border-color:#A7F3D0; }
+.btn-green:hover { background:#C6F6E5; }
+.btn-amber   { background:var(--um-amdim); color:#92400E; border-color:#FDE68A; }
+.btn-amber:hover { background:#FEF3C7; }
+.btn:disabled { opacity:.45; cursor:not-allowed; }
+
+/* Section label inside expanded */
+.um-section-label {
+  font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--um-muted); margin-bottom:12px; display:flex; align-items:center; gap:8px;
+}
+.um-section-label::after { content:''; flex:1; height:1px; background:var(--um-border); }
+
+/* Empty */
+.um-empty { text-align:center; padding:48px 20px; }
+.um-empty-icon { font-size:32px; opacity:.2; margin-bottom:12px; }
+.um-empty-title { font-size:14px; font-weight:700; color:var(--um-sub); }
+
+/* Modal overlay */
+.um-overlay {
+  position:fixed; inset:0; background:rgba(15,23,42,.45); backdrop-filter:blur(2px);
+  z-index:50; display:flex; align-items:center; justify-content:center; padding:20px;
+}
+.um-modal {
+  background:#fff; border:1px solid var(--um-border); border-radius:14px;
+  padding:28px; width:100%; max-width:480px; position:relative;
+  box-shadow:0 24px 64px rgba(15,23,42,.18);
+}
+.um-modal-title { font-size:16px; font-weight:800; color:var(--um-ink); margin-bottom:18px; display:flex; align-items:center; gap:8px; letter-spacing:-.01em; }
+.um-modal-title svg { width:18px; height:18px; color:var(--um-accent); flex-shrink:0; }
+.um-modal-fields { display:flex; flex-direction:column; gap:14px; }
+.um-modal-row  { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.um-modal-foot { display:flex; justify-content:flex-end; gap:10px; margin-top:22px; }
+
+/* Strength bar */
+.str-bar { height:3px; background:#E2E8F0; border-radius:2px; overflow:hidden; margin-top:5px; }
+.str-fill { height:100%; border-radius:2px; transition:width .3s, background .3s; }
+
+/* Toast */
+@keyframes spin { to { transform:rotate(360deg); } }
+.um-spin { width:14px; height:14px; border:2px solid rgba(255,255,255,.3); border-top-color:#fff; border-radius:50%; animation:spin .6s linear infinite; }
+.um-toast {
+  position:fixed; bottom:24px; right:24px;
+  background:var(--um-ink); color:#fff; font-size:13px; font-weight:500;
+  padding:10px 18px; border-radius:9px; z-index:9999;
+  box-shadow:0 8px 24px rgba(0,0,0,.18);
+  transform:translateY(10px); opacity:0; transition:all .25s; pointer-events:none;
+}
+.um-toast.show { transform:translateY(0); opacity:1; }
+.um-toast.err  { background:#991B1B; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+.um-skel { height:13px; background:#E2E8F0; border-radius:4px; animation:pulse 1.4s infinite; display:inline-block; }
+</style>
+{% endblock %}
+
 {% block content %}
-<div x-data="userManagement()" x-init="init()">
+<div class="um-page" x-data="userMgmt()" x-init="init()">
 
-    <!-- Page Header -->
-    <div class="flex items-center justify-between mb-6">
-        <div>
-            <h1 class="text-2xl font-bold text-slate-900">User Management</h1>
-            <p class="text-sm text-slate-500 mt-1">Manage your organization's users and access controls</p>
-        </div>
-        <button @click="showAddModal = true" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition shadow-sm hover:shadow-md flex items-center gap-2">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
-            Add User
-        </button>
+  <!-- Header -->
+  <div class="um-hdr">
+    <div class="um-hdr-left">
+      <div class="um-eyebrow"><span></span>ADMINISTRATION</div>
+      <div class="um-title">User Management</div>
+      <div class="um-sub">Create, edit, suspend, and manage platform access for all users</div>
+    </div>
+    <button class="um-add-btn" @click="openAddModal()">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+      Add User
+    </button>
+  </div>
+
+  <!-- Stats -->
+  <div class="um-stats">
+    <div class="um-stat um-stat-blue">
+      <div class="um-stat-label">Total Users</div>
+      <div class="um-stat-val val-blue" x-text="allUsers.length"></div>
+    </div>
+    <div class="um-stat um-stat-green">
+      <div class="um-stat-label">Active</div>
+      <div class="um-stat-val val-green" x-text="allUsers.filter(u=>u.status==='ACTIVE').length"></div>
+    </div>
+    <div class="um-stat um-stat-amber">
+      <div class="um-stat-label">Pending Approval</div>
+      <div class="um-stat-val val-amber" x-text="allUsers.filter(u=>u.status==='PENDING').length"></div>
+    </div>
+    <div class="um-stat um-stat-red">
+      <div class="um-stat-label">Suspended</div>
+      <div class="um-stat-val val-red" x-text="allUsers.filter(u=>u.status==='SUSPENDED').length"></div>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="um-toolbar">
+    <div class="um-search-wrap">
+      <span class="um-search-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg></span>
+      <input class="um-search" type="text" placeholder="Search name or email…" x-model="qSearch" @input.debounce.200ms="applyFilters()"/>
+    </div>
+    <select class="um-sel" x-model="qRole" @change="applyFilters()">
+      <option value="">All roles</option>
+      <option value="super_admin">Super Admin</option>
+      <option value="company_admin">Company Admin</option>
+      <option value="operator">Operator</option>
+      <option value="viewer">Viewer</option>
+    </select>
+    <select class="um-sel" x-model="qStatus" @change="applyFilters()">
+      <option value="">All statuses</option>
+      <option value="ACTIVE">Active</option>
+      <option value="PENDING">Pending</option>
+      <option value="SUSPENDED">Suspended</option>
+    </select>
+    {% if current_user and current_user.role == 'super_admin' %}
+    <select class="um-sel" x-model="qCompany" @change="applyFilters()">
+      <option value="">All companies</option>
+      <template x-for="c in companies" :key="c.id">
+        <option :value="c.id" x-text="c.name"></option>
+      </template>
+    </select>
+    {% endif %}
+    <span class="um-count" x-text="filtered.length + ' / ' + allUsers.length + ' users'"></span>
+  </div>
+
+  <!-- User list (div-based grid — avoids Alpine template-in-tbody bug) -->
+  <div class="um-card">
+
+    <!-- Column header -->
+    <div class="um-grid-head">
+      <div class="um-col-avatar"></div>
+      <div class="um-col-user">User</div>
+      <div class="um-col-role">Role</div>
+      <div class="um-col-status">Status</div>
+      {% if current_user and current_user.role == 'super_admin' %}<div class="um-col-company">Company</div>{% endif %}
+      <div class="um-col-login">Last login</div>
+      <div class="um-col-created">Created</div>
+      <div class="um-col-chev"></div>
     </div>
 
-    <!-- All Users Table -->
-    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-            <h2 class="font-semibold text-slate-900">All Users</h2>
-            <span class="text-sm text-slate-500" x-text="`${allUsers.length} total`"></span>
-        </div>
-
-        <div class="overflow-x-auto">
-            <table class="w-full">
-                <thead>
-                    <tr class="bg-slate-50 text-xs font-medium text-slate-500 uppercase tracking-wider">
-                        <th class="px-6 py-3 text-left">User</th>
-                        <th class="px-6 py-3 text-left">Role</th>
-                        <th class="px-6 py-3 text-left">Status</th>
-                        <th class="px-6 py-3 text-left">Company</th>
-                        <th class="px-6 py-3 text-left">Last Login</th>
-                        <th class="px-6 py-3 text-right">Actions</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100">
-                    <template x-for="user in allUsers" :key="user.id">
-                        <tr class="hover:bg-slate-50 transition">
-                            <td class="px-6 py-4">
-                                <div class="flex items-center gap-3">
-                                    <div class="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs"
-                                        :class="{
-                                             'bg-gradient-to-br from-blue-500 to-cyan-500': user.role === 'super_admin',
-                                             'bg-gradient-to-br from-emerald-500 to-teal-500': user.role === 'company_admin',
-                                             'bg-gradient-to-br from-violet-500 to-purple-500': user.role === 'operator',
-                                             'bg-gradient-to-br from-slate-400 to-slate-500': user.role === 'viewer'
-                                         }">
-                                        <span x-text="user.full_name.charAt(0).toUpperCase()"></span>
-                                    </div>
-                                    <div>
-                                        <p class="text-sm font-medium text-slate-900" x-text="user.full_name"></p>
-                                        <p class="text-xs text-slate-500" x-text="user.email"></p>
-                                    </div>
-                                </div>
-                            </td>
-                            <td class="px-6 py-4">
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
-                                    :class="{
-                                          'bg-blue-100 text-blue-800': user.role === 'super_admin',
-                                          'bg-emerald-100 text-emerald-800': user.role === 'company_admin',
-                                          'bg-violet-100 text-violet-800': user.role === 'operator',
-                                          'bg-slate-100 text-slate-700': user.role === 'viewer'
-                                      }" x-text="user.role.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())">
-                                </span>
-                            </td>
-                            <td class="px-6 py-4">
-                                <span class="inline-flex items-center gap-1 text-xs font-medium" :class="{
-                                          'text-emerald-600': user.status === 'ACTIVE',
-                                          'text-amber-600': user.status === 'PENDING',
-                                          'text-red-600': user.status === 'SUSPENDED'
-                                      }">
-                                    <span class="w-1.5 h-1.5 rounded-full" :class="{
-                                              'bg-emerald-500': user.status === 'ACTIVE',
-                                              'bg-amber-500': user.status === 'PENDING',
-                                              'bg-red-500': user.status === 'SUSPENDED'
-                                          }"></span>
-                                    <span x-text="user.status"></span>
-                                </span>
-                            </td>
-                            <td class="px-6 py-4 text-sm text-slate-600" x-text="user.company_name || '—'"></td>
-                            <td class="px-6 py-4 text-sm text-slate-500"
-                                x-text="user.last_login ? new Date(user.last_login).toLocaleString() : 'Never'"></td>
-                            <td class="px-6 py-4 text-right">
-                                <template x-if="user.status === 'ACTIVE' && user.id !== currentUserId">
-                                    <button @click="suspendUser(user)"
-                                        class="text-xs text-red-500 hover:text-red-700 font-medium transition">
-                                        Suspend
-                                    </button>
-                                </template>
-                                <template x-if="user.status === 'SUSPENDED'">
-                                    <button @click="reactivateUser(user)"
-                                        class="text-xs text-emerald-500 hover:text-emerald-700 font-medium transition">
-                                        Reactivate
-                                    </button>
-                                </template>
-                            </td>
-                        </tr>
-                    </template>
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Empty State -->
-        <div x-show="allUsers.length === 0" class="text-center py-12 text-slate-400">
-            <svg class="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                    d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-            </svg>
-            <p class="text-sm">No users found</p>
-        </div>
+    <!-- Loading -->
+    <div x-show="loading" style="text-align:center;padding:52px 20px;color:var(--um-muted);font-size:13px;display:flex;align-items:center;justify-content:center;gap:10px">
+      <svg style="width:18px;height:18px;animation:spin .7s linear infinite;flex-shrink:0" fill="none" viewBox="0 0 24 24">
+        <circle style="opacity:.25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"/>
+        <path style="opacity:.75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+      </svg>
+      Loading users…
     </div>
 
-    <!-- ── Modals ───────────────────────────────────────────────────────────── -->
-    <!-- Overlay -->
-    <div x-show="showAddModal" style="display: none;" 
-         class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 flex items-center justify-center p-4">
-      
-      <!-- ADD Modal -->
-      <div x-show="showAddModal" @click.away="showAddModal = false"
-           class="bg-white border border-slate-200 rounded-xl p-6 w-full max-w-md shadow-2xl relative overflow-hidden">
-        <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-blue-600"></div>
-        
-        <h2 class="text-lg font-bold text-slate-900 mb-5 tracking-tight flex items-center gap-2">
-          <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
-          Register New User
-        </h2>
-        
-        <div class="space-y-4">
-          <div>
-            <label class="block text-xs font-semibold text-slate-700 mb-1.5">Full Name</label>
-            <input type="text" x-model="newUser.full_name" placeholder="John Doe"
-                   class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-sm">
+    <!-- Empty -->
+    <div x-show="!loading && filtered.length===0" class="um-empty">
+      <div class="um-empty-icon">👤</div>
+      <div class="um-empty-title">No users match the filters</div>
+    </div>
+
+    <!-- Data rows — x-for on divs, no table parser issues -->
+    <template x-for="u in filtered" :key="u.id">
+      <div class="um-user-wrap">
+
+        <!-- Main row -->
+        <div class="um-grid-row" :class="{'um-row-expanded': expanded===u.id}" @click="toggleExpand(u)">
+          <div class="um-col-avatar">
+            <div class="um-avatar" :style="'background:'+avatarBg(u.role)"
+                 x-text="(u.full_name||u.email||'?')[0].toUpperCase()"></div>
           </div>
-          <div>
-            <label class="block text-xs font-semibold text-slate-700 mb-1.5">Email Address</label>
-            <input type="email" x-model="newUser.email" placeholder="john@company.com"
-                   class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-sm">
+          <div class="um-col-user">
+            <div class="um-row-name" x-text="u.full_name||'—'"></div>
+            <div class="um-row-email um-mono" x-text="u.email"></div>
           </div>
-          <div>
-            <label class="block text-xs font-semibold text-slate-700 mb-1.5">Initial Password</label>
-            <input type="text" x-model="newUser.password" placeholder="Must be strong..."
-                   class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-sm">
+          <div class="um-col-role">
+            <span class="badge" :class="roleBadge(u.role)" x-text="roleLabel(u.role)"></span>
           </div>
-          <div>
-            <label class="block text-xs font-semibold text-slate-700 mb-1.5">Role / Access Level</label>
-            <select x-model="newUser.role" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-sm">
-                <option value="viewer">Viewer (Read-Only)</option>
-                <option value="operator">Operator</option>
-                {% if current_user and current_user.role == 'super_admin' %}
-                <option value="company_admin">Company Admin</option>
-                {% endif %}
-            </select>
+          <div class="um-col-status">
+            <span style="display:inline-flex;align-items:center;gap:5px">
+              <span style="width:6px;height:6px;border-radius:50%;flex-shrink:0"
+                :style="'background:'+(u.status==='ACTIVE'?'#10B981':u.status==='PENDING'?'#F59E0B':'#EF4444')"></span>
+              <span style="font-size:12px;font-weight:600"
+                :style="'color:'+(u.status==='ACTIVE'?'#059669':u.status==='PENDING'?'#D97706':'#DC2626')"
+                x-text="u.status"></span>
+            </span>
           </div>
           {% if current_user and current_user.role == 'super_admin' %}
-          <div>
-            <label class="block text-xs font-semibold text-slate-700 mb-1.5">Target Company ID</label>
-            <input type="number" x-model="newUser.company_id" placeholder="Company ID"
-                   class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-sm">
-            <p class="text-xs text-slate-500 mt-1">Super Admins must specify which company to add the user to.</p>
-          </div>
+          <div class="um-col-company" style="font-size:12px;color:var(--um-sub)" x-text="u.company_name||'—'"></div>
           {% endif %}
+          <div class="um-col-login um-mono" style="font-size:11.5px;color:var(--um-sub)"
+               x-text="u.last_login ? u.last_login.replace('T',' ').slice(0,16) : 'Never'"></div>
+          <div class="um-col-created" style="font-size:11.5px;color:var(--um-muted)"
+               x-text="(u.created_at||'').slice(0,10)"></div>
+          <div class="um-col-chev">
+            <span class="um-chev" :class="{open:expanded===u.id}">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+              </svg>
+            </span>
+          </div>
         </div>
-  
-        <div class="mt-8 flex justify-end gap-3">
-          <button @click="showAddModal = false" class="px-4 py-2 text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors">Cancel</button>
-          <button @click="createUser()" class="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors shadow-sm shadow-blue-600/20">
-            Create User
-          </button>
+
+        <!-- Expanded detail panel -->
+        <div class="um-detail-row" x-show="expanded===u.id" @click.stop>
+          <div class="um-detail-inner">
+
+            <div class="um-section-label">Account Details</div>
+            <div class="um-detail-grid">
+              <div class="um-detail-field">
+                <span class="um-detail-key">User ID</span>
+                <span class="um-detail-val um-mono" x-text="'#'+u.id"></span>
+              </div>
+              <div class="um-detail-field">
+                <span class="um-detail-key">Company</span>
+                <span class="um-detail-val" x-text="u.company_name||'—'"></span>
+              </div>
+              <div class="um-detail-field">
+                <span class="um-detail-key">Last login</span>
+                <span class="um-detail-val um-mono" x-text="u.last_login ? u.last_login.replace('T',' ').slice(0,16) : 'Never'"></span>
+              </div>
+            </div>
+
+            <div class="um-section-label" style="margin-top:16px">Edit Profile</div>
+            <div class="um-edit-grid">
+              <div>
+                <label class="um-lbl">Full name</label>
+                <input class="um-inp" type="text" :value="editState[u.id]?.name"
+                  @input="editState[u.id]={...(editState[u.id]||{}),name:$event.target.value}"/>
+              </div>
+              <div>
+                <label class="um-lbl">Email address</label>
+                <input class="um-inp" type="email" :value="editState[u.id]?.email"
+                  @input="editState[u.id]={...(editState[u.id]||{}),email:$event.target.value}"/>
+              </div>
+              <div>
+                <label class="um-lbl">Role</label>
+                <select class="um-inp" :value="editState[u.id]?.role"
+                  @change="editState[u.id]={...(editState[u.id]||{}),role:$event.target.value}">
+                  <option value="company_admin">Company Admin</option>
+                  <option value="operator">Operator</option>
+                  <option value="viewer">Viewer</option>
+                </select>
+              </div>
+              <div>
+                <label class="um-lbl">New password <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--um-muted)">(optional)</span></label>
+                <div class="um-inp-wrap">
+                  <input class="um-inp" style="padding-right:36px"
+                    :type="editState[u.id]?.showPwd ? 'text':'password'"
+                    :value="editState[u.id]?.newPwd||''"
+                    @input="editState[u.id]={...(editState[u.id]||{}),newPwd:$event.target.value}"
+                    placeholder="Leave blank to keep current"/>
+                  <button type="button" class="um-eye"
+                    @click="editState[u.id]={...(editState[u.id]||{}),showPwd:!(editState[u.id]?.showPwd)}">
+                    <svg x-show="!editState[u.id]?.showPwd" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                    </svg>
+                    <svg x-show="editState[u.id]?.showPwd" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
+                    </svg>
+                  </button>
+                </div>
+                <div class="str-bar" x-show="editState[u.id]?.newPwd?.length > 0">
+                  <div class="str-fill" :style="pwdStrStyle(editState[u.id]?.newPwd)"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="um-actions">
+              <button class="btn btn-primary" :disabled="saving[u.id]" @click="saveUser(u)">
+                <svg x-show="saving[u.id]" style="width:13px;height:13px;animation:spin .6s linear infinite" fill="none" viewBox="0 0 24 24"><circle style="opacity:.25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"/><path style="opacity:.75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                <span x-text="saving[u.id] ? 'Saving…':'Save changes'"></span>
+              </button>
+              <button class="btn btn-ghost" @click="resetEdit(u)">Reset</button>
+              <div style="flex:1"></div>
+              <template x-if="u.status==='PENDING'">
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span style="font-size:11.5px;color:var(--um-sub);font-weight:600">Approve as:</span>
+                  <button class="btn btn-ghost" @click="approveUser(u,'operator')">Operator</button>
+                  <button class="btn btn-ghost" @click="approveUser(u,'viewer')">Viewer</button>
+                  {% if current_user and current_user.role in ('super_admin','company_admin') %}
+                  <button class="btn btn-ghost" @click="approveUser(u,'company_admin')">Admin</button>
+                  {% endif %}
+                </div>
+              </template>
+              <template x-if="u.status==='ACTIVE' && u.id !== {{ current_user.id if current_user else 0 }}">
+                <button class="btn btn-red" @click="suspendUser(u)">Suspend</button>
+              </template>
+              <template x-if="u.status==='SUSPENDED'">
+                <button class="btn btn-green" @click="approveUser(u, u.role)">Reactivate</button>
+              </template>
+            </div>
+
+          </div>
         </div>
       </div>
-    </div>
+    </template>
+  </div>
 
-    <!-- Toast Notification -->
-    <div x-show="toast" x-transition
-        class="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl shadow-2xl border text-sm font-medium flex items-center gap-2"
-        :class="toastType === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-800'"
-        x-text="toast"></div>
+  <!-- ── Add User Modal ─────────────────────────────────── -->
+  <div class="um-overlay" x-show="showAdd" x-transition style="display:none">
+    <div class="um-modal" @click.stop>
+      <div class="um-modal-title">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
+        Create New User
+      </div>
+      <div class="um-modal-fields">
+        <div class="um-modal-row">
+          <div>
+            <label class="um-lbl">Full name *</label>
+            <input class="um-inp" type="text" x-model="newU.full_name" placeholder="John Smith"/>
+          </div>
+          <div>
+            <label class="um-lbl">Email address *</label>
+            <input class="um-inp" type="email" x-model="newU.email" placeholder="john@company.com"/>
+          </div>
+        </div>
+        <div class="um-modal-row">
+          <div>
+            <label class="um-lbl">Initial password *</label>
+            <div class="um-inp-wrap">
+              <input class="um-inp" style="padding-right:36px"
+                :type="showNewPwd ? 'text':'password'"
+                x-model="newU.password" @input="checkNewPwd()"
+                placeholder="Min 8 chars, uppercase, number"/>
+              <button type="button" class="um-eye" @click="showNewPwd=!showNewPwd">
+                <svg x-show="!showNewPwd" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                <svg x-show="showNewPwd" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
+              </button>
+            </div>
+            <template x-if="newU.password.length>0">
+              <div class="str-bar"><div class="str-fill" :style="pwdStrStyle(newU.password)"></div></div>
+            </template>
+          </div>
+          <div>
+            <label class="um-lbl">Role</label>
+            <select class="um-inp" x-model="newU.role">
+              <option value="viewer">Viewer</option>
+              <option value="operator">Operator</option>
+              {% if current_user and current_user.role == 'super_admin' %}
+              <option value="company_admin">Company Admin</option>
+              {% endif %}
+            </select>
+          </div>
+        </div>
+        {% if current_user and current_user.role == 'super_admin' %}
+        <div>
+          <label class="um-lbl">Company *</label>
+          <select class="um-inp" x-model="newU.company_id">
+            <option value="">— select company —</option>
+            <template x-for="c in companies" :key="c.id">
+              <option :value="c.id" x-text="c.name"></option>
+            </template>
+          </select>
+        </div>
+        {% endif %}
+        <div x-show="addErr" style="font-size:12px;font-weight:600;color:#991B1B;margin-top:-4px" x-text="addErr"></div>
+      </div>
+      <div class="um-modal-foot">
+        <button class="btn btn-ghost" @click="showAdd=false; addErr=''">Cancel</button>
+        <button class="btn btn-primary" :disabled="addLoading" @click="createUser()">
+          <template x-if="addLoading"><span class="um-spin"></span></template>
+          <span x-text="addLoading ? 'Creating…' : 'Create user'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="um-toast" :class="{show:toastVisible, err:toastErr}" x-text="toastMsg"></div>
+
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    function userManagement() {
-        return {
-            allUsers: [],
-            toast: null,
-            toastType: 'success',
-            currentUserId: {{ current_user.id if current_user else 0 }},
-            showAddModal: false,
-            newUser: { email: '', full_name: '', password: '', role: 'viewer', company_id: '' },
+function userMgmt() {
+  return {
+    allUsers: [], filtered: [], companies: [],
+    loading: true, expanded: null,
+    editState: {}, saving: {},
+    showAdd: false, addLoading: false, addErr: '',
+    showNewPwd: false,
+    newU: { full_name:'', email:'', password:'', role:'viewer', company_id:'' },
+    qSearch: '', qRole: '', qStatus: '', qCompany: '',
+    toastVisible: false, toastMsg: '', toastErr: false, _tt: null,
 
-            async init() {
-                await this.loadAll();
-            },
+    async init() {
+      await Promise.all([this.load(), this.loadCompanies()]);
+    },
 
-            async loadAll() {
-                try {
-                    const resp = await fetch('/api/admin/users');
-                    if (resp.ok) this.allUsers = await resp.json();
-                } catch (e) { console.error(e); }
-            },
+    async load() {
+      this.loading = true;
+      try {
+        const r = await fetch('/api/admin/users', { credentials:'include' });
+        if (r.ok) { this.allUsers = await r.json(); this.applyFilters(); }
+      } catch(e) {}
+      finally { this.loading = false; }
+    },
 
-            async createUser() {
-                if (!this.newUser.email || !this.newUser.full_name || !this.newUser.password) {
-                    this.showToast('Please fill all required fields', 'error');
-                    return;
-                }
+    async loadCompanies() {
+      try {
+        const r = await fetch('/api/admin/companies', { credentials:'include' });
+        if (r.ok) { const d = await r.json(); if (Array.isArray(d)) this.companies = d; }
+      } catch(e) {}
+    },
 
-                try {
-                    const resp = await fetch('/api/admin/users/create', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(this.newUser)
-                    });
-                    const data = await resp.json();
-                    
-                    if (data.success) {
-                        this.showToast('User created successfully', 'success');
-                        this.showAddModal = false;
-                        this.newUser = { email: '', full_name: '', password: '', role: 'viewer', company_id: '' };
-                        await this.init();
-                    } else {
-                        this.showToast(data.error || 'Failed to create user', 'error');
-                    }
-                } catch (e) { 
-                    this.showToast('Network error', 'error'); 
-                }
-            },
+    applyFilters() {
+      let list = this.allUsers;
+      const q = this.qSearch.toLowerCase();
+      if (q) list = list.filter(u => (u.full_name||'').toLowerCase().includes(q) || (u.email||'').toLowerCase().includes(q));
+      if (this.qRole)    list = list.filter(u => u.role === this.qRole);
+      if (this.qStatus)  list = list.filter(u => u.status === this.qStatus);
+      if (this.qCompany) list = list.filter(u => String(u.company_id) === String(this.qCompany));
+      this.filtered = list;
+    },
 
-            async suspendUser(user) {
-                if (!confirm(`Suspend ${user.full_name}? They will lose access immediately.`)) return;
-                try {
-                    const resp = await fetch('/api/admin/suspend-user', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ user_id: user.id })
-                    });
-                    const data = await resp.json();
-                    if (data.success) {
-                        this.showToast(`${user.full_name} suspended`, 'success');
-                        await this.init();
-                    } else {
-                        this.showToast(data.error, 'error');
-                    }
-                } catch (e) { this.showToast('Network error', 'error'); }
-            },
+    toggleExpand(u) {
+      if (this.expanded === u.id) { this.expanded = null; return; }
+      this.expanded = u.id;
+      if (!this.editState[u.id]) {
+        this.editState[u.id] = { name: u.full_name, email: u.email, role: u.role, newPwd: '', showPwd: false };
+      }
+    },
 
-            async reactivateUser(user) {
-                try {
-                    const resp = await fetch('/api/admin/approve-user', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ user_id: user.id, role: user.role })
-                    });
-                    const data = await resp.json();
-                    if (data.success) {
-                        this.showToast(`${user.full_name} reactivated`, 'success');
-                        await this.init();
-                    }
-                } catch (e) { this.showToast('Network error', 'error'); }
-            },
+    resetEdit(u) {
+      this.editState[u.id] = { name: u.full_name, email: u.email, role: u.role, newPwd: '', showPwd: false };
+    },
 
-            showToast(msg, type = 'success') {
-                this.toast = msg;
-                this.toastType = type;
-                setTimeout(() => this.toast = null, 4000);
-            }
-        };
-    }
+    async saveUser(u) {
+      const es = this.editState[u.id] || {};
+      const csrf = document.cookie.match(/csrf_token=([^;]+)/)?.[1] || '';
+      this.saving[u.id] = true;
+
+      // 1. Save profile changes (name, email, role)
+      const profileChanged = es.name !== u.full_name || es.email !== u.email || es.role !== u.role;
+      if (profileChanged) {
+        try {
+          const r = await fetch(`/api/admin/users/${u.id}`, {
+            method: 'PUT', credentials:'include',
+            headers: { 'Content-Type':'application/json', 'X-CSRF-Token': csrf },
+            body: JSON.stringify({ full_name: es.name, email: es.email, role: es.role }),
+          });
+          const d = await r.json();
+          if (d.success) {
+            u.full_name = es.name; u.email = es.email; u.role = es.role;
+            this.applyFilters();
+          } else { this.toast(d.error || 'Update failed', true); this.saving[u.id]=false; return; }
+        } catch(e) { this.toast('Network error', true); this.saving[u.id]=false; return; }
+      }
+
+      // 2. Reset password if provided
+      if (es.newPwd) {
+        try {
+          const r = await fetch(`/api/admin/users/${u.id}/reset-password`, {
+            method: 'POST', credentials:'include',
+            headers: { 'Content-Type':'application/json', 'X-CSRF-Token': csrf },
+            body: JSON.stringify({ new_password: es.newPwd }),
+          });
+          const d = await r.json();
+          if (d.success) { es.newPwd = ''; }
+          else { this.toast(d.error || 'Password reset failed', true); this.saving[u.id]=false; return; }
+        } catch(e) { this.toast('Network error', true); this.saving[u.id]=false; return; }
+      }
+
+      this.saving[u.id] = false;
+      if (profileChanged || es.newPwd !== undefined) this.toast('Changes saved');
+    },
+
+    async approveUser(u, role) {
+      const csrf = document.cookie.match(/csrf_token=([^;]+)/)?.[1] || '';
+      try {
+        const r = await fetch('/api/admin/approve-user', {
+          method:'POST', credentials:'include',
+          headers: { 'Content-Type':'application/json', 'X-CSRF-Token': csrf },
+          body: JSON.stringify({ user_id: u.id, role }),
+        });
+        const d = await r.json();
+        if (d.success) { u.status='ACTIVE'; u.role=role; this.applyFilters(); this.toast(d.message||'Approved'); }
+        else { this.toast(d.error||'Failed', true); }
+      } catch(e) { this.toast('Network error', true); }
+    },
+
+    async suspendUser(u) {
+      const csrf = document.cookie.match(/csrf_token=([^;]+)/)?.[1] || '';
+      try {
+        const r = await fetch('/api/admin/suspend-user', {
+          method:'POST', credentials:'include',
+          headers: { 'Content-Type':'application/json', 'X-CSRF-Token': csrf },
+          body: JSON.stringify({ user_id: u.id }),
+        });
+        const d = await r.json();
+        if (d.success) { u.status='SUSPENDED'; this.applyFilters(); this.toast('User suspended'); }
+        else { this.toast(d.error||'Failed', true); }
+      } catch(e) { this.toast('Network error', true); }
+    },
+
+    openAddModal() {
+      this.newU = { full_name:'', email:'', password:'', role:'viewer', company_id:'' };
+      this.addErr = ''; this.showAdd = true;
+    },
+
+    async createUser() {
+      this.addErr = '';
+      if (!this.newU.full_name || !this.newU.email || !this.newU.password) {
+        this.addErr = 'Full name, email, and password are required.'; return;
+      }
+      const csrf = document.cookie.match(/csrf_token=([^;]+)/)?.[1] || '';
+      this.addLoading = true;
+      try {
+        const r = await fetch('/api/admin/users/create', {
+          method:'POST', credentials:'include',
+          headers: { 'Content-Type':'application/json', 'X-CSRF-Token': csrf },
+          body: JSON.stringify(this.newU),
+        });
+        const d = await r.json();
+        if (d.success) { this.showAdd=false; this.toast('User created'); await this.load(); }
+        else { this.addErr = d.error || 'Failed to create user'; }
+      } catch(e) { this.addErr = 'Network error'; }
+      finally { this.addLoading = false; }
+    },
+
+    pwdStrStyle(v) {
+      if (!v) return 'width:0';
+      let s = 0;
+      if (v.length>=8) s++;
+      if (/[A-Z]/.test(v)) s++;
+      if (/[0-9]/.test(v)) s++;
+      if (/[^A-Za-z0-9]/.test(v)) s++;
+      const colors = ['#EF4444','#F59E0B','#3B82F6','#10B981'];
+      return `width:${s*25}%;background:${colors[s-1]||'#E2E8F0'}`;
+    },
+
+    checkNewPwd() {},
+
+    roleLabel(r) {
+      return {super_admin:'Super Admin',company_admin:'Company Admin',operator:'Operator',viewer:'Viewer'}[r]||r;
+    },
+    roleBadge(r) {
+      return {super_admin:'b-super',company_admin:'b-cadmin',operator:'b-operator',viewer:'b-viewer'}[r]||'b-viewer';
+    },
+    avatarBg(r) {
+      return {super_admin:'#7C3AED',company_admin:'#2563EB',operator:'#0D9488',viewer:'#94A3B8'}[r]||'#94A3B8';
+    },
+
+    toast(msg, isErr=false) {
+      clearTimeout(this._tt);
+      this.toastMsg=msg; this.toastErr=isErr; this.toastVisible=true;
+      this._tt=setTimeout(()=>{this.toastVisible=false;},3000);
+    },
+  };
+}
 </script>
 {% endblock %}

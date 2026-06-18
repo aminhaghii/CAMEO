@@ -1,0 +1,853 @@
+{% extends "base.html" %}
+{% block title %}Settings — SAFEWARE{% endblock %}
+
+{% block extra_head %}
+<style>
+/* ── Tokens ─────────────────────────────────────────────── */
+:root {
+  --s-bg:      #F1F5F9;
+  --s-panel:   #FFFFFF;
+  --s-border:  #E2E8F0;
+  --s-ink:     #0F172A;
+  --s-sub:     #475569;
+  --s-muted:   #94A3B8;
+  --s-accent:  #2563EB;
+  --s-adim:    #DBEAFE;
+  --s-red:     #EF4444;
+  --s-rdim:    #FEE2E2;
+  --s-green:   #10B981;
+  --s-gdim:    #D1FAE5;
+  --s-amber:   #F59E0B;
+  --s-adim2:   #FFFBEB;
+  --s-violet:  #7C3AED;
+  --s-vdim:    #EDE9FE;
+}
+
+/* ── Shell ──────────────────────────────────────────────── */
+.s-page   { background:var(--s-bg); min-height:100vh; padding:32px 36px 72px; }
+.s-layout { display:grid; grid-template-columns:220px 1fr; gap:24px; align-items:start; max-width:1100px; }
+
+/* ── Header ─────────────────────────────────────────────── */
+.s-hdr        { margin-bottom:24px; max-width:1100px; }
+.s-hdr-eyebrow{ font-size:10px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--s-accent); display:flex; align-items:center; gap:6px; margin-bottom:4px; }
+.s-hdr-eyebrow span{ display:inline-block; width:18px; height:2px; background:var(--s-accent); border-radius:2px; }
+.s-hdr-title  { font-size:22px; font-weight:800; color:var(--s-ink); letter-spacing:-.02em; }
+.s-hdr-sub    { font-size:12.5px; color:var(--s-sub); margin-top:2px; }
+
+/* ── Side nav ───────────────────────────────────────────── */
+.s-nav { background:var(--s-panel); border:1px solid var(--s-border); border-radius:12px; padding:8px; position:sticky; top:24px; }
+.s-nav-item {
+  display:flex; align-items:center; gap:10px;
+  padding:9px 12px; border-radius:8px; font-size:13px; font-weight:500;
+  color:var(--s-sub); cursor:pointer; transition:all .15s; text-decoration:none;
+  border:none; background:none; width:100%; text-align:left;
+}
+.s-nav-item:hover { background:#F8FAFC; color:var(--s-accent); }
+.s-nav-item.active { background:var(--s-adim); color:var(--s-accent); font-weight:700; }
+.s-nav-item svg { width:15px; height:15px; flex-shrink:0; }
+.s-nav-divider { height:1px; background:var(--s-border); margin:6px 4px; }
+
+/* ── Card ───────────────────────────────────────────────── */
+.s-card { background:var(--s-panel); border:1px solid var(--s-border); border-radius:12px; overflow:hidden; margin-bottom:20px; }
+.s-card:last-child { margin-bottom:0; }
+.s-card-head {
+  padding:16px 20px; border-bottom:1px solid #F1F5F9;
+  display:flex; align-items:center; gap:12px;
+}
+.s-card-icon {
+  width:34px; height:34px; border-radius:9px;
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
+}
+.s-card-icon svg { width:16px; height:16px; }
+.icon-blue   { background:var(--s-adim);  color:var(--s-accent); }
+.icon-red    { background:var(--s-rdim);  color:#991B1B; }
+.icon-violet { background:var(--s-vdim);  color:var(--s-violet); }
+.icon-amber  { background:var(--s-adim2); color:#D97706; }
+.s-card-title { font-size:14px; font-weight:700; color:var(--s-ink); }
+.s-card-sub   { font-size:11.5px; color:var(--s-muted); margin-top:1px; }
+.s-card-body  { padding:20px; }
+
+/* ── Profile fields ─────────────────────────────────────── */
+.s-field-grid { display:grid; grid-template-columns:150px 1fr; row-gap:0; }
+.s-field {
+  display:contents;
+}
+.s-field-label { font-size:11px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--s-muted); padding:11px 0; border-bottom:1px solid #F8FAFC; display:flex; align-items:center; }
+.s-field-val   { font-size:13px; color:var(--s-ink); padding:11px 0 11px 12px; border-bottom:1px solid #F8FAFC; display:flex; align-items:center; }
+.s-field:last-child .s-field-label,
+.s-field:last-child .s-field-val { border-bottom:none; padding-bottom:0; }
+.s-mono { font-family:'Courier New',monospace; font-size:12px; color:var(--s-sub); }
+
+/* ── Badge ──────────────────────────────────────────────── */
+.badge { display:inline-block; padding:2px 9px; border-radius:4px; font-size:10px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; }
+.badge-super    { background:var(--s-vdim); color:#5B21B6; }
+.badge-cadmin   { background:var(--s-adim); color:#1E40AF; }
+.badge-operator { background:#CCFBF1; color:#0F766E; }
+.badge-viewer   { background:#F1F5F9; color:#475569; }
+.badge-active   { background:var(--s-gdim); color:#166534; }
+.badge-pending  { background:var(--s-adim2); color:#92400E; }
+.badge-suspended{ background:var(--s-rdim); color:#991B1B; }
+
+/* ── Password form ──────────────────────────────────────── */
+.s-form-group { margin-bottom:16px; }
+.s-form-group:last-child { margin-bottom:0; }
+.s-label { font-size:11.5px; font-weight:600; color:var(--s-sub); display:block; margin-bottom:6px; }
+.s-input-wrap { position:relative; max-width:380px; }
+.s-input {
+  width:100%; height:40px; padding:0 40px 0 12px;
+  border:1px solid var(--s-border); border-radius:8px;
+  font-size:13px; color:var(--s-ink); background:#FAFAFA;
+  outline:none; transition:border .15s, box-shadow .15s, background .15s;
+  box-sizing:border-box;
+}
+.s-input:focus { border-color:var(--s-accent); box-shadow:0 0 0 3px rgba(37,99,235,.1); background:#fff; }
+.s-input.error { border-color:var(--s-red); }
+.s-eye-btn {
+  position:absolute; right:10px; top:50%; transform:translateY(-50%);
+  background:none; border:none; cursor:pointer; color:var(--s-muted);
+  padding:4px; transition:color .15s;
+}
+.s-eye-btn:hover { color:var(--s-sub); }
+.s-eye-btn svg { width:16px; height:16px; display:block; }
+
+/* Strength meter */
+.strength-wrap { margin-top:8px; max-width:380px; }
+.strength-bar  { height:4px; background:#E2E8F0; border-radius:2px; overflow:hidden; margin-bottom:6px; }
+.strength-fill { height:100%; border-radius:2px; transition:width .3s, background .3s; }
+.strength-label{ font-size:11px; font-weight:700; }
+.str-0 .strength-fill { width:0;    background:transparent; }
+.str-1 .strength-fill { width:25%;  background:#EF4444; }
+.str-2 .strength-fill { width:50%;  background:#F59E0B; }
+.str-3 .strength-fill { width:75%;  background:#3B82F6; }
+.str-4 .strength-fill { width:100%; background:#10B981; }
+.str-0 .strength-label { color:var(--s-muted); }
+.str-1 .strength-label { color:#EF4444; }
+.str-2 .strength-label { color:#D97706; }
+.str-3 .strength-label { color:#2563EB; }
+.str-4 .strength-label { color:#059669; }
+
+/* Requirements checklist */
+.req-list { display:flex; flex-wrap:wrap; gap:6px 16px; margin-top:8px; }
+.req-item { font-size:11px; display:flex; align-items:center; gap:4px; transition:color .2s; }
+.req-item.met  { color:#059669; }
+.req-item.unmet{ color:var(--s-muted); }
+.req-item svg  { width:12px; height:12px; flex-shrink:0; }
+
+/* Save button */
+.s-btn {
+  height:38px; padding:0 22px; border-radius:8px; font-size:13px; font-weight:600;
+  background:var(--s-accent); color:#fff; border:none; cursor:pointer;
+  transition:background .15s, opacity .15s;
+  display:inline-flex; align-items:center; gap:8px;
+}
+.s-btn:hover { background:#1D4ED8; }
+.s-btn:disabled { opacity:.5; cursor:not-allowed; }
+.s-btn-ghost {
+  height:38px; padding:0 18px; border-radius:8px; font-size:13px; font-weight:600;
+  background:transparent; color:var(--s-sub); border:1px solid var(--s-border);
+  cursor:pointer; transition:all .15s;
+}
+.s-btn-ghost:hover { border-color:var(--s-accent); color:var(--s-accent); }
+.s-btn-red  { background:var(--s-rdim); color:#991B1B; border:1px solid #FECACA; }
+.s-btn-red:hover { background:#FEE2E2; }
+.s-btn-green{ background:var(--s-gdim); color:#166534; border:1px solid #A7F3D0; }
+.s-btn-green:hover { background:#C6F6E5; }
+
+.msg-ok  { font-size:12px; font-weight:600; color:#059669; margin-top:8px; }
+.msg-err { font-size:12px; font-weight:600; color:#991B1B; margin-top:8px; }
+
+/* ── Users table ────────────────────────────────────────── */
+.u-toolbar {
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  padding:14px 20px; border-bottom:1px solid var(--s-border);
+}
+.u-search {
+  height:34px; padding:0 12px 0 36px; border:1px solid var(--s-border);
+  border-radius:7px; font-size:13px; color:var(--s-ink); background:#FAFAFA;
+  outline:none; transition:border .15s; width:220px;
+}
+.u-search:focus { border-color:var(--s-accent); }
+.u-search-wrap { position:relative; }
+.u-search-icon { position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--s-muted); pointer-events:none; }
+.u-search-icon svg { width:14px; height:14px; }
+.u-select {
+  height:34px; padding:0 10px; border:1px solid var(--s-border);
+  border-radius:7px; font-size:12.5px; color:var(--s-sub); background:#FAFAFA; outline:none;
+}
+.u-count { margin-left:auto; font-size:11px; color:var(--s-muted); white-space:nowrap; }
+
+.u-table { width:100%; border-collapse:collapse; font-size:12.5px; }
+.u-table th {
+  padding:10px 16px; text-align:left; font-size:10px; font-weight:700;
+  letter-spacing:.08em; text-transform:uppercase; color:var(--s-muted);
+  background:#F8FAFC; border-bottom:1px solid var(--s-border); white-space:nowrap;
+}
+.u-table td { padding:10px 16px; border-bottom:1px solid #F8FAFC; vertical-align:middle; }
+.u-table tbody tr { cursor:pointer; transition:background .1s; }
+.u-table tbody tr:hover > td { background:#F8FAFC; }
+.u-table tbody tr.expanded > td { background:#EFF6FF; border-bottom:none; }
+
+/* Expand button */
+.u-chevron { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:5px; border:1px solid var(--s-border); color:var(--s-muted); background:transparent; transition:all .15s; }
+.u-chevron svg { width:12px; height:12px; transition:transform .2s; }
+.u-chevron.open svg { transform:rotate(180deg); }
+.u-table tbody tr:hover .u-chevron { border-color:var(--s-accent); color:var(--s-accent); }
+
+/* Expanded detail row */
+.u-detail-row td { background:#EFF6FF !important; padding:0 !important; border-bottom:2px solid var(--s-adim) !important; }
+.u-detail-inner { padding:16px 20px 16px 52px; display:grid; grid-template-columns:repeat(3,1fr); gap:16px 24px; }
+.u-detail-field { display:flex; flex-direction:column; gap:3px; }
+.u-detail-key { font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--s-muted); }
+.u-detail-val { font-size:12.5px; color:var(--s-ink); }
+.u-detail-actions { grid-column:1/-1; display:flex; gap:8px; padding-top:8px; border-top:1px solid var(--s-adim); flex-wrap:wrap; }
+
+/* Avatar chip */
+.u-avatar { width:28px; height:28px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:#fff; flex-shrink:0; }
+
+/* Empty state */
+.u-empty { text-align:center; padding:48px 20px; }
+.u-empty-icon { font-size:32px; opacity:.25; margin-bottom:12px; }
+.u-empty-title { font-size:14px; font-weight:700; color:var(--s-sub); }
+
+/* Spinner */
+@keyframes spin { to { transform:rotate(360deg); } }
+.s-spin { width:16px; height:16px; border:2px solid rgba(255,255,255,.3); border-top-color:#fff; border-radius:50%; animation:spin .6s linear infinite; }
+.s-spin-dark { border-color:var(--s-border); border-top-color:var(--s-accent); }
+
+/* Toast */
+.s-toast {
+  position:fixed; bottom:24px; right:24px;
+  background:var(--s-ink); color:#fff; font-size:13px; font-weight:500;
+  padding:10px 18px; border-radius:9px; z-index:9999;
+  box-shadow:0 8px 24px rgba(0,0,0,.18);
+  transform:translateY(10px); opacity:0; transition:all .25s; pointer-events:none;
+}
+.s-toast.show { transform:translateY(0); opacity:1; }
+.s-toast.err  { background:#991B1B; }
+
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+.s-skel { height:13px; background:#E2E8F0; border-radius:4px; animation:pulse 1.4s infinite; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="s-page" x-data="settingsApp()" x-init="init()">
+
+  <!-- Header -->
+  <div class="s-hdr">
+    <div class="s-hdr-eyebrow"><span></span>ACCOUNT</div>
+    <div class="s-hdr-title">Settings</div>
+    <div class="s-hdr-sub">Manage your profile, security, and platform users</div>
+  </div>
+
+  <div class="s-layout">
+
+    <!-- Side nav -->
+    <nav class="s-nav">
+      <button class="s-nav-item" :class="{active:tab==='profile'}" @click="tab='profile'">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+        </svg>
+        Profile
+      </button>
+      <button class="s-nav-item" :class="{active:tab==='security'}" @click="tab='security'">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+        </svg>
+        Security
+      </button>
+      <template x-if="canManageUsers">
+        <div>
+          <div class="s-nav-divider"></div>
+          <button class="s-nav-item" :class="{active:tab==='users'}" @click="tab='users'; loadUsers()">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+            Users
+            <span x-show="pendingCount > 0" style="margin-left:auto; background:#EF4444; color:#fff; font-size:10px; font-weight:700; padding:1px 6px; border-radius:10px;" x-text="pendingCount"></span>
+          </button>
+        </div>
+      </template>
+    </nav>
+
+    <!-- Content -->
+    <div>
+
+      <!-- ── PROFILE TAB ─────────────────────────────── -->
+      <template x-if="tab==='profile'">
+        <div class="s-card">
+          <div class="s-card-head">
+            <div class="s-card-icon icon-blue">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+              </svg>
+            </div>
+            <div>
+              <div class="s-card-title">Profile Information</div>
+              <div class="s-card-sub">Read-only — managed by your administrator</div>
+            </div>
+          </div>
+          <div class="s-card-body">
+            <template x-if="!userLoaded">
+              <div style="display:grid;grid-template-columns:150px 1fr;gap:14px 12px;padding:4px 0">
+                <template x-for="i in 5">
+                  <template x-for="j in 2">
+                    <div class="s-skel" :style="j===2 ? 'width:60%' : 'width:80px'"></div>
+                  </template>
+                </template>
+              </div>
+            </template>
+            <template x-if="userLoaded">
+              <div class="s-field-grid">
+                <div class="s-field">
+                  <span class="s-field-label">Full name</span>
+                  <span class="s-field-val" x-text="user.full_name || '—'"></span>
+                </div>
+                <div class="s-field">
+                  <span class="s-field-label">Email</span>
+                  <span class="s-field-val"><span class="s-mono" x-text="user.email || '—'"></span></span>
+                </div>
+                <div class="s-field">
+                  <span class="s-field-label">Role</span>
+                  <span class="s-field-val">
+                    <span class="badge"
+                      :class="{
+                        'badge-super':   user.role==='super_admin',
+                        'badge-cadmin':  user.role==='company_admin',
+                        'badge-operator':user.role==='operator',
+                        'badge-viewer':  user.role==='viewer'
+                      }"
+                      x-text="formatRole(user.role)"></span>
+                  </span>
+                </div>
+                <div class="s-field">
+                  <span class="s-field-label">Company</span>
+                  <span class="s-field-val" x-text="user.company_name || '—'"></span>
+                </div>
+                <div class="s-field">
+                  <span class="s-field-label">Account status</span>
+                  <span class="s-field-val">
+                    <span class="badge"
+                      :class="{
+                        'badge-active':   user.status==='ACTIVE',
+                        'badge-pending':  user.status==='PENDING',
+                        'badge-suspended':user.status==='SUSPENDED'
+                      }"
+                      x-text="user.status || 'ACTIVE'"></span>
+                  </span>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </template>
+
+      <!-- ── SECURITY TAB ────────────────────────────── -->
+      <template x-if="tab==='security'">
+        <div class="s-card">
+          <div class="s-card-head">
+            <div class="s-card-icon icon-red">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+              </svg>
+            </div>
+            <div>
+              <div class="s-card-title">Change Password</div>
+              <div class="s-card-sub">Your new password takes effect immediately</div>
+            </div>
+          </div>
+          <div class="s-card-body">
+            <form @submit.prevent="changePassword()" novalidate>
+
+              <!-- Current password -->
+              <div class="s-form-group">
+                <label class="s-label">Current password</label>
+                <div class="s-input-wrap">
+                  <input class="s-input" :type="showCur ? 'text' : 'password'"
+                    x-model="pwd.current" autocomplete="current-password"
+                    placeholder="Enter your current password"/>
+                  <button type="button" class="s-eye-btn" @click="showCur=!showCur">
+                    <svg x-show="!showCur" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                    </svg>
+                    <svg x-show="showCur" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <!-- New password + strength -->
+              <div class="s-form-group">
+                <label class="s-label">New password</label>
+                <div class="s-input-wrap">
+                  <input class="s-input" :type="showNew ? 'text' : 'password'"
+                    x-model="pwd.newPwd" @input="checkStrength()"
+                    autocomplete="new-password" placeholder="Choose a strong password"/>
+                  <button type="button" class="s-eye-btn" @click="showNew=!showNew">
+                    <svg x-show="!showNew" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                    </svg>
+                    <svg x-show="showNew" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
+                    </svg>
+                  </button>
+                </div>
+
+                <!-- Strength meter (only if typing) -->
+                <template x-if="pwd.newPwd.length > 0">
+                  <div class="strength-wrap" :class="'str-' + strength">
+                    <div class="strength-bar"><div class="strength-fill"></div></div>
+                    <span class="strength-label" x-text="['','Weak','Fair','Good','Strong'][strength]"></span>
+                  </div>
+                </template>
+
+                <!-- Requirements -->
+                <div class="req-list" x-show="pwd.newPwd.length > 0">
+                  <span class="req-item" :class="reqs.len ? 'met' : 'unmet'">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" x-show="reqs.len"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" x-show="!reqs.len"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    8+ characters
+                  </span>
+                  <span class="req-item" :class="reqs.upper ? 'met' : 'unmet'">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" x-show="reqs.upper"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" x-show="!reqs.upper"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    Uppercase letter
+                  </span>
+                  <span class="req-item" :class="reqs.num ? 'met' : 'unmet'">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" x-show="reqs.num"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" x-show="!reqs.num"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    Number
+                  </span>
+                  <span class="req-item" :class="reqs.special ? 'met' : 'unmet'">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" x-show="reqs.special"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" x-show="!reqs.special"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    Special character
+                  </span>
+                </div>
+              </div>
+
+              <!-- Confirm -->
+              <div class="s-form-group">
+                <label class="s-label">Confirm new password</label>
+                <div class="s-input-wrap">
+                  <input class="s-input" :class="pwd.confirm && pwd.confirm !== pwd.newPwd ? 'error' : ''"
+                    :type="showConf ? 'text' : 'password'"
+                    x-model="pwd.confirm" autocomplete="new-password"
+                    placeholder="Repeat new password"/>
+                  <button type="button" class="s-eye-btn" @click="showConf=!showConf">
+                    <svg x-show="!showConf" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                    </svg>
+                    <svg x-show="showConf" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
+                    </svg>
+                  </button>
+                </div>
+                <div x-show="pwd.confirm && pwd.confirm !== pwd.newPwd" class="msg-err" style="margin-top:5px">Passwords don't match</div>
+              </div>
+
+              <div style="display:flex;align-items:center;gap:12px;margin-top:20px">
+                <button type="submit" class="s-btn" :disabled="pwdLoading || (pwd.confirm && pwd.confirm!==pwd.newPwd)">
+                  <template x-if="pwdLoading"><span class="s-spin"></span></template>
+                  <span x-text="pwdLoading ? 'Updating…' : 'Update password'"></span>
+                </button>
+                <button type="button" class="s-btn-ghost" @click="pwd={current:'',newPwd:'',confirm:''}; pwdMsg=''; strength=0;">Cancel</button>
+              </div>
+              <div class="msg-ok"  x-show="pwdMsg && !pwdErr" x-text="pwdMsg"></div>
+              <div class="msg-err" x-show="pwdMsg && pwdErr"  x-text="pwdMsg"></div>
+            </form>
+          </div>
+        </div>
+      </template>
+
+      <!-- ── USERS TAB ───────────────────────────────── -->
+      <template x-if="tab==='users' && canManageUsers">
+        <div class="s-card" style="margin-bottom:0">
+          <div class="s-card-head">
+            <div class="s-card-icon icon-violet">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+              </svg>
+            </div>
+            <div>
+              <div class="s-card-title" x-text="user.role==='super_admin' ? 'All Platform Users' : 'Company Users'"></div>
+              <div class="s-card-sub">Manage accounts, roles, and access</div>
+            </div>
+          </div>
+
+          <!-- Toolbar -->
+          <div class="u-toolbar">
+            <div class="u-search-wrap">
+              <span class="u-search-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg></span>
+              <input class="u-search" type="text" placeholder="Search name or email…" x-model="uSearch" @input.debounce.250ms="filterUsers()"/>
+            </div>
+            <template x-if="user.role==='super_admin'">
+              <select class="u-select" x-model="uCompanyFilter" @change="filterUsers()">
+                <option value="">All companies</option>
+                <template x-for="c in companies" :key="c.id">
+                  <option :value="c.id" x-text="c.name"></option>
+                </template>
+              </select>
+            </template>
+            <select class="u-select" x-model="uRoleFilter" @change="filterUsers()">
+              <option value="">All roles</option>
+              <option value="company_admin">Company Admin</option>
+              <option value="operator">Operator</option>
+              <option value="viewer">Viewer</option>
+            </select>
+            <select class="u-select" x-model="uStatusFilter" @change="filterUsers()">
+              <option value="">All statuses</option>
+              <option value="ACTIVE">Active</option>
+              <option value="PENDING">Pending</option>
+              <option value="SUSPENDED">Suspended</option>
+            </select>
+            <span class="u-count" x-text="filteredUsers.length + ' of ' + allUsers.length + ' users'"></span>
+          </div>
+
+          <!-- Table -->
+          <table class="u-table">
+            <thead>
+              <tr>
+                <th style="width:36px"></th>
+                <th>User</th>
+                <th>Role</th>
+                <template x-if="user.role==='super_admin'">
+                  <th>Company</th>
+                </template>
+                <th>Status</th>
+                <th>Last login</th>
+                <th style="width:32px"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Skeleton -->
+              <template x-if="usersLoading">
+                <template x-for="i in 5" :key="i">
+                  <tr>
+                    <td><div class="s-skel" style="width:28px;height:28px;border-radius:8px"></div></td>
+                    <td><div class="s-skel" style="width:160px"></div></td>
+                    <td><div class="s-skel" style="width:80px"></div></td>
+                    <template x-if="user.role==='super_admin'"><td><div class="s-skel" style="width:100px"></div></td></template>
+                    <td><div class="s-skel" style="width:60px"></div></td>
+                    <td><div class="s-skel" style="width:90px"></div></td>
+                    <td></td>
+                  </tr>
+                </template>
+              </template>
+
+              <!-- Empty -->
+              <template x-if="!usersLoading && filteredUsers.length===0">
+                <tr><td :colspan="user.role==='super_admin' ? 7 : 6">
+                  <div class="u-empty">
+                    <div class="u-empty-icon">👤</div>
+                    <div class="u-empty-title">No users match the current filters</div>
+                  </div>
+                </td></tr>
+              </template>
+
+              <!-- Data rows -->
+              <template x-if="!usersLoading && filteredUsers.length>0">
+                <template x-for="(u, idx) in filteredUsers" :key="u.id">
+                  <template>
+                    <!-- Main row -->
+                    <tr :class="{expanded: expandedUser===u.id}" @click="toggleUser(u.id)">
+                      <td>
+                        <div class="u-avatar" :style="'background:' + avatarColor(u.role)" x-text="(u.full_name||u.email||'?').charAt(0).toUpperCase()"></div>
+                      </td>
+                      <td>
+                        <div style="font-weight:600;color:var(--s-ink)" x-text="u.full_name || '—'"></div>
+                        <div style="font-size:11px;color:var(--s-muted);font-family:'Courier New',monospace" x-text="u.email"></div>
+                      </td>
+                      <td>
+                        <span class="badge"
+                          :class="{
+                            'badge-super':   u.role==='super_admin',
+                            'badge-cadmin':  u.role==='company_admin',
+                            'badge-operator':u.role==='operator',
+                            'badge-viewer':  u.role==='viewer'
+                          }"
+                          x-text="formatRole(u.role)"></span>
+                      </td>
+                      <template x-if="user.role==='super_admin'">
+                        <td style="font-size:12px;color:var(--s-sub)" x-text="u.company_name || '—'"></td>
+                      </template>
+                      <td>
+                        <span class="badge"
+                          :class="{
+                            'badge-active':   u.status==='ACTIVE',
+                            'badge-pending':  u.status==='PENDING',
+                            'badge-suspended':u.status==='SUSPENDED'
+                          }"
+                          x-text="u.status"></span>
+                      </td>
+                      <td style="font-size:11.5px;font-family:'Courier New',monospace;color:var(--s-muted)"
+                        x-text="u.last_login ? u.last_login.replace('T',' ').slice(0,16) : 'Never'"></td>
+                      <td><span class="u-chevron" :class="{open:expandedUser===u.id}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                      </span></td>
+                    </tr>
+
+                    <!-- Expanded detail -->
+                    <tr class="u-detail-row" x-show="expandedUser===u.id">
+                      <td :colspan="user.role==='super_admin' ? 7 : 6">
+                        <div class="u-detail-inner">
+                          <div class="u-detail-field">
+                            <span class="u-detail-key">User ID</span>
+                            <span class="u-detail-val s-mono" x-text="'#' + u.id"></span>
+                          </div>
+                          <div class="u-detail-field">
+                            <span class="u-detail-key">Company</span>
+                            <span class="u-detail-val" x-text="u.company_name || '—'"></span>
+                          </div>
+                          <div class="u-detail-field">
+                            <span class="u-detail-key">Created</span>
+                            <span class="u-detail-val" x-text="u.created_at ? u.created_at.slice(0,10) : '—'"></span>
+                          </div>
+
+                          <!-- Actions -->
+                          <div class="u-detail-actions">
+                            <!-- Approve PENDING -->
+                            <template x-if="u.status==='PENDING'">
+                              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                                <span style="font-size:12px;font-weight:600;color:var(--s-sub)">Approve as:</span>
+                                <button class="s-btn-ghost" style="height:32px;font-size:12px" @click.stop="approveUser(u,'operator')">Operator</button>
+                                <button class="s-btn-ghost" style="height:32px;font-size:12px" @click.stop="approveUser(u,'viewer')">Viewer</button>
+                                <template x-if="user.role==='super_admin' || user.role==='company_admin'">
+                                  <button class="s-btn-ghost" style="height:32px;font-size:12px" @click.stop="approveUser(u,'company_admin')">Company Admin</button>
+                                </template>
+                              </div>
+                            </template>
+
+                            <!-- Suspend ACTIVE -->
+                            <template x-if="u.status==='ACTIVE' && u.id !== user.id">
+                              <button class="s-btn-ghost s-btn-red" style="height:32px;font-size:12px" @click.stop="suspendUser(u)">
+                                Suspend account
+                              </button>
+                            </template>
+
+                            <!-- Reactivate SUSPENDED -->
+                            <template x-if="u.status==='SUSPENDED'">
+                              <button class="s-btn-ghost s-btn-green" style="height:32px;font-size:12px" @click.stop="approveUser(u, u.role)">
+                                Reactivate
+                              </button>
+                            </template>
+
+                            <!-- Change role for ACTIVE non-self -->
+                            <template x-if="u.status==='ACTIVE' && u.id !== user.id">
+                              <div style="display:flex;align-items:center;gap:8px;margin-left:auto">
+                                <span style="font-size:12px;color:var(--s-muted)">Change role:</span>
+                                <select class="u-select" style="height:32px;font-size:12px"
+                                  :value="u.role"
+                                  @change.stop="changeRole(u, $event.target.value); $event.target.value=u.role">
+                                  <option value="company_admin">Company Admin</option>
+                                  <option value="operator">Operator</option>
+                                  <option value="viewer">Viewer</option>
+                                </select>
+                              </div>
+                            </template>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  </template>
+                </template>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </template>
+
+    </div><!-- /content -->
+  </div><!-- /layout -->
+
+  <!-- Toast -->
+  <div class="s-toast" :class="{show:toastVisible, err:toastErr}" x-text="toastMsg"></div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function settingsApp() {
+  return {
+    tab: 'profile',
+    user: {},
+    userLoaded: false,
+    canManageUsers: false,
+
+    // Security
+    pwd: { current: '', newPwd: '', confirm: '' },
+    showCur: false, showNew: false, showConf: false,
+    pwdLoading: false, pwdMsg: '', pwdErr: false,
+    strength: 0,
+    reqs: { len: false, upper: false, num: false, special: false },
+
+    // Users tab
+    allUsers: [], filteredUsers: [], companies: [],
+    usersLoading: false, expandedUser: null,
+    uSearch: '', uCompanyFilter: '', uRoleFilter: '', uStatusFilter: '',
+    pendingCount: 0,
+
+    // Toast
+    toastVisible: false, toastMsg: '', toastErr: false, _tt: null,
+
+    async init() {
+      try {
+        const r = await fetch('/api/auth/me', { credentials: 'include' });
+        if (r.ok) {
+          const d = await r.json();
+          if (d.authenticated) {
+            this.user = d.user;
+            this.userLoaded = true;
+            this.canManageUsers = ['super_admin','company_admin'].includes(d.user.role);
+          }
+        }
+      } catch(e) {}
+      if (this.canManageUsers) {
+        try {
+          const r = await fetch('/api/admin/companies', { credentials: 'include' });
+          if (r.ok) { const d = await r.json(); if (Array.isArray(d)) this.companies = d; }
+        } catch(e) {}
+        // Pending badge
+        try {
+          const r = await fetch('/api/admin/pending-count', { credentials: 'include' });
+          if (r.ok) { const d = await r.json(); this.pendingCount = d.count || 0; }
+        } catch(e) {}
+      }
+    },
+
+    // ── Password ──────────────────────────────────────────────
+    checkStrength() {
+      const v = this.pwd.newPwd;
+      this.reqs.len     = v.length >= 8;
+      this.reqs.upper   = /[A-Z]/.test(v);
+      this.reqs.num     = /[0-9]/.test(v);
+      this.reqs.special = /[^A-Za-z0-9]/.test(v);
+      this.strength = [this.reqs.len, this.reqs.upper, this.reqs.num, this.reqs.special].filter(Boolean).length;
+    },
+
+    async changePassword() {
+      this.pwdMsg = ''; this.pwdErr = false;
+      if (!this.pwd.current) { this.pwdMsg = 'Enter your current password.'; this.pwdErr = true; return; }
+      if (!this.pwd.newPwd)  { this.pwdMsg = 'Enter a new password.'; this.pwdErr = true; return; }
+      if (this.pwd.newPwd !== this.pwd.confirm) { this.pwdMsg = "Passwords don't match."; this.pwdErr = true; return; }
+      if (this.strength < 2) { this.pwdMsg = 'Password is too weak. Add uppercase letters and numbers.'; this.pwdErr = true; return; }
+      this.pwdLoading = true;
+      try {
+        const csrf = document.cookie.match(/csrf_token=([^;]+)/)?.[1] || '';
+        const r = await fetch('/api/auth/change-password', {
+          method: 'POST', credentials: 'include',
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
+          body: JSON.stringify({ current_password: this.pwd.current, new_password: this.pwd.newPwd }),
+        });
+        const d = await r.json();
+        if (d.success) {
+          this.pwdMsg = 'Password updated.';
+          this.pwd = { current:'', newPwd:'', confirm:'' };
+          this.strength = 0;
+          this.toast('Password updated successfully');
+        } else {
+          this.pwdMsg = d.error || 'Failed to update password.'; this.pwdErr = true;
+        }
+      } catch(e) { this.pwdMsg = 'Network error. Please try again.'; this.pwdErr = true; }
+      finally { this.pwdLoading = false; }
+    },
+
+    // ── Users ─────────────────────────────────────────────────
+    async loadUsers() {
+      if (this.allUsers.length) return;
+      this.usersLoading = true;
+      try {
+        const r = await fetch('/api/admin/users', { credentials: 'include' });
+        if (r.ok) {
+          const d = await r.json();
+          this.allUsers = Array.isArray(d) ? d : [];
+          this.filterUsers();
+        }
+      } catch(e) {}
+      finally { this.usersLoading = false; }
+    },
+
+    filterUsers() {
+      let list = this.allUsers;
+      const q = this.uSearch.toLowerCase().trim();
+      if (q) list = list.filter(u => (u.full_name||'').toLowerCase().includes(q) || (u.email||'').toLowerCase().includes(q));
+      if (this.uCompanyFilter) list = list.filter(u => String(u.company_id) === String(this.uCompanyFilter));
+      if (this.uRoleFilter)    list = list.filter(u => u.role === this.uRoleFilter);
+      if (this.uStatusFilter)  list = list.filter(u => u.status === this.uStatusFilter);
+      this.filteredUsers = list;
+    },
+
+    toggleUser(id) { this.expandedUser = this.expandedUser === id ? null : id; },
+
+    async approveUser(u, role) {
+      const csrf = document.cookie.match(/csrf_token=([^;]+)/)?.[1] || '';
+      try {
+        const r = await fetch('/api/admin/approve-user', {
+          method: 'POST', credentials: 'include',
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
+          body: JSON.stringify({ user_id: u.id, role }),
+        });
+        const d = await r.json();
+        if (d.success) {
+          u.status = 'ACTIVE'; u.role = role;
+          this.filterUsers();
+          this.pendingCount = Math.max(0, this.pendingCount - 1);
+          this.toast(d.message || 'User approved');
+        } else { this.toast(d.error || 'Failed', true); }
+      } catch(e) { this.toast('Network error', true); }
+    },
+
+    async suspendUser(u) {
+      const csrf = document.cookie.match(/csrf_token=([^;]+)/)?.[1] || '';
+      try {
+        const r = await fetch('/api/admin/suspend-user', {
+          method: 'POST', credentials: 'include',
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
+          body: JSON.stringify({ user_id: u.id }),
+        });
+        const d = await r.json();
+        if (d.success) { u.status = 'SUSPENDED'; this.filterUsers(); this.toast('User suspended'); }
+        else { this.toast(d.error || 'Failed', true); }
+      } catch(e) { this.toast('Network error', true); }
+    },
+
+    async changeRole(u, newRole) {
+      if (newRole === u.role) return;
+      const csrf = document.cookie.match(/csrf_token=([^;]+)/)?.[1] || '';
+      try {
+        const r = await fetch('/api/admin/approve-user', {
+          method: 'POST', credentials: 'include',
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
+          body: JSON.stringify({ user_id: u.id, role: newRole }),
+        });
+        const d = await r.json();
+        if (d.success) { u.role = newRole; this.filterUsers(); this.toast('Role updated'); }
+        else { this.toast(d.error || 'Failed', true); }
+      } catch(e) { this.toast('Network error', true); }
+    },
+
+    // ── Helpers ───────────────────────────────────────────────
+    formatRole(r) {
+      return { super_admin:'Super Admin', company_admin:'Company Admin', operator:'Operator', viewer:'Viewer' }[r] || r;
+    },
+
+    avatarColor(role) {
+      return { super_admin:'#7C3AED', company_admin:'#2563EB', operator:'#0D9488', viewer:'#94A3B8' }[role] || '#94A3B8';
+    },
+
+    toast(msg, isErr=false) {
+      clearTimeout(this._tt);
+      this.toastMsg = msg; this.toastErr = isErr; this.toastVisible = true;
+      this._tt = setTimeout(() => { this.toastVisible = false; }, 3000);
+    },
+  };
+}
+</script>
+{% endblock %}

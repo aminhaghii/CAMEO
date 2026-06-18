@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+
+{% block title %}Help & Support — SAFEWARE{% endblock %}
+
+{% block extra_head %}
+<style>
+  .help-page { background: #F8FAFC; min-height: 100vh; padding: 32px; }
+  .help-header { margin-bottom: 28px; }
+  .help-title { font-size: 24px; font-weight: 800; color: #0F172A; letter-spacing: -0.02em; }
+  .help-sub { font-size: 13px; color: #64748B; margin-top: 4px; }
+
+  .help-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 24px; }
+  .help-card {
+    background: #fff; border: 1px solid #E2E8F0; border-radius: 12px;
+    padding: 20px 22px; position: relative; overflow: hidden;
+  }
+  .help-card::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+    width: 3px; border-radius: 3px 0 0 3px;
+  }
+  .help-card-blue::before   { background: #2563EB; }
+  .help-card-teal::before   { background: #0D9488; }
+  .help-card-violet::before { background: #7C3AED; }
+  .help-card-amber::before  { background: #F59E0B; }
+
+  .help-card-icon {
+    width: 36px; height: 36px; border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 12px; flex-shrink: 0;
+  }
+  .help-card-icon svg { width: 18px; height: 18px; }
+  .icon-blue   { background: #EFF6FF; color: #2563EB; }
+  .icon-teal   { background: #CCFBF1; color: #0D9488; }
+  .icon-violet { background: #EDE9FE; color: #7C3AED; }
+  .icon-amber  { background: #FFFBEB; color: #D97706; }
+
+  .help-card-title { font-size: 14px; font-weight: 700; color: #0F172A; margin-bottom: 6px; }
+  .help-card-text  { font-size: 12.5px; color: #64748B; line-height: 1.6; }
+
+  .faq-section {
+    background: #fff; border: 1px solid #E2E8F0; border-radius: 12px; overflow: hidden;
+  }
+  .faq-head {
+    padding: 16px 20px; border-bottom: 1px solid #F1F5F9;
+    font-size: 14px; font-weight: 700; color: #0F172A;
+  }
+  .faq-item { border-bottom: 1px solid #F1F5F9; }
+  .faq-item:last-child { border-bottom: none; }
+  .faq-q {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 20px; cursor: pointer; font-size: 13px; font-weight: 600;
+    color: #0F172A; transition: background .1s;
+  }
+  .faq-q:hover { background: #F8FAFC; }
+  .faq-q svg { width: 16px; height: 16px; color: #94A3B8; transition: transform .2s; flex-shrink: 0; }
+  .faq-q.open svg { transform: rotate(180deg); }
+  .faq-a { padding: 0 20px 14px; font-size: 12.5px; color: #475569; line-height: 1.7; }
+
+  .contact-bar {
+    background: #1E3A8A; color: #fff; border-radius: 12px;
+    padding: 20px 24px; margin-top: 20px;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  }
+  .contact-bar-text { font-size: 14px; font-weight: 600; }
+  .contact-bar-sub  { font-size: 12px; color: #93C5FD; margin-top: 2px; }
+  .contact-btn {
+    padding: 8px 18px; border-radius: 7px; font-size: 12px; font-weight: 600;
+    background: #fff; color: #1E3A8A; border: none; cursor: pointer;
+    text-decoration: none; white-space: nowrap; transition: opacity .15s;
+  }
+  .contact-btn:hover { opacity: .88; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="help-page" x-data="helpApp()">
+
+  <div class="help-header">
+    <div class="help-title">Help &amp; Support</div>
+    <div class="help-sub">Guides and resources for using SAFEWARE</div>
+  </div>
+
+  <!-- Quick guide cards -->
+  <div class="help-grid">
+    <div class="help-card help-card-blue">
+      <div class="help-card-icon icon-blue">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+      </div>
+      <div class="help-card-title">Importing Inventory</div>
+      <div class="help-card-text">
+        Go to <strong>Inventory</strong> and click <em>New Batch</em>. Upload a CSV or Excel file —
+        SAFEWARE automatically maps columns, matches chemicals by CAS number or name, and
+        flags anything that needs review before import.
+      </div>
+    </div>
+
+    <div class="help-card help-card-teal">
+      <div class="help-card-icon icon-teal">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+        </svg>
+      </div>
+      <div class="help-card-title">Warehouse Layout</div>
+      <div class="help-card-text">
+        Open <strong>Warehouse</strong> to place chemicals into sections. Use
+        <em>Auto-Arrange</em> for AI-powered safe placement based on reactivity rules.
+        Incompatible chemicals are automatically separated — red borders indicate unsafe pairs.
+      </div>
+    </div>
+
+    <div class="help-card help-card-violet">
+      <div class="help-card-icon icon-violet">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+        </svg>
+      </div>
+      <div class="help-card-title">Compatibility Analysis</div>
+      <div class="help-card-text">
+        Select chemicals in your inventory and run <em>Analyze</em> to get a full compatibility
+        matrix. Results are color-coded: <strong>green</strong> = compatible,
+        <strong>amber</strong> = caution, <strong>red</strong> = incompatible.
+        Export to Excel for compliance reporting.
+      </div>
+    </div>
+
+    <div class="help-card help-card-amber">
+      <div class="help-card-icon icon-amber">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+        </svg>
+      </div>
+      <div class="help-card-title">EU Compliance Export</div>
+      <div class="help-card-text">
+        Go to <strong>Compliance</strong> to generate an enterprise Excel report with EU
+        regulatory data (SVHC, Annex XIV, Annex XVII restrictions) cross-referenced
+        against your inventory. Sheet-protected, audit-ready format.
+      </div>
+    </div>
+  </div>
+
+  <!-- FAQ -->
+  <div class="faq-section">
+    <div class="faq-head">Frequently Asked Questions</div>
+
+    <template x-for="(item, i) in faqs" :key="i">
+      <div class="faq-item">
+        <div class="faq-q" :class="{open: openFaq===i}" @click="openFaq = openFaq===i ? null : i">
+          <span x-text="item.q"></span>
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </div>
+        <div class="faq-a" x-show="openFaq===i" x-transition x-text="item.a"></div>
+      </div>
+    </template>
+  </div>
+
+  <!-- Contact bar -->
+  <div class="contact-bar">
+    <div>
+      <div class="contact-bar-text">Need more help?</div>
+      <div class="contact-bar-sub">Contact your company administrator or the SAFEWARE support team.</div>
+    </div>
+    <a href="mailto:support@safeware.io" class="contact-btn">Contact Support</a>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function helpApp() {
+  return {
+    openFaq: null,
+    faqs: [
+      {
+        q: 'How does chemical matching work during import?',
+        a: 'SAFEWARE uses a 5-stage pipeline: first it tries an exact CAS number match (confidence 1.0), then UN number, then fuzzy name matching. Anything above 80% confidence is auto-matched. Between 50–80% it goes to the Review Queue for your confirmation. Below 50% is marked Unidentified.',
+      },
+      {
+        q: 'What does NO_DATA mean in the compatibility matrix?',
+        a: 'NO_DATA means SAFEWARE does not have a specific reactivity rule for that chemical pair. For safety, NO_DATA is treated as Caution — never as Compatible. When in doubt, always treat unknown pairs as potentially hazardous.',
+      },
+      {
+        q: 'Can I undo a warehouse placement?',
+        a: 'Yes. In the Warehouse view, click any placed chemical and select Remove from Section. You can then re-place it in a different section. Note: Auto-Arrange creates a new layout — it does not modify an existing one.',
+      },
+      {
+        q: 'Who can approve new user accounts?',
+        a: 'Company Admins can approve, suspend, or demote users within their company. Super Admins can manage all companies. New registrations default to PENDING status and must be approved before the user can log in.',
+      },
+      {
+        q: 'How do I change my password?',
+        a: 'Go to Settings (click your name in the bottom-left corner, then Settings) and select the Security tab. Enter your current password and choose a new one. Minimum 8 characters with at least one uppercase letter and one number.',
+      },
+      {
+        q: 'Are Excel exports password-protected?',
+        a: 'Yes. All exported Excel files have sheet protection enabled to preserve data integrity. Filters and sorting remain unlocked so you can navigate the data freely.',
+      },
+    ],
+  };
+}
+</script>
+{% endblock %}

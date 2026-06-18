@@ -159,12 +159,17 @@ ensure_static_assets()
 #  Tenant Router (before_request middleware)
 # ═══════════════════════════════════════════════════════
 
-# Paths that bypass authentication
+# Paths that bypass authentication entirely (no session needed)
 AUTH_EXEMPT_PREFIXES = (
     '/auth/',
-    '/api/auth/',
     '/static/',
 )
+# /api/auth/ routes that need NO session (login, register, csrf, companies)
+AUTH_EXEMPT_EXACT = {
+    '/api/auth/login',
+    '/api/auth/csrf',
+    '/api/auth/companies',
+}
 
 
 @app.before_request
@@ -188,6 +193,8 @@ def tenant_router():
     g.tenant_db_path = None
 
     # Skip auth for exempt paths
+    if request.path in AUTH_EXEMPT_EXACT:
+        return None
     for prefix in AUTH_EXEMPT_PREFIXES:
         if request.path.startswith(prefix):
             return None

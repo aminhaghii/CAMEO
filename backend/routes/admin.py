@@ -10,6 +10,8 @@ Endpoints:
   GET  /admin/companies                   → Company management (Super Admin)
   GET  /api/admin/companies               → List companies (Super Admin)
   POST /api/admin/companies               → Create company (Super Admin)
+  PUT  /api/admin/users/<id>              → Edit user profile (name, email, role)
+  POST /api/admin/users/<id>/reset-password → Admin reset password + force change
   GET  /admin/platform-logs               → Platform-wide log dashboard (Super Admin)
   GET  /api/admin/platform-logs           → Cross-tenant log data API (Super Admin)
   GET  /api/admin/platform-logs/stats     → Cross-tenant log stats (Super Admin)
@@ -390,6 +392,134 @@ def suspend_user():
         'success': True,
         'message': f"User {target_user['full_name']} has been suspended"
     })
+
+
+# ═══════════════════════════════════════════════════════
+#  User Edit & Admin Password Reset
+# ═══════════════════════════════════════════════════════
+
+@admin_bp.route('/api/admin/users/<int:user_id>', methods=['PUT'])
+@login_required
+@role_required('company_admin', 'super_admin')
+@csrf_protect
+def edit_user(user_id):
+    """Edit a user's full_name, email, or role (admin action)."""
+    from flask import current_app
+    auth_db = current_app.config['AUTH_DB_PATH']
+    data = request.get_json() or {}
+
+    conn = get_auth_db_connection(auth_db)
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+    target = cursor.fetchone()
+    if not target:
+        conn.close()
+        return jsonify({'success': False, 'error': 'User not found'}), 404
+
+    if g.user['role'] != 'super_admin' and target['company_id'] != g.user['company_id']:
+        conn.close()
+        return jsonify({'success': False, 'error': 'Access denied'}), 403
+
+    updates, params = [], []
+
+    full_name = (data.get('full_name') or '').strip()
+    if full_name and full_name != target['full_name']:
+        updates.append('full_name = ?')
+        params.append(full_name)
+
+    email = (data.get('email') or '').strip().lower()
+    if email and email != target['email']:
+        cursor.execute('SELECT id FROM users WHERE email = ? AND id != ?', (email, user_id))
+        if cursor.fetchone():
+            conn.close()
+            return jsonify({'success': False, 'error': 'Email already in use'}), 409
+        updates.append('email = ?')
+        params.append(email)
+
+    role = data.get('role')
+    allowed_roles = ('company_admin', 'operator', 'viewer')
+    if role and role != target['role']:
+        if role not in allowed_roles:
+            conn.close()
+            return jsonify({'success': False, 'error': 'Invalid role'}), 400
+        if g.user['role'] != 'super_admin' and role == 'company_admin':
+            conn.close()
+            return jsonify({'success': False, 'error': 'Only super admin can assign company_admin role'}), 403
+        updates.append('role = ?')
+        params.append(role)
+
+    if not updates:
+        conn.close()
+        return jsonify({'success': True, 'message': 'No changes'})
+
+    params.append(user_id)
+    cursor.execute(f"UPDATE users SET {', '.join(updates)} WHERE id = ?", params)
+    conn.commit()
+    conn.close()
+
+    log_event(
+        db_path=_get_db_path(target['company_id']),
+        event_type='user_edit',
+        category='system',
+        severity='info',
+        title='User profile updated',
+        detail=f"Admin {g.user['email']} updated user {target['email']}: {', '.join(updates)}",
+        user_id=g.user['id'],
+        entity_type='user',
+        entity_id=user_id,
+        entity_name=target['full_name'],
+    )
+    return jsonify({'success': True, 'message': 'User updated'})
+
+
+@admin_bp.route('/api/admin/users/<int:user_id>/reset-password', methods=['POST'])
+@login_required
+@role_required('company_admin', 'super_admin')
+@csrf_protect
+def admin_reset_password(user_id):
+    """Admin sets a new password for a user and forces change on next login."""
+    from flask import current_app
+    auth_db = current_app.config['AUTH_DB_PATH']
+    data = request.get_json() or {}
+    new_password = data.get('new_password', '')
+
+    pwd_valid, pwd_errors = validate_password_complexity(new_password)
+    if not pwd_valid:
+        return jsonify({'success': False, 'error': ' | '.join(pwd_errors)}), 400
+
+    conn = get_auth_db_connection(auth_db)
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+    target = cursor.fetchone()
+    if not target:
+        conn.close()
+        return jsonify({'success': False, 'error': 'User not found'}), 404
+
+    if g.user['role'] != 'super_admin' and target['company_id'] != g.user['company_id']:
+        conn.close()
+        return jsonify({'success': False, 'error': 'Access denied'}), 403
+
+    new_hash = hash_password(new_password)
+    cursor.execute(
+        "UPDATE users SET password_hash = ?, force_password_change = 1, password_changed_at = CURRENT_TIMESTAMP WHERE id = ?",
+        (new_hash, user_id)
+    )
+    conn.commit()
+    conn.close()
+
+    log_event(
+        db_path=_get_db_path(target['company_id']),
+        event_type='admin_password_reset',
+        category='system',
+        severity='warning',
+        title='Password reset by admin',
+        detail=f"Admin {g.user['email']} reset password for {target['email']}",
+        user_id=g.user['id'],
+        entity_type='user',
+        entity_id=user_id,
+        entity_name=target['full_name'],
+    )
+    return jsonify({'success': True, 'message': f"Password reset. {target['full_name']} must change it on next login."})
 
 
 # ═══════════════════════════════════════════════════════

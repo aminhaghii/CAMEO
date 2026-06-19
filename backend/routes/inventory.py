@@ -872,11 +872,9 @@ def resolve_review():
 
     # Update cleaned_data with confirmed chemical info
     cleaned['name'] = chem['name']
-    # Also update CAS if available from chemicals.db
-    cursor_chem2 = conn_chem.cursor() if not conn_chem.closed else None
-    if cursor_chem2 is None:
-        conn_chem2 = get_safe_connection(chemicals_db, readonly=True)
-        cursor_chem2 = conn_chem2.cursor()
+    # Also update CAS if available from chemicals.db (conn_chem was already closed above)
+    conn_chem2 = get_safe_connection(chemicals_db, readonly=True)
+    cursor_chem2 = conn_chem2.cursor()
     cursor_chem2.execute(
         "SELECT cas_id FROM chemical_cas WHERE chem_id = ? ORDER BY sort LIMIT 1",
         (chemical_id,)

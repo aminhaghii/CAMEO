@@ -186,17 +186,14 @@ def viewer_readonly(f):
     Decorator: Enforce read-only access for Viewer role.
 
     Any mutating request (POST/PUT/DELETE/PATCH) from a Viewer
-    will be rejected with 403.
+    will be rejected with 403. Operators are full operational users
+    (inventory, warehouse, analysis) — only Viewers are read-only.
     """
     @functools.wraps(f)
     def decorated(*args, **kwargs):
         if hasattr(g, 'user') and g.user:
             role = g.user.get('role')
-            if role in ('viewer', 'operator') and request.method in ('POST', 'PUT', 'DELETE', 'PATCH'):
-                # Exception: Allow operators to use Matrix Analysis endpoint
-                if role == 'operator' and request.path.endswith('/analyze'):
-                    return f(*args, **kwargs)
-
+            if role == 'viewer' and request.method in ('POST', 'PUT', 'DELETE', 'PATCH'):
                 logger.warning(
                     f"🔒 {role.capitalize()} tried mutating operation: {g.user['email']} "
                     f"{request.method} {request.path}"

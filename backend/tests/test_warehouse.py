@@ -392,14 +392,16 @@ def test_move_placements_and_safety_rules(client, mock_user, tenant_db_path):
     conn.commit()
     conn.close()
 
-    # As operator (read-only role) the mutating request is rejected up-front.
+    # Operators are full operational users — the request reaches the safety
+    # check, but NO_DATA/CAUTION still requires a company_admin/super_admin
+    # override, so it's correctly rejected for that reason (not read-only).
     mock_user['role'] = 'operator'
     res = client.post('/api/warehouse/placements/move', json={
         'placement_id': no_group_placement_id,
         'section_id': sec1_id
     })
     assert res.status_code == 403
-    assert res.get_json()['code'] == 'OPERATOR_READONLY'
+    assert res.get_json()['code'] == 'CAUTION_REQUIRES_ADMIN'
 
     # As company_admin the NO_DATA placement is allowed (admin override of the
     # caution/no-data gate). NO_DATA only forces hard separation in auto-arrange.

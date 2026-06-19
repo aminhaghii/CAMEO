@@ -214,11 +214,24 @@ def create_user():
         INSERT INTO users (email, full_name, password_hash, company_id, role, status)
         VALUES (?, ?, ?, ?, ?, 'ACTIVE')
     """, (email, full_name, hashed_pw, company_id, role))
+    new_user_id = cursor.lastrowid
     
     conn.commit()
     conn.close()
 
-    log_event(g.user['id'], 'admin', f"Created new user: {email} with role {role}")
+    log_event(
+        db_path=_get_db_path(company_id),
+        event_type='user_create',
+        category='system',
+        severity='info',
+        title='User account created',
+        detail=f"Admin {g.user['email']} created user {email} with role '{role}'",
+        user_id=g.user['id'],
+        entity_type='user',
+        entity_id=new_user_id,
+        entity_name=full_name,
+        meta={'email': email, 'role': role, 'company_id': company_id},
+    )
     return jsonify({'success': True})
 
 

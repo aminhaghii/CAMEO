@@ -96,6 +96,11 @@ PDF_Folder/
 resources/
 tests/
 
+# --- Local Documentation & Reports ---
+# Keep Markdown notes/reports out of GitHub commits.
+*.md
+*.MD
+
 # --- Editor / IDE & OS Files ---
 # IDE specific files
 .vscode/

@@ -73,6 +73,12 @@ MATRIX_CAUTION_FONT = Font(name="Calibri", size=8, color="854D0E", bold=True)
 MATRIX_INCOMPAT_FONT = Font(name="Calibri", size=8, color="991B1B", bold=True)
 MATRIX_LABEL_FONT = Font(name="Calibri", size=9, color="334155", bold=True)
 
+MATRIX_STATUS_STYLES = {
+    "Compatible": ("C", FILL_COMPATIBLE, MATRIX_COMPAT_FONT),
+    "Caution": ("C!", FILL_CAUTION, MATRIX_CAUTION_FONT),
+    "Incompatible": ("X", FILL_INCOMPATIBLE, MATRIX_INCOMPAT_FONT),
+}
+
 # Shared styles
 THIN_BORDER = Border(
     left=Side(style="thin", color="CBD5E1"),
@@ -430,19 +436,14 @@ class ComplianceExcelGenerator:
                     if matrix_data and i < len(matrix_data) and j < len(matrix_data[i]):
                         mat_cell = matrix_data[i][j]
 
-                    status = (mat_cell or {}).get("status", "Compatible")
-                    code = {"Compatible": "C", "Caution": "C!", "Incompatible": "X"}.get(status, "C")
+                    status = mat_cell.get("status") if isinstance(mat_cell, dict) else None
+                    code, fill, font = MATRIX_STATUS_STYLES.get(
+                        status,
+                        ("?", FILL_CAUTION, MATRIX_CAUTION_FONT)
+                    )
                     cell.value = code
-
-                    if status == "Incompatible":
-                        cell.fill = FILL_INCOMPATIBLE
-                        cell.font = MATRIX_INCOMPAT_FONT
-                    elif status == "Caution":
-                        cell.fill = FILL_CAUTION
-                        cell.font = MATRIX_CAUTION_FONT
-                    else:
-                        cell.fill = FILL_COMPATIBLE
-                        cell.font = MATRIX_COMPAT_FONT
+                    cell.fill = fill
+                    cell.font = font
 
             ws2.row_dimensions[r].height = 18
 

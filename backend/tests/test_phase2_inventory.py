@@ -1,10 +1,12 @@
 """Phase 2 integration smoke tests for inventory interactions and batch analysis."""
 
+import io
 import json
 import os
 import sqlite3
 import uuid
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -122,12 +124,12 @@ def _cleanup_batch(user_db_path: str, batch_id: str):
 
 
 @pytest.fixture
-def client():
+def client(tmp_path):
     import os
     from unittest.mock import patch
-    tenant_db = os.path.join(app.config['DATA_DIR'], '1_user.db')
-    if os.path.exists(tenant_db):
-        os.remove(tenant_db)
+    original_data_dir = app.config['DATA_DIR']
+    tenant_db = str(tmp_path / '1_user.db')
+    app.config['DATA_DIR'] = str(tmp_path)
     init_inventory_tables(tenant_db)
     _ensure_phase2_tables(tenant_db)
     app.testing = True
@@ -141,10 +143,11 @@ def client():
         'company_name': 'Test Corp',
         'tenant_db_path': tenant_db
     }
-    with patch('app.validate_session', return_value=mock_user):
+    with patch('app.DATA_DIR', str(tmp_path)), patch('app.validate_session', return_value=mock_user):
         with app.test_client() as c:
             c.set_cookie('session_id', 'mock_test_session')
             yield c
+    app.config['DATA_DIR'] = original_data_dir
 
 
 def test_inventory_actions_flow(client):
@@ -351,3 +354,66 @@ def test_upload_to_existing_batch(client):
     finally:
         # Clean up the batch
         client.delete(f"/api/inventory/batches/delete/{batch_id}")
+
+
+def test_upload_to_existing_batch_clears_derived_state_and_preserves_audit(client):
+    user_db = os.path.join(app.config['DATA_DIR'], '1_user.db')
+    chemicals = _get_test_chemicals(app.config['CHEMICALS_DB_PATH'])
+    batch_id = f"phase2-reupload-{uuid.uuid4()}"
+    _create_batch_with_rows(user_db, batch_id, chemicals)
+
+    conn = sqlite3.connect(user_db)
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO warehouses (id, name) VALUES (99, 'Reupload Test Warehouse')")
+    cursor.execute(
+        """INSERT INTO chemical_placements
+            (warehouse_id, chemical_id, chemical_name, cas_number, status, batch_id, staging_row_id)
+           SELECT 99, chemical_id, json_extract(cleaned_data, '$.name'),
+                  json_extract(cleaned_data, '$.cas'), 'placed', batch_id, id
+           FROM inventory_staging
+           WHERE batch_id = ?
+           LIMIT 1""",
+        (batch_id,)
+    )
+    cursor.execute(
+        """INSERT INTO analysis_results
+            (batch_id, total_chemicals, dangerous_pairs, storage_warnings, risk_matrix_json)
+           VALUES (?, 2, 0, 0, ?)""",
+        (batch_id, json.dumps({'batch_id': batch_id, 'matrix': [[{'status': 'Compatible'}]]}))
+    )
+    cursor.execute(
+        """INSERT INTO audit_trail
+            (batch_id, row_index, action, input_data, output_data, confidence, method, timestamp, user_id)
+           VALUES (?, 1, 'manual_edit', '{}', '{}', 1.0, 'test', '2026-01-01T00:00:00Z', 'tester')""",
+        (batch_id,)
+    )
+    conn.commit()
+    conn.close()
+
+    try:
+        with patch('routes.inventory.run_async') as run_async:
+            upload_res = client.post(
+                f"/api/inventory/upload?batch_id={batch_id}",
+                data={'file': (io.BytesIO(b"chemical,cas\nacetone,67-64-1\n"), 'replacement.csv')},
+                content_type='multipart/form-data'
+            )
+
+        assert upload_res.status_code == 200
+        run_async.assert_called_once()
+
+        conn = sqlite3.connect(user_db)
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM inventory_staging WHERE batch_id = ?", (batch_id,))
+        assert cursor.fetchone()[0] == 0
+        cursor.execute("SELECT COUNT(*) FROM chemical_placements WHERE batch_id = ?", (batch_id,))
+        assert cursor.fetchone()[0] == 0
+        cursor.execute("SELECT COUNT(*) FROM analysis_results WHERE batch_id = ?", (batch_id,))
+        assert cursor.fetchone()[0] == 0
+        cursor.execute("SELECT COUNT(*), COALESCE(MIN(is_deleted), 0) FROM audit_trail WHERE batch_id = ?", (batch_id,))
+        audit_count, min_deleted = cursor.fetchone()
+        conn.close()
+
+        assert audit_count == 1
+        assert min_deleted == 1
+    finally:
+        _cleanup_batch(user_db, batch_id)

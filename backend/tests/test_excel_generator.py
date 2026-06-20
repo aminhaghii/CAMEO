@@ -217,6 +217,25 @@ class TestUnifiedReport:
         assert cell.fill.start_color.rgb in ("FFFCA5A5", "00FCA5A5")
         wb.close()
 
+    def test_missing_matrix_cell_is_not_rendered_compatible(self, test_db, tmp_path):
+        """Incomplete matrix payloads must fail closed as unknown/caution in reports."""
+        output = str(tmp_path / "unified_missing_matrix.xlsx")
+        gen = ComplianceExcelGenerator(test_db)
+        inv = query_eu_compliance(test_db, ["67-64-1"])
+        chemicals = [{"name": "A"}, {"name": "B"}]
+        matrix = [
+            [{"status": "Self"}, {"status": "Empty"}],
+        ]
+
+        gen.generate_unified(inv, chemicals, [], matrix, output)
+
+        wb = load_workbook(output)
+        ws = wb["Compatibility Matrix"]
+        cell = ws.cell(row=6, column=2)
+        assert cell.value == "?"
+        assert cell.fill.start_color.rgb in ("FFFEF3C7", "00FEF3C7")
+        wb.close()
+
     def test_ec_number_in_output(self, test_db, tmp_path):
         """EC number column must be populated."""
         output = str(tmp_path / "unified.xlsx")

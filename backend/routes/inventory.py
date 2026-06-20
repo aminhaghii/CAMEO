@@ -415,8 +415,11 @@ def upload_inventory():
             """,
             (batch_id,)
         )
+        cursor.execute("DELETE FROM chemical_placements WHERE batch_id = ?", (batch_id,))
+        cursor.execute("DELETE FROM analysis_results WHERE batch_id = ?", (batch_id,))
+        cursor.execute("DELETE FROM user_inventories WHERE batch_id = ?", (batch_id,))
         cursor.execute("DELETE FROM review_queue WHERE batch_id = ?", (batch_id,))
-        cursor.execute("DELETE FROM audit_trail WHERE batch_id = ?", (batch_id,))
+        cursor.execute("UPDATE audit_trail SET is_deleted = 1 WHERE batch_id = ?", (batch_id,))
         cursor.execute("DELETE FROM inventory_staging WHERE batch_id = ?", (batch_id,))
         conn.commit()
         conn.close()

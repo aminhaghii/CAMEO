@@ -496,6 +496,10 @@ def delete_inventory_row(staging_id):
         cleaned = json.loads(row['cleaned_data']) if row['cleaned_data'] else {}
 
         cursor.execute("DELETE FROM review_queue WHERE staging_id = ?", (staging_id,))
+        cursor.execute(
+            "DELETE FROM chemical_placements WHERE batch_id = ? AND staging_row_id = ?",
+            (batch_id, staging_id)
+        )
         cursor.execute("DELETE FROM inventory_staging WHERE id = ? AND batch_id = ?", (staging_id, batch_id))
 
         cursor.execute(

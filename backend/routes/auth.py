@@ -23,7 +23,7 @@ import sqlite3
 import logging
 from flask import (
     Blueprint, request, render_template, redirect,
-    url_for, jsonify, make_response, g
+    url_for, jsonify, make_response, g, flash
 )
 
 from auth.security import (

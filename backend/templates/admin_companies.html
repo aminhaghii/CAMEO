@@ -7,15 +7,15 @@
 <style>
   /* ─── Enterprise Command Center Aesthetics (Light) ──────────────────────── */
   :root {
-    --bg-godmode:   #F8FAFC; /* slate-50 */
+    --bg-godmode:   #F5F6F7; /* slate-50 */
     --bg-panel:     #FFFFFF; /* white */
-    --border-color: #E2E8F0; /* slate-200 */
-    --text-primary: #0F172A; /* slate-900 */
-    --text-muted:   #64748B; /* slate-500 */
-    --c-blue:       #2563EB; /* blue-600 */
-    --c-red:        #EF4444; /* red-500 */
-    --c-amber:      #F59E0B; /* amber-500 */
-    --c-emerald:    #10B981; /* emerald-500 */
+    --border-color: #E2E5E9; /* slate-200 */
+    --text-primary: #1B1F24; /* slate-900 */
+    --text-muted:   #5A6470; /* slate-500 */
+    --c-blue:       #3B5566; /* blue-600 */
+    --c-red:        #C0392B; /* red-500 */
+    --c-amber:      #E8A33D; /* amber-500 */
+    --c-emerald:    #2E7D5B; /* emerald-500 */
     --font-mono:    'SF Mono', 'JetBrains Mono', 'Fira Code', monospace;
   }
 
@@ -56,13 +56,13 @@
   .btn-godmode:hover {
     border-color: var(--c-blue);
     color: var(--c-blue);
-    background-color: #EFF6FF; /* blue-50 */
+    background-color: #ECEEF1; /* blue-50 */
   }
 
   .btn-godmode-danger:hover {
     border-color: var(--c-red);
     color: var(--c-red);
-    background-color: #FEF2F2; /* red-50 */
+    background-color: #F7E2DF; /* red-50 */
   }
 
   /* Custom Scrollbar */
@@ -74,11 +74,11 @@
     background: var(--bg-godmode);
   }
   .custom-scroll::-webkit-scrollbar-thumb {
-    background: #CBD5E1; /* slate-300 */
+    background: #98A2AE; /* slate-300 */
     border-radius: 4px;
   }
   .custom-scroll::-webkit-scrollbar-thumb:hover {
-    background: #94A3B8; /* slate-400 */
+    background: #5A6470; /* slate-400 */
   }
 </style>
 {% endblock %}
@@ -87,22 +87,22 @@
 <div x-data="godModeApp()" x-init="init()" class="godmode-container min-h-full p-6 -m-6 flex flex-col gap-6">
 
   <!-- Header -->
-  <div class="flex items-start justify-between border-b border-slate-200 pb-4">
+  <div class="flex items-start justify-between border-b border-steel-200 pb-4">
     <div>
       <div class="flex items-center gap-3">
-        <h1 class="text-xl font-bold tracking-tight uppercase mono-font text-blue-700">
+        <h1 class="text-xl font-bold tracking-tight uppercase mono-font text-steel-700">
           GLOBAL_PLATFORM_CORE
         </h1>
-        <div class="px-2 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700 text-[10px] font-mono tracking-widest flex items-center gap-1.5 shadow-sm">
-          <span class="h-1.5 w-1.5 rounded-full bg-blue-600 animate-pulse"></span>
+        <div class="px-2 py-0.5 rounded bg-steel-100 border border-steel-200 text-steel-700 text-[10px] font-mono tracking-widest flex items-center gap-1.5 shadow-sm">
+          <span class="h-1.5 w-1.5 rounded-sm bg-steel-500"></span>
           ROOT_ACCESS
         </div>
       </div>
-      <p class="text-xs text-slate-500 mt-1 font-mono uppercase tracking-wider">
+      <p class="text-xs text-steel-400 mt-1 font-mono uppercase tracking-wider">
         Centralized management of tenant databases, allocations, and global licensing.
       </p>
     </div>
-    <button @click="showAddModal = true" class="btn-godmode px-4 py-2 text-xs font-mono tracking-widest flex items-center gap-2 rounded-lg">
+    <button @click="showAddModal = true" class="btn-godmode px-4 py-2 text-xs font-mono tracking-widest flex items-center gap-2 rounded">
       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
       </svg>
@@ -111,17 +111,17 @@
   </div>
 
   <!-- Metric Bar -->
-  <div class="border border-slate-200 bg-white rounded-lg shadow-sm px-4 py-3 font-mono text-xs flex flex-wrap items-center gap-8">
-    <div class="text-slate-500">TOTAL_TENANTS: <span class="text-blue-600 font-bold text-sm ml-1" x-text="companies.length"></span></div>
-    <div class="text-slate-500">ACTIVE_LICENSES: <span class="text-emerald-600 font-bold text-sm ml-1" x-text="companies.filter(c => c.license_status === 'active').length"></span></div>
-    <div class="text-slate-500">TOTAL_USERS: <span class="text-slate-900 font-bold text-sm ml-1" x-text="companies.reduce((sum, c) => sum + (c.user_count || 0), 0)"></span></div>
-    <div class="text-slate-500">PENDING_REQUESTS: <span class="text-amber-500 font-bold text-sm ml-1" x-text="companies.reduce((sum, c) => sum + (c.pending_count || 0), 0)"></span></div>
+  <div class="border border-steel-200 bg-white rounded shadow-sm px-4 py-3 font-mono text-xs flex flex-wrap items-center gap-8">
+    <div class="text-steel-400">TOTAL_TENANTS: <span class="text-steel-600 font-bold text-sm ml-1" x-text="companies.length"></span></div>
+    <div class="text-steel-400">ACTIVE_LICENSES: <span class="text-safe font-bold text-sm ml-1" x-text="companies.filter(c => c.license_status === 'active').length"></span></div>
+    <div class="text-steel-400">TOTAL_USERS: <span class="text-steel-900 font-bold text-sm ml-1" x-text="companies.reduce((sum, c) => sum + (c.user_count || 0), 0)"></span></div>
+    <div class="text-steel-400">PENDING_REQUESTS: <span class="text-hazard font-bold text-sm ml-1" x-text="companies.reduce((sum, c) => sum + (c.pending_count || 0), 0)"></span></div>
   </div>
 
   <!-- Table Container -->
-  <div class="flex-1 flex flex-col min-h-0 bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
+  <div class="flex-1 flex flex-col min-h-0 bg-white border border-steel-200 rounded shadow-sm overflow-hidden">
     <!-- Header -->
-    <div class="hidden md:grid company-grid-row px-4 py-3 bg-slate-50 border-b border-slate-200 text-[10px] font-mono text-slate-500 uppercase tracking-wider font-semibold">
+    <div class="hidden md:grid company-grid-row px-4 py-3 bg-steel-100 border-b border-steel-200 text-[10px] font-mono text-steel-400 uppercase tracking-wider font-semibold">
       <div>ORG_ID</div>
       <div>TENANT_IDENTIFIER</div>
       <div>LICENSE_STATE</div>
@@ -131,36 +131,36 @@
     </div>
 
     <!-- Body -->
-    <div class="flex-1 overflow-y-auto custom-scroll divide-y divide-slate-100">
+    <div class="flex-1 overflow-y-auto custom-scroll divide-y divide-steel-100">
       <template x-for="company in companies" :key="company.id">
-        <div class="company-grid-row px-4 py-3 hover:bg-slate-50 transition-colors group">
-          <div class="font-mono text-xs text-slate-400 font-medium" x-text="'0x' + company.id.toString(16).padStart(4, '0').toUpperCase()"></div>
+        <div class="company-grid-row px-4 py-3 hover:bg-steel-100 transition-colors group">
+          <div class="font-mono text-xs text-steel-300 font-medium" x-text="'0x' + company.id.toString(16).padStart(4, '0').toUpperCase()"></div>
           
           <div class="flex flex-col">
-            <span class="text-sm font-bold text-slate-900" x-text="company.name"></span>
-            <span class="text-[10px] font-mono text-slate-400 uppercase mt-0.5" x-text="'CREATED: ' + new Date(company.created_at).toISOString().split('T')[0]"></span>
+            <span class="text-sm font-bold text-steel-900" x-text="company.name"></span>
+            <span class="text-[10px] font-mono text-steel-300 uppercase mt-0.5" x-text="'CREATED: ' + new Date(company.created_at).toISOString().split('T')[0]"></span>
           </div>
 
           <div>
-            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-[10px] font-mono tracking-wider uppercase font-medium"
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-sm border text-[10px] font-mono tracking-wider uppercase font-medium"
                   :class="{
-                    'border-emerald-200 bg-emerald-50 text-emerald-700': company.license_status === 'active',
-                    'border-red-200 bg-red-50 text-red-700': company.license_status === 'suspended' || company.license_status === 'expired'
+                    'border-safe/30 bg-safe/10 text-safe': company.license_status === 'active',
+                    'border-signal/30 bg-signal/10 text-signal': company.license_status === 'suspended' || company.license_status === 'expired'
                   }">
-              <span class="w-1.5 h-1.5 rounded-full" 
-                    :class="company.license_status === 'active' ? 'bg-emerald-500' : 'bg-red-500'"></span>
+              <span class="w-1.5 h-1.5 rounded-sm" 
+                    :class="company.license_status === 'active' ? 'bg-safe' : 'bg-signal'"></span>
               <span x-text="company.license_status"></span>
             </span>
           </div>
 
           <div class="font-mono text-xs">
-            <span class="text-slate-700 font-medium" x-text="company.user_count"></span>
+            <span class="text-steel-700 font-medium" x-text="company.user_count"></span>
             <template x-if="company.pending_count > 0">
-              <span class="text-amber-500 ml-1 font-medium bg-amber-50 px-1.5 py-0.5 rounded" x-text="`+${company.pending_count} p`"></span>
+              <span class="text-hazard ml-1 font-medium bg-hazard/10 px-1.5 py-0.5 rounded" x-text="`+${company.pending_count} p`"></span>
             </template>
           </div>
 
-          <div class="font-mono text-xs text-slate-700 font-medium" x-text="company.max_users"></div>
+          <div class="font-mono text-xs text-steel-700 font-medium" x-text="company.max_users"></div>
 
           <div class="flex items-center justify-end gap-2">
             <button @click="openEditModal(company)" class="btn-godmode px-2.5 py-1.5 rounded text-[10px] font-mono tracking-widest">
@@ -172,7 +172,7 @@
               </button>
             </template>
             <template x-if="company.license_status !== 'active'">
-              <button @click="toggleStatus(company, 'active')" class="btn-godmode px-2.5 py-1.5 rounded text-[10px] font-mono tracking-widest !border-emerald-300 !text-emerald-600 hover:!bg-emerald-50">
+              <button @click="toggleStatus(company, 'active')" class="btn-godmode px-2.5 py-1.5 rounded text-[10px] font-mono tracking-widest !border-safe/40 !text-safe hover:!bg-safe/10">
                 RESTORE
               </button>
             </template>
@@ -181,8 +181,8 @@
       </template>
 
       <!-- Empty State -->
-      <div x-show="companies.length === 0" class="p-12 text-center text-slate-400 font-mono text-xs flex flex-col items-center">
-        <svg class="w-10 h-10 mb-3 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+      <div x-show="companies.length === 0" class="p-12 text-center text-steel-300 font-mono text-xs flex flex-col items-center">
+        <svg class="w-10 h-10 mb-3 text-steel-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
         NO_TENANTS_FOUND
       </div>
     </div>
@@ -192,74 +192,74 @@
   
   <!-- Overlay -->
   <div x-show="showAddModal || editCompanyData" style="display: none;" 
-       class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 flex items-center justify-center p-4">
+       class="fixed inset-0 bg-steel-900/40 z-40 flex items-center justify-center p-4">
     
     <!-- ADD Modal -->
     <div x-show="showAddModal" @click.away="showAddModal = false"
-         class="bg-white border border-slate-200 rounded-xl p-6 w-full max-w-md shadow-2xl relative overflow-hidden">
-      <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-blue-600"></div>
+         class="bg-white border border-steel-200 rounded p-6 w-full max-w-md shadow-2xl relative overflow-hidden">
+      <div class="absolute top-0 left-0 w-full h-1 bg-steel-500"></div>
       
-      <h2 class="text-lg font-mono font-bold text-slate-900 mb-5 uppercase tracking-widest flex items-center gap-2">
-        <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+      <h2 class="text-lg font-mono font-bold text-steel-900 mb-5 uppercase tracking-widest flex items-center gap-2">
+        <svg class="w-5 h-5 text-steel-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
         Generate Tenant
       </h2>
       
       <div class="space-y-4 max-h-[60vh] overflow-y-auto custom-scroll pr-2">
-        <h3 class="text-xs font-bold text-slate-800 uppercase border-b border-slate-100 pb-2">Company Details</h3>
+        <h3 class="text-xs font-bold text-steel-800 uppercase border-b border-steel-100 pb-2">Company Details</h3>
         <div>
-          <label class="block text-[10px] font-mono text-slate-500 uppercase mb-1.5 font-bold tracking-wider">Entity Identifier</label>
+          <label class="block text-[10px] font-mono text-steel-400 uppercase mb-1.5 font-bold tracking-wider">Entity Identifier</label>
           <input type="text" x-model="newCompany.name" placeholder="e.g., Cyberdyne Systems"
-                 class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm font-mono text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-sm">
+                 class="w-full bg-steel-100 border border-steel-200 rounded p-2.5 text-sm font-mono text-steel-900 focus:border-steel-500 focus:ring-1 focus:ring-steel-500 focus:outline-none transition-colors shadow-sm">
         </div>
         <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-[10px] font-mono text-slate-500 uppercase mb-1.5 font-bold tracking-wider">Max Allocation</label>
+              <label class="block text-[10px] font-mono text-steel-400 uppercase mb-1.5 font-bold tracking-wider">Max Allocation</label>
               <input type="number" x-model="newCompany.max_users"
-                     class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm font-mono text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-sm">
+                     class="w-full bg-steel-100 border border-steel-200 rounded p-2.5 text-sm font-mono text-steel-900 focus:border-steel-500 focus:ring-1 focus:ring-steel-500 focus:outline-none transition-colors shadow-sm">
             </div>
             <div>
-              <label class="block text-[10px] font-mono text-slate-500 uppercase mb-1.5 font-bold tracking-wider">Reg. Number</label>
+              <label class="block text-[10px] font-mono text-steel-400 uppercase mb-1.5 font-bold tracking-wider">Reg. Number</label>
               <input type="text" x-model="newCompany.registration_number" placeholder="Optional"
-                     class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm font-mono text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-sm">
+                     class="w-full bg-steel-100 border border-steel-200 rounded p-2.5 text-sm font-mono text-steel-900 focus:border-steel-500 focus:ring-1 focus:ring-steel-500 focus:outline-none transition-colors shadow-sm">
             </div>
         </div>
         <div>
-          <label class="block text-[10px] font-mono text-slate-500 uppercase mb-1.5 font-bold tracking-wider">Contact Email</label>
+          <label class="block text-[10px] font-mono text-steel-400 uppercase mb-1.5 font-bold tracking-wider">Contact Email</label>
           <input type="email" x-model="newCompany.contact_email" placeholder="corp@example.com"
-                 class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm font-mono text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-sm">
+                 class="w-full bg-steel-100 border border-steel-200 rounded p-2.5 text-sm font-mono text-steel-900 focus:border-steel-500 focus:ring-1 focus:ring-steel-500 focus:outline-none transition-colors shadow-sm">
         </div>
         <div>
-          <label class="block text-[10px] font-mono text-slate-500 uppercase mb-1.5 font-bold tracking-wider">Phone</label>
+          <label class="block text-[10px] font-mono text-steel-400 uppercase mb-1.5 font-bold tracking-wider">Phone</label>
           <input type="text" x-model="newCompany.phone" placeholder="+1..."
-                 class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm font-mono text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-sm">
+                 class="w-full bg-steel-100 border border-steel-200 rounded p-2.5 text-sm font-mono text-steel-900 focus:border-steel-500 focus:ring-1 focus:ring-steel-500 focus:outline-none transition-colors shadow-sm">
         </div>
         <div>
-          <label class="block text-[10px] font-mono text-slate-500 uppercase mb-1.5 font-bold tracking-wider">Address</label>
+          <label class="block text-[10px] font-mono text-steel-400 uppercase mb-1.5 font-bold tracking-wider">Address</label>
           <input type="text" x-model="newCompany.address" placeholder="HQ Address"
-                 class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm font-mono text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-sm">
+                 class="w-full bg-steel-100 border border-steel-200 rounded p-2.5 text-sm font-mono text-steel-900 focus:border-steel-500 focus:ring-1 focus:ring-steel-500 focus:outline-none transition-colors shadow-sm">
         </div>
 
-        <h3 class="text-xs font-bold text-slate-800 uppercase border-b border-slate-100 pb-2 mt-6">Initial Company Admin</h3>
+        <h3 class="text-xs font-bold text-steel-800 uppercase border-b border-steel-100 pb-2 mt-6">Initial Company Admin</h3>
         <div>
-          <label class="block text-[10px] font-mono text-slate-500 uppercase mb-1.5 font-bold tracking-wider">Admin Full Name</label>
+          <label class="block text-[10px] font-mono text-steel-400 uppercase mb-1.5 font-bold tracking-wider">Admin Full Name</label>
           <input type="text" x-model="newCompany.admin_name" placeholder="John Doe"
-                 class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm font-mono text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-sm">
+                 class="w-full bg-steel-100 border border-steel-200 rounded p-2.5 text-sm font-mono text-steel-900 focus:border-steel-500 focus:ring-1 focus:ring-steel-500 focus:outline-none transition-colors shadow-sm">
         </div>
         <div>
-          <label class="block text-[10px] font-mono text-slate-500 uppercase mb-1.5 font-bold tracking-wider">Admin Email (Login)</label>
+          <label class="block text-[10px] font-mono text-steel-400 uppercase mb-1.5 font-bold tracking-wider">Admin Email (Login)</label>
           <input type="email" x-model="newCompany.admin_email" placeholder="admin@example.com"
-                 class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm font-mono text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-sm">
+                 class="w-full bg-steel-100 border border-steel-200 rounded p-2.5 text-sm font-mono text-steel-900 focus:border-steel-500 focus:ring-1 focus:ring-steel-500 focus:outline-none transition-colors shadow-sm">
         </div>
         <div>
-          <label class="block text-[10px] font-mono text-slate-500 uppercase mb-1.5 font-bold tracking-wider">Admin Initial Password</label>
+          <label class="block text-[10px] font-mono text-steel-400 uppercase mb-1.5 font-bold tracking-wider">Admin Initial Password</label>
           <input type="text" x-model="newCompany.admin_password" placeholder="Strong password..."
-                 class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm font-mono text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors shadow-sm">
+                 class="w-full bg-steel-100 border border-steel-200 rounded p-2.5 text-sm font-mono text-steel-900 focus:border-steel-500 focus:ring-1 focus:ring-steel-500 focus:outline-none transition-colors shadow-sm">
         </div>
       </div>
 
       <div class="mt-8 flex justify-end gap-3">
-        <button @click="showAddModal = false" class="px-4 py-2 text-xs font-mono font-medium text-slate-500 hover:text-slate-800 uppercase tracking-widest transition-colors">Abort</button>
-        <button @click="createCompany()" class="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs font-mono font-bold uppercase tracking-widest transition-colors shadow-sm shadow-blue-600/20">
+        <button @click="showAddModal = false" class="px-4 py-2 text-xs font-mono font-medium text-steel-400 hover:text-steel-800 uppercase tracking-widest transition-colors">Abort</button>
+        <button @click="createCompany()" class="px-5 py-2 bg-steel-500 text-white rounded hover:bg-steel-600 text-xs font-mono font-bold uppercase tracking-widest transition-colors shadow-sm shadow-none">
           Execute
         </button>
       </div>
@@ -267,30 +267,30 @@
 
     <!-- EDIT Modal -->
     <div x-show="editCompanyData" @click.away="editCompanyData = null"
-         class="bg-white border border-slate-200 rounded-xl p-6 w-full max-w-md shadow-2xl relative overflow-hidden">
-      <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-400 to-amber-600"></div>
+         class="bg-white border border-steel-200 rounded p-6 w-full max-w-md shadow-2xl relative overflow-hidden">
+      <div class="absolute top-0 left-0 w-full h-1 bg-hazard"></div>
       
-      <h2 class="text-lg font-mono font-bold text-slate-900 mb-5 uppercase tracking-widest flex items-center gap-2">
-        <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+      <h2 class="text-lg font-mono font-bold text-steel-900 mb-5 uppercase tracking-widest flex items-center gap-2">
+        <svg class="w-5 h-5 text-hazard" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
         Modify Allocation
       </h2>
       
-      <div class="mb-4 p-3 bg-slate-50 rounded-lg border border-slate-100">
-        <div class="text-[10px] font-mono text-slate-500 uppercase mb-1">Target Entity</div>
-        <div class="font-mono text-sm font-bold text-slate-800" x-text="editCompanyData?.name"></div>
+      <div class="mb-4 p-3 bg-steel-100 rounded border border-steel-100">
+        <div class="text-[10px] font-mono text-steel-400 uppercase mb-1">Target Entity</div>
+        <div class="font-mono text-sm font-bold text-steel-800" x-text="editCompanyData?.name"></div>
       </div>
 
       <div class="space-y-4">
         <div>
-          <label class="block text-[10px] font-mono text-slate-500 uppercase mb-1.5 font-bold tracking-wider">New Max Allocation</label>
+          <label class="block text-[10px] font-mono text-steel-400 uppercase mb-1.5 font-bold tracking-wider">New Max Allocation</label>
           <input type="number" x-model="editCompanyData.max_users"
-                 class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm font-mono text-slate-900 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 focus:outline-none transition-colors shadow-sm">
+                 class="w-full bg-steel-100 border border-steel-200 rounded p-2.5 text-sm font-mono text-steel-900 focus:border-steel-500 focus:ring-1 focus:ring-steel-500 focus:outline-none transition-colors shadow-sm">
         </div>
       </div>
 
       <div class="mt-8 flex justify-end gap-3">
-        <button @click="editCompanyData = null" class="px-4 py-2 text-xs font-mono font-medium text-slate-500 hover:text-slate-800 uppercase tracking-widest transition-colors">Abort</button>
-        <button @click="updateCompany()" class="px-5 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 text-xs font-mono font-bold uppercase tracking-widest transition-colors shadow-sm shadow-amber-500/20">
+        <button @click="editCompanyData = null" class="px-4 py-2 text-xs font-mono font-medium text-steel-400 hover:text-steel-800 uppercase tracking-widest transition-colors">Abort</button>
+        <button @click="updateCompany()" class="px-5 py-2 bg-hazard text-steel-900 rounded hover:bg-hazard text-xs font-mono font-bold uppercase tracking-widest transition-colors shadow-sm shadow-none">
           Commit
         </button>
       </div>
@@ -299,9 +299,9 @@
 
   <!-- Toast -->
   <div x-show="toast" x-transition style="display: none;"
-       class="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-lg border text-xs font-mono tracking-widest uppercase flex items-center gap-3 shadow-lg"
-       :class="toastType === 'error' ? 'bg-red-50 border-red-200 text-red-700' : 'bg-emerald-50 border-emerald-200 text-emerald-700'">
-    <span class="w-2 h-2 rounded-full animate-ping" :class="toastType === 'error' ? 'bg-red-500' : 'bg-emerald-500'"></span>
+       class="fixed bottom-6 right-6 z-50 px-4 py-3 rounded border text-xs font-mono tracking-widest uppercase flex items-center gap-3 shadow-lg"
+       :class="toastType === 'error' ? 'bg-signal/10 border-signal/30 text-signal' : 'bg-safe/10 border-safe/30 text-safe'">
+    <span class="w-2 h-2 rounded-sm" :class="toastType === 'error' ? 'bg-signal' : 'bg-safe'"></span>
     <span class="font-bold" x-text="toast"></span>
   </div>
 

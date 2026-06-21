@@ -1,7 +1,6 @@
 /**
- * SAFEWARE - Enterprise Chemical Safety Platform
- * Global Layout Styles
- * Reference: Professional Dashboard Design System
+ * SAFEWARE — Enterprise Chemical Safety Platform
+ * Global Layout Styles · "Hardened Steel" industrial design system
  */
 
 /* ============================================
@@ -21,67 +20,81 @@ html, body {
 }
 
 :root {
-    /* Color Palette - Industrial Navy Theme */
-    --color-navy-dark: #0F172A;
-    --color-navy-medium: #1E293B;
-    --color-slate-light: #F8FAFC;
-    --color-slate-medium: #F1F5F9;
-    --color-slate-text: #64748B;
-    
-    /* Accent Colors */
-    --color-accent-cyan: #06B6D4;
-    --color-accent-blue: #3B82F6;
-    --color-danger: #EF4444;
-    --color-success: #10B981;
-    --color-warning: #F59E0B;
-    
-    /* Spacing */
+    /* Hardened Steel palette */
+    --steel-900: #1B1F24;   /* sidebar, darkest surfaces, primary text */
+    --steel-800: #23282F;   /* sidebar hover, dark headers */
+    --steel-700: #2A3038;   /* borders on dark, secondary dark surface */
+    --steel-600: #313842;
+    --steel-500: #3B5566;   /* PRIMARY ACTION: buttons, active nav, links */
+    --steel-400: #5A6470;   /* muted text, NO_DATA, default icon */
+    --steel-300: #98A2AE;
+    --steel-200: #E2E5E9;   /* hairline border on light */
+    --steel-100: #ECEEF1;
+
+    --workspace: #F5F6F7;   /* main content background */
+    --surface:   #FFFFFF;   /* cards / panels */
+
+    /* Safety + signal accents */
+    --hazard:     #E8A33D;  /* caution / hazard amber */
+    --hazard-bg:  #FBF1DF;
+    --signal-red: #C0392B;  /* incompatible / danger */
+    --signal-bg:  #F7E2DF;
+    --safe-green: #2E7D5B;  /* compatible / safe */
+    --safe-bg:    #DCEDE5;
+    --info-bg:    #E5EAEF;
+
+    /* Geometry & depth */
+    --radius: 2px;
+    --radius-sm: 1px;
+    --shadow: 0 1px 2px rgba(27, 31, 36, .08);
+    --shadow-pop: 0 4px 16px rgba(27, 31, 36, .14);
+
+    /* Layout */
     --sidebar-width-expanded: 280px;
     --sidebar-width-collapsed: 80px;
     --header-height: 64px;
-    
-    /* Transitions */
-    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* Motion */
+    --transition-smooth: all 0.15s ease;
+
+    /* Legacy aliases (kept so un-migrated pages don't break mid-rollout) */
+    --color-navy-dark: var(--steel-900);
+    --color-navy-medium: var(--steel-800);
+    --color-slate-light: var(--workspace);
+    --color-slate-medium: var(--steel-100);
+    --color-slate-text: var(--steel-400);
+    --color-accent-cyan: var(--steel-500);
+    --color-accent-blue: var(--steel-500);
+    --color-danger: var(--signal-red);
+    --color-success: var(--safe-green);
+    --color-warning: var(--hazard);
 }
 
 /* ============================================
-   SCROLLBAR STYLING
+   SCROLLBAR
    ============================================ */
-::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-}
-
-::-webkit-scrollbar-track {
-    background: var(--color-slate-light);
-}
-
-::-webkit-scrollbar-thumb {
-    background: #CBD5E1;
-    border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: #94A3B8;
-}
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--workspace); }
+::-webkit-scrollbar-thumb { background: var(--steel-300); border-radius: var(--radius); }
+::-webkit-scrollbar-thumb:hover { background: var(--steel-400); }
 
 /* ============================================
-   SIDEBAR STYLES
+   SIDEBAR
    ============================================ */
 .sidebar {
-    background: var(--color-navy-dark);
+    background: var(--steel-900);
     height: 100vh;
     overflow: hidden;
     position: relative;
-    box-shadow: 2px 0 12px rgba(0, 0, 0, 0.1);
+    border-right: 1px solid var(--steel-700);
 }
 
 .sidebar-header {
-    background: var(--color-navy-dark);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--steel-900);
+    border-bottom: 1px solid var(--steel-700);
 }
 
-/* Navigation Item Styles */
+/* Navigation items */
 .nav-item {
     font-size: 0.875rem;
     font-weight: 500;
@@ -90,13 +103,12 @@ html, body {
 }
 
 .nav-item:hover {
-    background: var(--color-navy-medium);
+    background: var(--steel-800);
     color: #FFFFFF;
 }
 
-/* Active Navigation Item */
 .nav-item-active {
-    background: var(--color-navy-medium);
+    background: var(--steel-800);
     color: #FFFFFF;
     position: relative;
 }
@@ -107,57 +119,38 @@ html, body {
     left: 0;
     top: 0;
     bottom: 0;
-    width: 4px;
-    background: linear-gradient(180deg, var(--color-accent-cyan), var(--color-accent-blue));
-    border-radius: 0 4px 4px 0;
-}
-
-/* Icon Styling */
-.nav-item svg {
-    transition: transform 0.2s ease;
-}
-
-.nav-item:hover svg {
-    transform: scale(1.1);
+    width: 3px;
+    background: var(--steel-500);
 }
 
 /* ============================================
-   HEADER STYLES (Glassmorphism)
+   HEADER (solid, no glass)
    ============================================ */
 .header-glass {
-    backdrop-filter: blur(16px) saturate(180%);
-    background-color: rgba(255, 255, 255, 0.85);
-    border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+    background-color: var(--surface);
+    border-bottom: 1px solid var(--steel-200);
 }
 
-/* Search Bar */
-.header-glass input[type="text"] {
-    transition: all 0.2s ease;
-}
-
+.header-glass input[type="text"] { transition: all 0.15s ease; }
 .header-glass input[type="text"]:focus {
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    box-shadow: 0 0 0 3px rgba(59, 85, 102, 0.15);
 }
 
 /* ============================================
-   MAIN CONTENT AREA
+   MAIN CONTENT
    ============================================ */
-main {
-    background: var(--color-slate-light);
-}
+main { background: var(--workspace); }
 
-/* Content Cards */
 .content-card {
-    background: #FFFFFF;
-    border-radius: 12px;
+    background: var(--surface);
+    border: 1px solid var(--steel-200);
+    border-radius: var(--radius);
     padding: 1.5rem;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    transition: box-shadow 0.2s ease;
+    box-shadow: var(--shadow);
+    transition: border-color 0.15s ease;
 }
 
-.content-card:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
+.content-card:hover { border-color: var(--steel-300); }
 
 /* ============================================
    NOTIFICATION BADGE
@@ -166,23 +159,11 @@ main {
     position: absolute;
     top: 0;
     right: 0;
-    width: 10px;
-    height: 10px;
-    background: var(--color-danger);
+    width: 9px;
+    height: 9px;
+    background: var(--signal-red);
     border-radius: 50%;
-    border: 2px solid #FFFFFF;
-    animation: pulse-badge 2s infinite;
-}
-
-@keyframes pulse-badge {
-    0%, 100% {
-        transform: scale(1);
-        opacity: 1;
-    }
-    50% {
-        transform: scale(1.1);
-        opacity: 0.8;
-    }
+    border: 2px solid var(--surface);
 }
 
 /* ============================================
@@ -194,9 +175,10 @@ main {
     left: 1rem;
     right: 1rem;
     margin-bottom: 0.5rem;
-    background: #FFFFFF;
-    border-radius: 12px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
+    background: var(--surface);
+    border: 1px solid var(--steel-200);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-pop);
     z-index: 100;
 }
 
@@ -205,27 +187,19 @@ main {
     align-items: center;
     gap: 0.5rem;
     padding: 0.75rem 1rem;
-    color: #334155;
+    color: var(--steel-700);
     text-decoration: none;
     font-size: 0.875rem;
     font-weight: 500;
     transition: background 0.15s ease;
 }
 
-.profile-popover a:hover {
-    background: var(--color-slate-medium);
-}
-
-.profile-popover a:last-child {
-    color: var(--color-danger);
-}
-
-.profile-popover a:last-child:hover {
-    background: #FEE2E2;
-}
+.profile-popover a:hover { background: var(--workspace); }
+.profile-popover a:last-child { color: var(--signal-red); }
+.profile-popover a:last-child:hover { background: var(--signal-bg); }
 
 /* ============================================
-   RESPONSIVE UTILITIES
+   RESPONSIVE
    ============================================ */
 @media (max-width: 768px) {
     .sidebar {
@@ -233,110 +207,90 @@ main {
         z-index: 50;
         height: 100vh;
         transform: translateX(-100%);
-        transition: transform 0.3s ease;
+        transition: transform 0.2s ease;
     }
-    
-    .sidebar.sidebar-open {
-        transform: translateX(0);
-    }
+    .sidebar.sidebar-open { transform: translateX(0); }
 }
 
 /* ============================================
-   ANIMATIONS
+   ANIMATIONS (restrained)
    ============================================ */
 @keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
 }
-
-.animate-fade-in {
-    animation: fadeIn 0.3s ease-out;
-}
+.animate-fade-in { animation: fadeIn 0.15s ease-out; }
 
 @keyframes slideIn {
-    from {
-        opacity: 0;
-        transform: translateX(-20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateX(0);
-    }
+    from { opacity: 0; transform: translateX(-12px); }
+    to   { opacity: 1; transform: translateX(0); }
 }
+.animate-slide-in { animation: slideIn 0.15s ease-out; }
 
-.animate-slide-in {
-    animation: slideIn 0.3s ease-out;
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
 }
 
 /* ============================================
-   BREADCRUMB STYLING
+   BREADCRUMB
    ============================================ */
 nav.breadcrumb a {
-    color: var(--color-slate-text);
+    color: var(--steel-400);
     text-decoration: none;
     transition: color 0.15s ease;
 }
-
-nav.breadcrumb a:hover {
-    color: var(--color-accent-blue);
-}
+nav.breadcrumb a:hover { color: var(--steel-500); }
 
 /* ============================================
    DATE/TIME WIDGET
    ============================================ */
 #currentDate {
     font-weight: 600;
-    color: #0F172A;
+    color: var(--steel-900);
     font-size: 0.875rem;
 }
-
 #currentTime {
-    color: var(--color-slate-text);
+    color: var(--steel-400);
     font-size: 0.75rem;
     letter-spacing: 0.5px;
+    font-feature-settings: "tnum";
 }
 
 /* ============================================
-   MATRIX & DATA VISUALIZATION STYLES
+   MATRIX & DATA VISUALIZATION
    ============================================ */
 .matrix-grid {
     display: grid;
     gap: 1px;
-    background: #E2E8F0;
+    background: var(--steel-200);
 }
 
 .matrix-cell {
     position: relative;
-    transition: all 0.15s ease;
+    transition: all 0.12s ease;
     cursor: pointer;
 }
 
 .matrix-cell:hover {
     z-index: 10;
-    transform: scale(1.05);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    box-shadow: inset 0 0 0 2px var(--steel-500);
 }
 
-.matrix-row:hover .matrix-cell {
-    background-color: rgba(148, 163, 184, 0.1);
-}
+.matrix-row:hover .matrix-cell { background-color: rgba(90, 100, 112, 0.06); }
 
-/* Tooltip */
 .tooltip {
     visibility: hidden;
     position: absolute;
     z-index: 50;
-    background-color: rgba(15, 23, 42, 0.95);
-    color: white;
+    background-color: var(--steel-900);
+    color: #fff;
     padding: 8px 12px;
-    border-radius: 6px;
-    font-size: 0.875rem;
+    border-radius: var(--radius);
+    font-size: 0.8125rem;
     white-space: nowrap;
     bottom: 100%;
     left: 50%;
@@ -344,64 +298,132 @@ nav.breadcrumb a:hover {
     margin-bottom: 8px;
     pointer-events: none;
 }
-
-.matrix-cell:hover .tooltip {
-    visibility: visible;
-}
+.matrix-cell:hover .tooltip { visibility: visible; }
 
 /* ============================================
-   UTILITY CLASSES
+   SHARED COMPONENT CLASSES (used by macros)
    ============================================ */
-.shadow-elevated {
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1), 0 4px 10px rgba(0, 0, 0, 0.05);
+
+/* Buttons */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.9rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    border-radius: var(--radius);
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    white-space: nowrap;
+    line-height: 1.2;
+}
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(59, 85, 102, 0.35); }
+
+.btn-primary { background: var(--steel-500); color: #fff; }
+.btn-primary:hover:not(:disabled) { background: var(--steel-600); }
+
+.btn-hazard { background: var(--hazard); color: var(--steel-900); }
+.btn-hazard:hover:not(:disabled) { background: #d8922f; }
+
+.btn-danger { background: var(--signal-red); color: #fff; }
+.btn-danger:hover:not(:disabled) { background: #a83228; }
+
+.btn-ghost { background: transparent; color: var(--steel-700); border-color: var(--steel-200); }
+.btn-ghost:hover:not(:disabled) { background: var(--workspace); border-color: var(--steel-300); }
+
+/* Status / safety badges */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.2rem 0.5rem;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border-radius: var(--radius-sm);
+    border: 1px solid transparent;
+}
+.badge-safe        { background: var(--safe-bg);   color: var(--safe-green);  border-color: rgba(46,125,91,.25); }
+.badge-caution     { background: var(--hazard-bg); color: #9a6a16;            border-color: rgba(232,163,61,.35); }
+.badge-incompatible{ background: var(--signal-bg); color: var(--signal-red);  border-color: rgba(192,57,43,.25); }
+.badge-nodata      { background: var(--info-bg);   color: var(--steel-400);   border-color: var(--steel-200); }
+.badge-neutral     { background: var(--steel-100); color: var(--steel-700);   border-color: var(--steel-200); }
+
+/* Form inputs */
+.field {
+    width: 100%;
+    padding: 0.5rem 0.7rem;
+    font-size: 0.875rem;
+    color: var(--steel-900);
+    background: var(--surface);
+    border: 1px solid var(--steel-200);
+    border-radius: var(--radius);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.field::placeholder { color: var(--steel-300); }
+.field:focus {
+    outline: none;
+    border-color: var(--steel-500);
+    box-shadow: 0 0 0 3px rgba(59, 85, 102, 0.15);
 }
 
-.glass-effect {
-    backdrop-filter: blur(12px) saturate(150%);
-    background-color: rgba(255, 255, 255, 0.8);
+/* Empty state */
+.empty-state {
+    text-align: center;
+    padding: 3rem 1.25rem;
+    color: var(--steel-400);
 }
+.empty-state .empty-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border: 1px solid var(--steel-200);
+    border-radius: var(--radius);
+    color: var(--steel-300);
+    margin-bottom: 0.75rem;
+}
+.empty-state h3 { color: var(--steel-700); font-size: 0.9375rem; font-weight: 600; margin-bottom: 0.25rem; }
+.empty-state p  { font-size: 0.8125rem; }
 
-.text-gradient {
-    background: linear-gradient(135deg, var(--color-accent-cyan), var(--color-accent-blue));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+/* Spinner */
+.spinner {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--steel-200);
+    border-top-color: var(--steel-500);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
 }
+@keyframes spin { to { transform: rotate(360deg); } }
 
-/* Status Indicators */
-.status-safe {
-    background: #D1FAE5;
-    color: #065F46;
-}
-
-.status-warning {
-    background: #FEF3C7;
-    color: #92400E;
-}
-
-.status-danger {
-    background: #FEE2E2;
-    color: #991B1B;
-}
-
-.status-info {
-    background: #DBEAFE;
-    color: #1E40AF;
-}
+/* Data / mono helper */
+.data-mono { font-family: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', 'Menlo', monospace; font-feature-settings: "tnum"; }
 
 /* ============================================
-   PRINT STYLES
+   STATUS HELPER CLASSES (legacy names kept)
+   ============================================ */
+.status-safe    { background: var(--safe-bg);   color: var(--safe-green); }
+.status-warning { background: var(--hazard-bg); color: #9a6a16; }
+.status-danger  { background: var(--signal-bg); color: var(--signal-red); }
+.status-info    { background: var(--info-bg);   color: var(--steel-700); }
+
+/* ============================================
+   UTILITY
+   ============================================ */
+.shadow-elevated { box-shadow: var(--shadow-pop); }
+
+/* ============================================
+   PRINT
    ============================================ */
 @media print {
-    .sidebar,
-    .header-glass,
-    nav.breadcrumb,
-    button {
-        display: none !important;
-    }
-    
-    main {
-        padding: 0 !important;
-        overflow: visible !important;
-    }
+    .sidebar, .header-glass, nav.breadcrumb, button { display: none !important; }
+    main { padding: 0 !important; overflow: visible !important; }
 }

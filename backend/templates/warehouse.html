@@ -1,143 +1,92 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon %}
 {% block title %}Warehouse Visual Planner - SAFEWARE{% endblock %}
 {% block breadcrumb %}Warehouse Planner{% endblock %}
 
 {% block extra_head %}
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
-    
     [x-cloak] { display: none !important; }
-    
-    body {
-        font-family: 'Outfit', sans-serif !important;
-    }
-    
-    /* Modern Scrollbars */
-    ::-webkit-scrollbar {
-        width: 6px;
-        height: 6px;
-    }
-    ::-webkit-scrollbar-track {
-        background: transparent;
-    }
-    ::-webkit-scrollbar-thumb {
-        background: rgba(100, 116, 139, 0.25);
-        border-radius: 999px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-        background: rgba(100, 116, 139, 0.4);
-    }
-    
+
     .warehouse-layout {
         display: flex;
         height: calc(100vh - 130px);
         overflow: hidden;
-        gap: 28px;
+        gap: 20px;
     }
-    
-    /* Sidebar styling with glassmorphism */
+
+    /* Sidebar — solid steel surface */
     .chemical-pool-sidebar {
         width: 340px;
         flex-shrink: 0;
-        background: rgba(255, 255, 255, 0.75);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        border: 1px solid rgba(226, 232, 240, 0.8);
-        border-radius: 24px;
+        background: var(--surface);
+        border: 1px solid var(--steel-200);
+        border-radius: var(--radius);
         display: flex;
         flex-direction: column;
         overflow: hidden;
-        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.03);
+        box-shadow: var(--shadow);
     }
 
     .chem-card {
-        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        transition: border-color 0.15s ease;
         cursor: grab;
-        border: 1px solid rgba(226, 232, 240, 0.7);
+        border: 1px solid var(--steel-200);
     }
-    
-    .chem-card:active {
-        cursor: grabbing;
-    }
-    
-    .chem-card:hover {
-        transform: translateY(-3px) scale(1.01);
-        border-color: rgba(99, 102, 241, 0.5);
-        box-shadow: 0 10px 20px -10px rgba(99, 102, 241, 0.25);
-    }
-    
-    /* Sections Grid styling */
+    .chem-card:active { cursor: grabbing; }
+    .chem-card:hover { border-color: var(--steel-400); }
+
+    /* Sections grid */
     .sections-grid {
         flex: 1;
         overflow-y: auto;
         padding-right: 8px;
-        background: rgba(255, 255, 255, 0.6);
-        backdrop-filter: blur(8px);
-        border-radius: 24px;
+        background: var(--surface);
+        border-radius: var(--radius);
     }
-    
+
     .section-drop-zone {
-        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        transition: border-color 0.15s ease, background 0.15s ease;
         position: relative;
-        background: rgba(255, 255, 255, 0.5);
-        border: 2px dashed rgba(226, 232, 240, 1);
-        border-radius: 20px;
+        background: var(--workspace);
+        border: 1px dashed var(--steel-200);
+        border-radius: var(--radius);
     }
-    
     .section-drop-zone:hover {
-        border-color: rgba(99, 102, 241, 0.3);
-        background: rgba(255, 255, 255, 0.8);
-        transform: translateY(-2px);
-        box-shadow: 0 8px 16px -8px rgba(15, 23, 42, 0.05);
+        border-color: var(--steel-400);
+        background: var(--surface);
     }
-    
-    /* Drag over states with glowing borders & keyframes */
-    @keyframes pulse-emerald {
-        0%, 100% { border-color: rgba(16, 185, 129, 0.4); box-shadow: 0 0 10px rgba(16, 185, 129, 0.1); }
-        50% { border-color: rgba(16, 185, 129, 1); box-shadow: 0 0 20px rgba(16, 185, 129, 0.3); }
-    }
-    
-    @keyframes pulse-amber {
-        0%, 100% { border-color: rgba(245, 158, 11, 0.4); box-shadow: 0 0 10px rgba(245, 158, 11, 0.1); }
-        50% { border-color: rgba(245, 158, 11, 1); box-shadow: 0 0 20px rgba(245, 158, 11, 0.3); }
-    }
-    
-    @keyframes pulse-rose {
-        0%, 100% { border-color: rgba(239, 68, 68, 0.4); box-shadow: 0 0 10px rgba(239, 68, 68, 0.1); }
-        50% { border-color: rgba(239, 68, 68, 1); box-shadow: 0 0 20px rgba(239, 68, 68, 0.3); }
-    }
-    
+
+    /* Drag-over states — steel framed, status-colored (no pulsing glow) */
     .drag-valid {
-        background-color: rgba(16, 185, 129, 0.04) !important;
-        animation: pulse-emerald 1.5s infinite ease-in-out;
+        background-color: var(--safe-bg) !important;
+        border-color: var(--safe-green) !important;
+        box-shadow: inset 0 0 0 1px var(--safe-green);
     }
-    
     .drag-caution {
-        background-color: rgba(245, 158, 11, 0.04) !important;
-        animation: pulse-amber 1.5s infinite ease-in-out;
+        background-color: var(--hazard-bg) !important;
+        border-color: var(--hazard) !important;
+        box-shadow: inset 0 0 0 1px var(--hazard);
     }
-    
     .drag-invalid {
-        background-color: rgba(239, 68, 68, 0.04) !important;
-        animation: pulse-rose 1.5s infinite ease-in-out;
+        background-color: var(--signal-bg) !important;
+        border-color: var(--signal-red) !important;
+        box-shadow: inset 0 0 0 1px var(--signal-red);
         cursor: no-drop !important;
     }
-    
+
     /* Ghost suggestions */
     .ghost-item {
-        opacity: 0.65;
+        opacity: 0.7;
         border-style: dashed !important;
-        background-color: rgba(245, 158, 11, 0.02) !important;
-        border-color: rgba(245, 158, 11, 0.5) !important;
+        background-color: var(--hazard-bg) !important;
+        border-color: var(--hazard) !important;
     }
-    
+
     /* Section Detail Modal */
     .section-modal-backdrop {
         position: fixed;
         inset: 0;
-        background: rgba(15, 23, 42, 0.55);
-        backdrop-filter: blur(6px);
-        -webkit-backdrop-filter: blur(6px);
+        background: rgba(27, 31, 36, 0.5);
         z-index: 200;
         display: flex;
         align-items: center;
@@ -146,46 +95,39 @@
     }
 
     .section-modal {
-        background: #ffffff;
-        border-radius: 28px;
+        background: var(--surface);
+        border: 1px solid var(--steel-200);
+        border-radius: var(--radius);
         width: 100%;
         max-width: 680px;
         max-height: 88vh;
         display: flex;
         flex-direction: column;
-        box-shadow: 0 32px 80px rgba(15, 23, 42, 0.22), 0 0 0 1px rgba(226, 232, 240, 0.6);
+        box-shadow: var(--shadow-pop);
         overflow: hidden;
-        transform: scale(0.96);
+        transform: translateY(6px);
         opacity: 0;
-        transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.18s ease;
+        transition: transform 0.15s ease, opacity 0.15s ease;
     }
+    .section-modal.modal-visible { transform: translateY(0); opacity: 1; }
 
-    .section-modal.modal-visible {
-        transform: scale(1);
-        opacity: 1;
-    }
-
-    .modal-status-bar {
-        height: 5px;
-        width: 100%;
-        transition: background 0.3s ease;
-    }
-
-    .modal-header-compatible  { background: linear-gradient(135deg, #10b981, #059669); }
-    .modal-header-caution     { background: linear-gradient(135deg, #f59e0b, #d97706); }
-    .modal-header-no-data     { background: linear-gradient(135deg, #f97316, #ea580c); }
-    .modal-header-incompatible{ background: linear-gradient(135deg, #ef4444, #dc2626); }
-    .modal-header-empty       { background: linear-gradient(135deg, #94a3b8, #64748b); }
+    .modal-status-bar { height: 4px; width: 100%; transition: background 0.2s ease; }
+    .modal-header-compatible  { background: var(--safe-green); }
+    .modal-header-caution     { background: var(--hazard); }
+    .modal-header-no-data      { background: var(--steel-400); }
+    .modal-header-incompatible { background: var(--signal-red); }
+    .modal-header-empty        { background: var(--steel-300); }
 
     .status-badge {
         display: inline-flex;
         align-items: center;
         gap: 5px;
         padding: 3px 10px;
-        border-radius: 999px;
+        border-radius: var(--radius-sm);
         font-size: 11px;
         font-weight: 700;
         letter-spacing: 0.04em;
+        text-transform: uppercase;
     }
 
     .chem-row {
@@ -193,24 +135,21 @@
         align-items: flex-start;
         gap: 12px;
         padding: 12px 14px;
-        border-radius: 14px;
-        border: 1px solid rgba(226, 232, 240, 0.8);
-        background: #f8fafc;
-        transition: border-color 0.15s, box-shadow 0.15s;
+        border-radius: var(--radius);
+        border: 1px solid var(--steel-200);
+        background: var(--workspace);
+        transition: border-color 0.15s;
     }
-    .chem-row:hover {
-        border-color: rgba(99, 102, 241, 0.3);
-        box-shadow: 0 2px 8px rgba(99, 102, 241, 0.06);
-    }
+    .chem-row:hover { border-color: var(--steel-400); }
 
     .group-tag {
         font-size: 9px;
         font-weight: 700;
         padding: 2px 6px;
-        border-radius: 5px;
-        background: #eef2ff;
-        color: #4f46e5;
-        font-family: monospace;
+        border-radius: var(--radius-sm);
+        background: var(--steel-100);
+        color: var(--steel-600);
+        font-family: 'JetBrains Mono', ui-monospace, monospace;
     }
 
     .matrix-cell {
@@ -219,36 +158,30 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        border-radius: 6px;
+        border-radius: var(--radius-sm);
         font-size: 10px;
         font-weight: 800;
         letter-spacing: 0.02em;
     }
-    
-    /* Live custom tooltip */
+
+    /* Live drag tooltip */
     .drag-tooltip {
         position: fixed;
         pointer-events: none;
-        background: rgba(15, 23, 42, 0.95);
-        backdrop-filter: blur(4px);
+        background: var(--steel-900);
         color: white;
-        padding: 10px 14px;
-        border-radius: 12px;
+        padding: 8px 12px;
+        border-radius: var(--radius);
         font-size: 11px;
         font-weight: 500;
         max-width: 300px;
         z-index: 1000;
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        box-shadow: var(--shadow-pop);
         opacity: 0;
-        transition: opacity 0.15s ease, transform 0.15s ease;
-        transform: scale(0.95);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        transition: opacity 0.12s ease;
+        border: 1px solid var(--steel-700);
     }
-    
-    .drag-tooltip.visible {
-        opacity: 1;
-        transform: scale(1);
-    }
+    .drag-tooltip.visible { opacity: 1; }
 </style>
 {% endblock %}
 
@@ -257,41 +190,34 @@
     
     <!-- Auto-Arrange Proposed Layout Banner -->
     <template x-if="suggestedLayout">
-        <div class="bg-gradient-to-r from-amber-500/10 to-amber-600/20 border-2 border-amber-400 rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 shadow-md">
+        <div class="bg-hazard/10 border border-hazard rounded p-4 flex flex-col md:flex-row items-center justify-between gap-4">
             <div class="flex items-center gap-3">
-                <div class="p-2 bg-amber-500/20 rounded-xl text-amber-600">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-                    </svg>
-                </div>
+                <div class="p-2 bg-hazard/15 rounded text-hazard flex-shrink-0">{{ icon('triangle-alert', 'w-6 h-6') }}</div>
                 <div>
-                    <h4 class="font-bold text-amber-900 text-sm">Proposed Layout Preview</h4>
-                    <p class="text-xs text-amber-800 mt-0.5 leading-relaxed">
+                    <h4 class="font-bold text-steel-900 text-sm">Proposed Layout Preview</h4>
+                    <p class="text-xs text-steel-600 mt-0.5 leading-relaxed">
                         <strong>Important Note:</strong> The auto-arrange algorithm is for guidance only. The system assumes no liability for the safety of the layout. The final approval is the sole responsibility of the user.
                     </p>
                     <template x-if="suggestedLayoutRecommendation && suggestedLayoutRecommendation.has_recommendation">
-                        <div class="mt-2 text-xs font-bold text-indigo-900 bg-indigo-50 border border-indigo-200 rounded-lg p-2.5 flex items-center gap-2">
-                            <span class="p-1 bg-indigo-100 rounded-md text-indigo-700">💡 Recommendation</span>
+                        <div class="mt-2 text-xs font-semibold text-steel-700 bg-steel-100 border border-steel-200 rounded p-2.5 flex items-center gap-2">
+                            <span class="inline-flex items-center gap-1 text-steel-500">{{ icon('lightbulb', 'w-4 h-4') }} Recommendation</span>
                             <span x-text="suggestedLayoutRecommendation.message"></span>
                         </div>
                     </template>
                     <template x-if="requiresAdminOverride">
-                        <div class="mt-2 text-xs font-bold text-amber-900 bg-amber-50 border border-amber-300 rounded-lg p-2.5 flex items-center gap-2">
-                            <span class="p-1 bg-amber-100 rounded-md text-amber-700">⚠️ Admin Override Required</span>
+                        <div class="mt-2 text-xs font-semibold text-steel-900 bg-hazard/10 border border-hazard/40 rounded p-2.5 flex items-center gap-2">
+                            <span class="inline-flex items-center gap-1 text-hazard">{{ icon('lock', 'w-4 h-4') }} Admin Override Required</span>
                             <span x-text="`${cautionSections} section(s) contain CAUTION chemical pairs. Only administrators can save this layout.`"></span>
                         </div>
                     </template>
                 </div>
             </div>
             <div class="flex items-center gap-2">
-                <span class="text-xs font-bold text-amber-700 bg-white/50 px-2 py-1 rounded" x-text="`Optimization Score: ${suggestedScore}%`"></span>
-                <button @click="saveSuggestedLayout()"
-                        :disabled="isProcessing"
-                        :class="isProcessing ? 'opacity-60 cursor-not-allowed' : 'hover:bg-emerald-700'"
-                        class="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-lg transition shadow">
+                <span class="text-xs font-bold text-steel-600 data-mono bg-white px-2 py-1 rounded border border-steel-200" x-text="`Score: ${suggestedScore}%`"></span>
+                <button @click="saveSuggestedLayout()" :disabled="isProcessing" class="btn btn-primary !text-xs !py-2">
                     <span x-text="isProcessing ? 'Saving...' : 'Accept Layout'"></span>
                 </button>
-                <button @click="cancelSuggestedLayout()" class="px-4 py-2 bg-slate-200 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-300 transition">Cancel</button>
+                <button @click="cancelSuggestedLayout()" class="btn btn-ghost !text-xs !py-2">Cancel</button>
             </div>
         </div>
     </template>
@@ -300,60 +226,36 @@
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
             <div class="flex flex-wrap items-center gap-3">
-                <h1 class="text-2xl font-bold text-slate-900">Warehouse Visual Planner</h1>
-                
+                <h1 class="text-2xl font-bold text-steel-900">Warehouse Visual Planner</h1>
+
                 <!-- Warehouse Selector & Management -->
-                <div class="flex items-center gap-2 bg-slate-100 border border-slate-200 rounded-xl px-2 py-1">
-                    <select x-model="selectedWarehouseId" @change="switchWarehouse()" class="bg-transparent text-sm font-semibold text-slate-700 focus:outline-none border-none py-1 cursor-pointer">
+                <div class="flex items-center gap-2 bg-white border border-steel-200 rounded px-2 py-1">
+                    <select x-model="selectedWarehouseId" @change="switchWarehouse()" class="bg-transparent text-sm font-semibold text-steel-700 focus:outline-none border-none py-1 cursor-pointer">
                         <template x-for="wh in warehouses" :key="wh.id">
                             <option :value="wh.id" x-text="wh.name" :selected="wh.id === selectedWarehouseId"></option>
                         </template>
                     </select>
-                    <div class="h-4 w-[1px] bg-slate-300 mx-1"></div>
+                    <div class="h-4 w-[1px] bg-steel-200 mx-1"></div>
                     {% if current_user and current_user.role in ['company_admin', 'super_admin'] %}
-                    <button @click="promptCreateWarehouse()" title="Create Warehouse" class="p-1 text-slate-500 hover:text-indigo-600 transition hover:bg-slate-200 rounded-md">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                        </svg>
-                    </button>
-                    <button @click="promptRenameWarehouse()" title="Rename Warehouse" class="p-1 text-slate-500 hover:text-indigo-600 transition hover:bg-slate-200 rounded-md">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
-                        </svg>
-                    </button>
+                    <button @click="promptCreateWarehouse()" title="Create Warehouse" class="p-1 text-steel-400 hover:text-steel-600 transition hover:bg-steel-100 rounded">{{ icon('plus', 'w-4 h-4') }}</button>
+                    <button @click="promptRenameWarehouse()" title="Rename Warehouse" class="p-1 text-steel-400 hover:text-steel-600 transition hover:bg-steel-100 rounded">{{ icon('pencil', 'w-4 h-4') }}</button>
                     <div class="flex items-center gap-2">
-                        <button @click="openEditModal()" title="Edit Warehouse" class="p-1 text-slate-500 hover:text-blue-600 transition hover:bg-slate-200 rounded-md">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                            </svg>
-                        </button>
-                        <button @click="promptDeleteWarehouse()" title="Delete Warehouse" class="p-1 text-slate-500 hover:text-rose-600 transition hover:bg-slate-200 rounded-md">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                            </svg>
-                        </button>
+                        <button @click="openEditModal()" title="Edit Warehouse" class="p-1 text-steel-400 hover:text-steel-600 transition hover:bg-steel-100 rounded">{{ icon('settings', 'w-4 h-4') }}</button>
+                        <button @click="promptDeleteWarehouse()" title="Delete Warehouse" class="p-1 text-steel-400 hover:text-signal transition hover:bg-steel-100 rounded">{{ icon('trash-2', 'w-4 h-4') }}</button>
                     </div>
                     {% endif %}
                 </div>
             </div>
-            <p class="text-sm text-slate-500 mt-1">Drag chemicals into storage sections to evaluate reactive safety in real-time.</p>
+            <p class="text-sm text-steel-400 mt-1">Drag chemicals into storage sections to evaluate reactive safety in real-time.</p>
         </div>
-        
-        <div class="flex items-center gap-3">
+
+        <div class="flex items-center gap-2">
             {% if current_user and current_user.role in ['company_admin', 'super_admin'] %}
-            <button @click="openInitModal()" class="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-100 border border-slate-200 text-slate-700 text-sm font-semibold rounded-lg hover:bg-slate-200 transition">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-                </svg>
-                Configure Sections
+            <button @click="openInitModal()" class="btn btn-ghost">
+                {{ icon('grid-3x3', 'w-4 h-4') }} Configure Sections
             </button>
-            <button @click="triggerAutoArrange()"
-                    :disabled="isProcessing"
-                    :class="isProcessing ? 'opacity-60 cursor-not-allowed' : 'hover:bg-indigo-700'"
-                    class="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-lg transition shadow">
-                <svg class="w-4 h-4" :class="isProcessing ? 'animate-spin' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 9.172V5L8 4z" />
-                </svg>
+            <button @click="triggerAutoArrange()" :disabled="isProcessing" class="btn btn-primary">
+                <span :class="isProcessing ? 'animate-spin inline-flex' : 'inline-flex'">{{ icon('refresh-cw', 'w-4 h-4') }}</span>
                 <span x-text="isProcessing ? 'Processing...' : 'Auto-Arrange (AI Proposal)'"></span>
             </button>
             {% endif %}
@@ -365,71 +267,67 @@
         
         <!-- SIDEBAR: Draggable Inventory Pool -->
         <div class="chemical-pool-sidebar">
-            <div class="p-4 border-b border-slate-200 bg-white">
-                <h3 class="font-bold text-slate-800 text-sm">Chemical Pool</h3>
-                <p class="text-[11px] text-slate-500 mt-0.5" x-text="`${filteredPool.length} unplaced chemicals ready`"></p>
+            <div class="p-4 border-b border-steel-200 bg-white">
+                <h3 class="font-semibold text-steel-800 text-sm">Chemical Pool</h3>
+                <p class="text-[11px] text-steel-400 mt-0.5" x-text="`${filteredPool.length} unplaced chemicals ready`"></p>
                 <div class="mt-3 relative">
-                    <input type="text" x-model="searchQuery" placeholder="Filter chemicals..." class="w-full pl-8 pr-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 bg-slate-50">
-                    <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
+                    <input type="text" x-model="searchQuery" placeholder="Filter chemicals..." class="field !text-xs !py-1.5 pl-8">
+                    {{ icon('search', 'absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-steel-300') }}
                 </div>
             </div>
-            
-            <div class="flex-1 overflow-y-auto p-3 space-y-2 bg-slate-50/50">
+
+            <div class="flex-1 overflow-y-auto p-3 space-y-2 bg-workspace">
                 <template x-for="item in filteredPool" :key="item.id">
                     <div :draggable="canMutate ? 'true' : 'false'"
                          @dragstart="canMutate && handleDragStart($event, item)"
                          @dragend="canMutate && handleDragEnd()"
                          :class="canMutate ? 'chem-card cursor-grab' : 'cursor-default opacity-80'"
-                         class="p-3 bg-white border border-slate-200 rounded-xl shadow-sm text-xs flex flex-col gap-1.5 hover:border-blue-400">
-                        <div class="font-semibold text-slate-800 break-words" x-text="item.chemical_name"></div>
-                        <div class="flex justify-between items-center text-[10px] text-slate-500">
-                            <span class="font-mono" x-text="item.cas_number || 'No CAS'"></span>
-                            <span class="font-bold text-indigo-600" x-text="`${item.quantity_kg} kg`"></span>
+                         class="p-3 bg-white border border-steel-200 rounded shadow-sm text-xs flex flex-col gap-1.5">
+                        <div class="font-semibold text-steel-800 break-words" x-text="item.chemical_name"></div>
+                        <div class="flex justify-between items-center text-[10px] text-steel-400">
+                            <span class="data-mono" x-text="item.cas_number || 'No CAS'"></span>
+                            <span class="font-bold text-steel-600 data-mono" x-text="`${item.quantity_kg} kg`"></span>
                         </div>
                         <template x-if="item.reactive_groups && item.reactive_groups.length > 0">
                             <div class="flex flex-wrap gap-1">
                                 <template x-for="grp in item.reactive_groups" :key="grp">
-                                    <span class="bg-indigo-50 text-indigo-700 px-1 py-0.5 rounded font-mono text-[9px]" x-text="`Group ${grp}`"></span>
+                                    <span class="group-tag" x-text="`Group ${grp}`"></span>
                                 </template>
                             </div>
                         </template>
                     </div>
                 </template>
                 <template x-if="filteredPool.length === 0">
-                    <div class="text-center py-12 text-slate-400 text-xs">
-                        <svg class="w-8 h-8 mx-auto mb-2 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                        </svg>
-                        No chemicals available. Add them using the "Add to Ware" option in the analysis page.
+                    <div class="empty-state">
+                        <div class="empty-icon">{{ icon('package', 'w-6 h-6') }}</div>
+                        <h3>No chemicals available</h3>
+                        <p>Add them using the "Add to Warehouse" option on the analysis page.</p>
                     </div>
                 </template>
             </div>
         </div>
 
         <!-- MAIN AREA: Section Drag Targets -->
-        <div class="sections-grid bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div class="sections-grid bg-white border border-steel-200 rounded p-6 shadow-sm">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <template x-for="sec in sections" :key="sec.id">
-                    <div class="section-drop-zone content-card border-2 border-slate-200/80 rounded-2xl p-5 hover:border-slate-300 bg-slate-50/30 flex flex-col min-h-[180px]"
+                    <div class="section-drop-zone p-5 flex flex-col min-h-[180px]"
                          :class="getDragOverClass(sec)"
                          @dragover.prevent="canMutate && handleDragOver($event, sec)"
                          @dragenter.prevent="canMutate && handleDragEnter(sec)"
                          @dragleave="canMutate && handleDragLeave(sec)"
                          @drop="canMutate && handleDrop($event, sec)"
                          @click="openDetailPanel(sec)">
-                        
+
                         <!-- Header -->
-                        <div class="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
+                        <div class="flex items-center justify-between border-b border-steel-100 pb-2 mb-3">
                             <div class="flex items-center gap-2 min-w-0">
-                                <div class="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                                     :class="getSectionDotClass(sec)"></div>
-                                <h3 class="font-bold text-slate-900 text-sm tracking-wide truncate" x-text="sec.name"></h3>
+                                <div class="w-2.5 h-2.5 rounded-sm flex-shrink-0" :class="getSectionDotClass(sec)"></div>
+                                <h3 class="font-semibold text-steel-900 text-sm tracking-wide truncate" x-text="sec.name"></h3>
                             </div>
-                            <span class="text-[10px] bg-slate-100 font-bold px-2 py-0.5 rounded text-slate-600 flex-shrink-0 ml-2" x-text="`${getMergedPlacements(sec).length} items`"></span>
+                            <span class="text-[10px] bg-steel-100 font-bold px-2 py-0.5 rounded text-steel-600 flex-shrink-0 ml-2 data-mono" x-text="`${getMergedPlacements(sec).length} items`"></span>
                         </div>
-                        
+
                         <!-- Chemicals inside Section -->
                         <div class="flex-1 space-y-2">
                             <template x-for="placement in getMergedPlacements(sec)" :key="placement.id">
@@ -437,31 +335,31 @@
                                      @dragstart="canMutate && handleDragStart($event, placement)"
                                      @dragend="canMutate && handleDragEnd()"
                                      @click.stop
-                                     class="p-2 border rounded-lg text-[11px] flex flex-col gap-1 transition"
-                                     :class="placement.status === 'ghost' ? 'bg-amber-50/50 border-amber-300 shadow-sm ghost-item' : 'bg-white border-slate-100 shadow-sm hover:border-slate-200'">
+                                     class="p-2 border rounded text-[11px] flex flex-col gap-1 transition"
+                                     :class="placement.status === 'ghost' ? 'ghost-item' : 'bg-white border-steel-100 shadow-sm hover:border-steel-300'">
                                     <div class="flex justify-between items-start gap-1">
-                                        <span class="font-semibold text-slate-800 truncate flex-1" x-text="placement.chemical_name"></span>
+                                        <span class="font-semibold text-steel-800 truncate flex-1" x-text="placement.chemical_name"></span>
                                         <template x-if="canMutate">
-                                            <button @click.stop="handleUnplace(placement)" class="text-slate-400 hover:text-red-500 font-black text-xs px-1" title="Unplace chemical">✕</button>
+                                            <button @click.stop="handleUnplace(placement)" class="text-steel-400 hover:text-signal px-1" title="Unplace chemical">{{ icon('x', 'w-3.5 h-3.5') }}</button>
                                         </template>
                                     </div>
-                                    <div class="flex justify-between text-[9px] text-slate-400">
-                                        <span x-text="placement.cas_number || 'No CAS'"></span>
-                                        <span class="font-semibold text-indigo-500" x-text="`${placement.quantity_kg} kg`"></span>
+                                    <div class="flex justify-between text-[9px] text-steel-400">
+                                        <span class="data-mono" x-text="placement.cas_number || 'No CAS'"></span>
+                                        <span class="font-semibold text-steel-500 data-mono" x-text="`${placement.quantity_kg} kg`"></span>
                                     </div>
                                 </div>
                             </template>
-                            
+
                             <template x-if="sec.chemicals.length === 0 && (!suggestedLayout || !hasSuggestionFor(sec))">
-                                <div class="h-full flex items-center justify-center py-6 text-slate-300 text-xs border border-dashed border-slate-200 rounded-xl">
+                                <div class="h-full flex items-center justify-center py-6 text-steel-300 text-xs border border-dashed border-steel-200 rounded">
                                     Drop chemical here
                                 </div>
                             </template>
                         </div>
-                        
+
                         <!-- Special Quarantine Badge -->
                         <template x-if="sec.name.toLowerCase().includes('quarantine')">
-                            <div class="mt-3 bg-red-100 text-red-800 text-[10px] font-bold px-2.5 py-1 rounded-lg text-center tracking-wide uppercase">
+                            <div class="mt-3 bg-signal/10 text-signal text-[10px] font-bold px-2.5 py-1 rounded text-center tracking-wide uppercase border border-signal/20">
                                 Default Quarantine Zone
                             </div>
                         </template>
@@ -484,35 +382,31 @@
                 <div class="modal-status-bar" :class="getSectionStatusBarClass()"></div>
 
                 <!-- Modal Header -->
-                <div class="px-6 pt-5 pb-4 border-b border-slate-100">
+                <div class="px-6 pt-5 pb-4 border-b border-steel-100">
                     <div class="flex items-start justify-between gap-4">
                         <div class="flex-1 min-w-0">
                             <!-- Editable section name -->
-                            <div class="flex items-center gap-2 mb-1">
-                                <svg class="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
-                                </svg>
+                            <div class="flex items-center gap-2 mb-1 text-steel-400">
+                                {{ icon('warehouse', 'w-4 h-4 flex-shrink-0') }}
                                 <input type="text" x-model="selectedSectionName"
                                     @blur="renameSection()"
                                     @keyup.enter="$el.blur()"
-                                    class="font-bold text-lg text-slate-900 bg-transparent border-b-2 border-transparent hover:border-slate-200 focus:border-indigo-400 focus:outline-none transition-colors w-full pr-2 py-0.5"
+                                    class="font-bold text-lg text-steel-900 bg-transparent border-b-2 border-transparent hover:border-steel-200 focus:border-steel-500 focus:outline-none transition-colors w-full pr-2 py-0.5"
                                     title="Click to rename section">
                             </div>
                             <!-- Stats row -->
                             <div class="flex flex-wrap items-center gap-2 mt-2">
                                 <span class="status-badge" :class="getSectionStatusBadgeClass()" x-text="getSectionStatusLabel()"></span>
-                                <span class="text-xs text-slate-500" x-text="`${selectedSection?.chemicals?.length || 0} chemical${(selectedSection?.chemicals?.length || 0) !== 1 ? 's' : ''} stored`"></span>
+                                <span class="text-xs text-steel-500" x-text="`${selectedSection?.chemicals?.length || 0} chemical${(selectedSection?.chemicals?.length || 0) !== 1 ? 's' : ''} stored`"></span>
                                 <template x-if="selectedSection?.chemicals?.length >= 2">
-                                    <span class="text-xs text-slate-400">
+                                    <span class="text-xs text-steel-400">
                                         • <span x-text="getSectionPairCount()"></span> reactive pair<span x-text="getSectionPairCount() !== 1 ? 's' : ''"></span> checked
                                     </span>
                                 </template>
                             </div>
                         </div>
-                        <button @click="closeModal()" class="p-2 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition flex-shrink-0 mt-0.5">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                            </svg>
+                        <button @click="closeModal()" class="p-2 hover:bg-steel-100 rounded text-steel-400 hover:text-steel-600 transition flex-shrink-0 mt-0.5">
+                            {{ icon('x', 'w-5 h-5') }}
                         </button>
                     </div>
                 </div>
@@ -522,14 +416,10 @@
 
                     <!-- Empty state -->
                     <template x-if="!selectedSection || selectedSection.chemicals.length === 0">
-                        <div class="flex flex-col items-center justify-center py-16 text-center">
-                            <div class="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
-                                <svg class="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
-                                </svg>
-                            </div>
-                            <p class="text-sm font-semibold text-slate-500">Section is empty</p>
-                            <p class="text-xs text-slate-400 mt-1">Drag chemicals here from the pool to store them.</p>
+                        <div class="empty-state">
+                            <div class="empty-icon">{{ icon('package', 'w-6 h-6') }}</div>
+                            <h3>Section is empty</h3>
+                            <p>Drag chemicals here from the pool to store them.</p>
                         </div>
                     </template>
 
@@ -537,26 +427,26 @@
                     <template x-if="selectedSection && selectedSection.chemicals.length > 0">
                         <div>
                             <div class="flex items-center justify-between mb-3">
-                                <h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest">Stored Chemicals</h4>
-                                <span class="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full font-semibold" x-text="`${selectedSection.chemicals.length} total`"></span>
+                                <h4 class="text-xs font-bold text-steel-400 uppercase tracking-widest">Stored Chemicals</h4>
+                                <span class="text-[10px] text-steel-400 bg-steel-100 px-2 py-0.5 rounded font-semibold data-mono" x-text="`${selectedSection.chemicals.length} total`"></span>
                             </div>
                             <div class="space-y-2.5">
                                 <template x-for="(item, idx) in selectedSection.chemicals" :key="item.id">
                                     <div class="chem-row">
                                         <!-- Index badge -->
-                                        <div class="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                            <span class="text-[10px] font-black text-indigo-600" x-text="idx + 1"></span>
+                                        <div class="w-7 h-7 rounded bg-steel-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                            <span class="text-[10px] font-black text-steel-600 data-mono" x-text="idx + 1"></span>
                                         </div>
                                         <!-- Info -->
                                         <div class="flex-1 min-w-0">
-                                            <p class="font-bold text-sm text-slate-800 leading-tight" x-text="item.chemical_name"></p>
+                                            <p class="font-bold text-sm text-steel-800 leading-tight" x-text="item.chemical_name"></p>
                                             <div class="flex flex-wrap items-center gap-2 mt-1.5">
-                                                <span class="text-[10px] text-slate-500 font-mono" x-text="`CAS: ${item.cas_number || '—'}`"></span>
+                                                <span class="text-[10px] text-steel-500 data-mono" x-text="`CAS: ${item.cas_number || '—'}`"></span>
                                                 <template x-if="item.quantity_kg">
-                                                    <span class="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded" x-text="`${item.quantity_kg} kg`"></span>
+                                                    <span class="text-[10px] font-bold text-steel-600 bg-steel-100 px-1.5 py-0.5 rounded data-mono" x-text="`${item.quantity_kg} kg`"></span>
                                                 </template>
                                                 <template x-if="item.water_reactive">
-                                                    <span class="text-[10px] font-bold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded border border-sky-200">💧 Water-Reactive</span>
+                                                    <span class="inline-flex items-center gap-1 text-[10px] font-bold text-steel-600 bg-steel-100 px-1.5 py-0.5 rounded border border-steel-200">{{ icon('droplet', 'w-3 h-3') }} Water-Reactive</span>
                                                 </template>
                                             </div>
                                             <!-- Reactive groups -->
@@ -568,7 +458,7 @@
                                                 </div>
                                             </template>
                                             <template x-if="!item.reactive_groups || item.reactive_groups.length === 0">
-                                                <span class="inline-block mt-1.5 text-[10px] font-semibold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-200">No Group Data</span>
+                                                <span class="inline-block mt-1.5 text-[10px] font-semibold text-hazard bg-hazard/10 px-1.5 py-0.5 rounded border border-hazard/30">No Group Data</span>
                                             </template>
                                         </div>
                                         <!-- Actions: only shown to users who can mutate -->
@@ -576,18 +466,16 @@
                                             <div class="flex flex-col gap-1.5 flex-shrink-0">
                                                 <button @click="moveBackToSidebar(item.id); selectedSection.chemicals = selectedSection.chemicals.filter(c => c.id !== item.id)"
                                                     title="Return to pool"
-                                                    class="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition border border-transparent hover:border-indigo-200">
-                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    class="p-1.5 rounded text-steel-400 hover:text-steel-600 hover:bg-steel-100 transition border border-transparent hover:border-steel-200">
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
                                                     </svg>
                                                 </button>
                                                 <template x-if="!suggestedLayout">
                                                     <button @click="deletePlacement(item.id)"
                                                         title="Remove from warehouse"
-                                                        class="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition border border-transparent hover:border-red-200">
-                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                                                        </svg>
+                                                        class="p-1.5 rounded text-steel-400 hover:text-signal hover:bg-signal/10 transition border border-transparent hover:border-signal/20">
+                                                        {{ icon('trash-2', 'w-3.5 h-3.5') }}
                                                     </button>
                                                 </template>
                                             </div>
@@ -602,28 +490,28 @@
                     <template x-if="selectedSection && selectedSection.chemicals.length >= 2">
                         <div>
                             <div class="flex items-center justify-between mb-3">
-                                <h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest">Reactivity Matrix</h4>
+                                <h4 class="text-xs font-bold text-steel-400 uppercase tracking-widest">Reactivity Matrix</h4>
                                 <div class="flex items-center gap-2 text-[10px]">
-                                    <span class="matrix-cell bg-emerald-100 text-emerald-700 text-[9px]">✓</span>
-                                    <span class="text-slate-400">Safe</span>
-                                    <span class="matrix-cell bg-amber-100 text-amber-700">C</span>
-                                    <span class="text-slate-400">Caution</span>
-                                    <span class="matrix-cell bg-orange-100 text-orange-700">N</span>
-                                    <span class="text-slate-400">No Data</span>
-                                    <span class="matrix-cell bg-rose-100 text-rose-700">I</span>
-                                    <span class="text-slate-400">Incompatible</span>
+                                    <span class="matrix-cell bg-safe/15 text-safe">S</span>
+                                    <span class="text-steel-400">Safe</span>
+                                    <span class="matrix-cell bg-hazard/15 text-hazard">C</span>
+                                    <span class="text-steel-400">Caution</span>
+                                    <span class="matrix-cell bg-steel-100 text-steel-400">N</span>
+                                    <span class="text-steel-400">No Data</span>
+                                    <span class="matrix-cell bg-signal/15 text-signal">I</span>
+                                    <span class="text-steel-400">Incompatible</span>
                                 </div>
                             </div>
 
-                            <div class="overflow-x-auto rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                            <div class="overflow-x-auto rounded border border-steel-100 bg-workspace p-4">
                                 <table class="border-collapse" style="min-width: 100%">
                                     <thead>
                                         <tr>
                                             <td class="p-1 w-32"></td>
                                             <template x-for="(chem, ci) in selectedSection.chemicals" :key="chem.id">
                                                 <th class="p-1 text-center">
-                                                    <div class="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center mx-auto">
-                                                        <span class="text-[10px] font-black text-indigo-700" x-text="ci + 1"></span>
+                                                    <div class="w-8 h-8 rounded bg-steel-100 flex items-center justify-center mx-auto">
+                                                        <span class="text-[10px] font-black text-steel-600 data-mono" x-text="ci + 1"></span>
                                                     </div>
                                                 </th>
                                             </template>
@@ -634,16 +522,16 @@
                                             <tr>
                                                 <td class="py-1 pr-3">
                                                     <div class="flex items-center gap-2">
-                                                        <div class="w-5 h-5 rounded-md bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                                                            <span class="text-[9px] font-black text-indigo-700" x-text="ri + 1"></span>
+                                                        <div class="w-5 h-5 rounded bg-steel-100 flex items-center justify-center flex-shrink-0">
+                                                            <span class="text-[9px] font-black text-steel-600 data-mono" x-text="ri + 1"></span>
                                                         </div>
-                                                        <span class="text-[11px] font-semibold text-slate-700 truncate max-w-[110px]" :title="rowChem.chemical_name" x-text="rowChem.chemical_name"></span>
+                                                        <span class="text-[11px] font-semibold text-steel-700 truncate max-w-[110px]" :title="rowChem.chemical_name" x-text="rowChem.chemical_name"></span>
                                                     </div>
                                                 </td>
                                                 <template x-for="(colChem, ci) in selectedSection.chemicals" :key="colChem.id">
                                                     <td class="p-1 text-center">
                                                         <template x-if="ri === ci">
-                                                            <div class="matrix-cell bg-slate-100 text-slate-400 mx-auto">—</div>
+                                                            <div class="matrix-cell bg-steel-100 text-steel-300 mx-auto">—</div>
                                                         </template>
                                                         <template x-if="ri !== ci">
                                                             <div class="matrix-cell mx-auto"
@@ -663,10 +551,10 @@
                             <!-- Legend: chemical names -->
                             <div class="mt-3 space-y-1">
                                 <template x-for="(chem, ci) in selectedSection.chemicals" :key="chem.id">
-                                    <div class="flex items-center gap-2 text-[10px] text-slate-500">
-                                        <span class="w-5 h-5 rounded-md bg-indigo-100 flex items-center justify-center font-black text-indigo-700 flex-shrink-0" x-text="ci + 1"></span>
+                                    <div class="flex items-center gap-2 text-[10px] text-steel-500">
+                                        <span class="w-5 h-5 rounded bg-steel-100 flex items-center justify-center font-black text-steel-600 flex-shrink-0 data-mono" x-text="ci + 1"></span>
                                         <span x-text="chem.chemical_name"></span>
-                                        <span class="text-slate-300 font-mono" x-text="`• ${chem.cas_number || 'No CAS'}`"></span>
+                                        <span class="text-steel-300 data-mono" x-text="`• ${chem.cas_number || 'No CAS'}`"></span>
                                     </div>
                                 </template>
                             </div>
@@ -676,11 +564,9 @@
                 </div>
 
                 <!-- Modal Footer -->
-                <div class="px-6 py-4 border-t border-slate-100 bg-slate-50/60 flex items-center justify-between">
-                    <p class="text-[10px] text-slate-400">Click outside or press Esc to close</p>
-                    <button @click="closeModal()" class="px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl hover:bg-slate-700 transition">
-                        Done
-                    </button>
+                <div class="px-6 py-4 border-t border-steel-100 bg-workspace flex items-center justify-between">
+                    <p class="text-[10px] text-steel-400">Click outside or press Esc to close</p>
+                    <button @click="closeModal()" class="btn btn-primary !text-xs">Done</button>
                 </div>
 
             </div>
@@ -689,19 +575,19 @@
 
     <!-- CONFIG SECTIONS MODAL -->
     <div x-show="initModalOpen" x-transition class="fixed inset-0 z-50 flex items-center justify-center p-4" style="display:none;">
-        <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" @click="initModalOpen = false"></div>
-        <div class="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl p-6 border border-slate-100" @click.stop>
-            <h3 class="text-base font-bold text-slate-900 mb-2">Configure Warehouse Sections</h3>
-            <p class="text-xs text-slate-500 mb-4 leading-relaxed">
+        <div class="absolute inset-0 bg-steel-900/50" @click="initModalOpen = false"></div>
+        <div class="relative w-full max-w-sm bg-white rounded shadow-elevated p-6 border border-steel-200" @click.stop>
+            <h3 class="text-base font-bold text-steel-900 mb-2">Configure Warehouse Sections</h3>
+            <p class="text-xs text-steel-500 mb-4 leading-relaxed">
                 Enter the number of sections in your warehouse. Setting this will clear all current sections and reset placements.
             </p>
             <div class="mb-4">
-                <label class="block text-xs font-semibold text-slate-500 mb-1">Number of Sections (1-50)</label>
-                <input type="number" min="1" max="50" x-model="initCount" class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm">
+                <label class="block text-xs font-semibold text-steel-400 mb-1">Number of Sections (1-50)</label>
+                <input type="number" min="1" max="50" x-model="initCount" class="field">
             </div>
-            <div class="flex justify-end gap-2 text-xs font-semibold">
-                <button @click="initModalOpen = false" class="px-4 py-2 border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition">Cancel</button>
-                <button @click="saveSectionsInit()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">Confirm Reset</button>
+            <div class="flex justify-end gap-2">
+                <button @click="initModalOpen = false" class="btn btn-ghost">Cancel</button>
+                <button @click="saveSectionsInit()" class="btn btn-primary">Confirm Reset</button>
             </div>
         </div>
     </div>
@@ -959,35 +845,35 @@
 
             getSectionStatusBadgeClass() {
                 const s = this.getSectionOverallStatus();
-                if (s === 'INCOMPATIBLE') return 'bg-rose-100 text-rose-700';
-                if (s === 'NO_DATA')      return 'bg-orange-100 text-orange-700';
-                if (s === 'CAUTION')      return 'bg-amber-100 text-amber-700';
-                if (s === 'EMPTY')        return 'bg-slate-100 text-slate-500';
-                return 'bg-emerald-100 text-emerald-700';
+                if (s === 'INCOMPATIBLE') return 'bg-signal/15 text-signal';
+                if (s === 'NO_DATA')      return 'bg-steel-100 text-steel-400';
+                if (s === 'CAUTION')      return 'bg-hazard/15 text-hazard';
+                if (s === 'EMPTY')        return 'bg-steel-100 text-steel-400';
+                return 'bg-safe/15 text-safe';
             },
 
             getSectionStatusLabel() {
                 const s = this.getSectionOverallStatus();
-                const map = { INCOMPATIBLE: '⛔ Incompatible', NO_DATA: '🟠 Unknown Data', CAUTION: '⚠️ Caution', EMPTY: 'Empty', COMPATIBLE: '✅ All Compatible' };
+                const map = { INCOMPATIBLE: 'Incompatible', NO_DATA: 'Unknown Data', CAUTION: 'Caution', EMPTY: 'Empty', COMPATIBLE: 'All Compatible' };
                 return map[s] || s;
             },
 
             getSectionDotClass(sec) {
                 const chems = this.getMergedPlacements(sec);
-                if (chems.length === 0) return 'bg-slate-300';
-                if (chems.length === 1) return 'bg-emerald-400';
+                if (chems.length === 0) return 'bg-steel-300';
+                if (chems.length === 1) return 'bg-safe';
                 let worst = 'COMPATIBLE';
                 for (let i = 0; i < chems.length; i++) {
                     for (let j = i + 1; j < chems.length; j++) {
                         const s = this.getPairStatus(chems[i], chems[j]);
-                        if (s === 'INCOMPATIBLE') return 'bg-rose-500';
+                        if (s === 'INCOMPATIBLE') return 'bg-signal';
                         if (s === 'NO_DATA' && worst !== 'INCOMPATIBLE') worst = 'NO_DATA';
                         if (s === 'CAUTION' && worst === 'COMPATIBLE') worst = 'CAUTION';
                     }
                 }
-                if (worst === 'NO_DATA') return 'bg-orange-400';
-                if (worst === 'CAUTION') return 'bg-amber-400';
-                return 'bg-emerald-400';
+                if (worst === 'NO_DATA') return 'bg-steel-400';
+                if (worst === 'CAUTION') return 'bg-hazard';
+                return 'bg-safe';
             },
 
             getSectionPairCount() {
@@ -997,10 +883,10 @@
 
             getMatrixCellClass(c1, c2) {
                 const s = this.getPairStatus(c1, c2);
-                if (s === 'INCOMPATIBLE') return 'bg-rose-100 text-rose-700';
-                if (s === 'NO_DATA')      return 'bg-orange-100 text-orange-700';
-                if (s === 'CAUTION')      return 'bg-amber-100 text-amber-700';
-                return 'bg-emerald-100 text-emerald-700';
+                if (s === 'INCOMPATIBLE') return 'bg-signal/15 text-signal';
+                if (s === 'NO_DATA')      return 'bg-steel-100 text-steel-400';
+                if (s === 'CAUTION')      return 'bg-hazard/15 text-hazard';
+                return 'bg-safe/15 text-safe';
             },
 
             async renameSection() {
@@ -1046,13 +932,13 @@
                 const tip = document.getElementById('drag-tooltip');
                 if (tip && this.draggedItem) {
                     const status = this.evalCompatibility(this.draggedItem, sec);
-                    let text = 'Safe to store here ✅';
+                    let text = 'SAFE — compatible with items in this section.';
                     if (status === 'INCOMPATIBLE') {
-                        text = '❌ Incompatible! Severe reaction with items in section.';
+                        text = 'INCOMPATIBLE — severe reaction with items in section. Blocked.';
                     } else if (status === 'CAUTION') {
-                        text = '⚠️ Caution: Check SDS. separation suggested.';
+                        text = 'CAUTION — check SDS, separation suggested.';
                     } else if (status === 'NO_DATA') {
-                        text = '🍊 Unknown: No reactivity data available (Quarantine).';
+                        text = 'NO DATA — no reactivity data available (quarantine).';
                     }
                     tip.innerHTML = text;
                     tip.style.left = (e.clientX + 12) + 'px';
@@ -1419,7 +1305,7 @@
                 if (s === 'INCOMPATIBLE') return 'I';
                 if (s === 'NO_DATA')      return 'N';
                 if (s === 'CAUTION')      return 'C';
-                return '✓';
+                return 'S';
             }
         }
     }

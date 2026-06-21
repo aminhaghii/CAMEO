@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full bg-slate-50">
+<html lang="en" class="h-full bg-[#F5F6F7]">
 
 <head>
     <meta charset="UTF-8">
@@ -47,20 +47,20 @@
 
         /* Input overrides matching the screenshot */
         .luxury-input {
-            border: 1px solid #e2e8f0;
+            border: 1px solid #E2E5E9;
             background: white;
-            color: #0f172a;
+            color: #1B1F24;
             transition: all 0.2s ease;
         }
 
         .luxury-input:focus {
-            border-color: #0ea5e9;
-            box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+            border-color: #3B5566;
+            box-shadow: 0 0 0 3px rgba(59,85,102,0.15);
             outline: none;
         }
 
         .luxury-input::placeholder {
-            color: #94a3b8;
+            color: #5A6470;
             font-weight: 400;
         }
     </style>
@@ -72,7 +72,7 @@
 
         <!-- Left Side: Login Form -->
         <div
-            class="flex flex-1 flex-col justify-center px-4 py-12 sm:px-6 lg:flex-none lg:w-[45%] xl:w-[40%] bg-slate-50 relative">
+            class="flex flex-1 flex-col justify-center px-4 py-12 sm:px-6 lg:flex-none lg:w-[45%] xl:w-[40%] bg-[#F5F6F7] relative">
 
             <!-- Logo (Top Left) -->
             <div class="absolute top-8 left-8 sm:top-5 sm:left-12">
@@ -86,7 +86,7 @@
             <div class="mx-auto w-full max-w-[420px] pt-16 lg:pt-0">
 
                 <div
-                    class="bg-white px-8 py-10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-3xl border border-slate-100/60 transition-all">
+                    class="bg-white px-8 py-10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-sm border border-slate-100/60 transition-all">
 
                     <!-- Form Header -->
                     <div class="mb-8">
@@ -99,15 +99,15 @@
                         <div>
                             <!-- Error Alert -->
                             <div x-show="error" x-transition
-                                class="mb-5 rounded-xl bg-red-50 border border-red-200 p-3">
+                                class="mb-5 rounded-sm bg-[#F7E2DF] border border-[#C0392B]/30 p-3">
                                 <div class="flex items-center gap-2">
-                                    <svg class="w-5 h-5 text-red-500 flex-shrink-0" fill="currentColor"
+                                    <svg class="w-5 h-5 text-[#C0392B] flex-shrink-0" fill="currentColor"
                                         viewBox="0 0 20 20">
                                         <path fill-rule="evenodd"
                                             d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
                                             clip-rule="evenodd" />
                                     </svg>
-                                    <p class="text-red-700 text-sm font-medium" x-text="error"></p>
+                                    <p class="text-[#C0392B] text-sm font-medium" x-text="error"></p>
                                 </div>
                             </div>
 
@@ -127,7 +127,7 @@
                                             </svg>
                                         </div>
                                         <input type="email" x-model="email" required
-                                            class="luxury-input w-full rounded-lg py-3 pl-10 pr-4 text-[13px]"
+                                            class="luxury-input w-full rounded-sm py-3 pl-10 pr-4 text-[13px]"
                                             placeholder="you@safeware.com" autocomplete="email">
                                     </div>
                                 </div>
@@ -146,7 +146,7 @@
                                             </svg>
                                         </div>
                                         <input :type="showPassword ? 'text' : 'password'" x-model="password" required
-                                            class="luxury-input w-full rounded-lg py-3 pl-10 pr-10 text-[13px]"
+                                            class="luxury-input w-full rounded-sm py-3 pl-10 pr-10 text-[13px]"
                                             placeholder="Enter your password" autocomplete="current-password">
                                         <button type="button" @click="showPassword = !showPassword"
                                             class="absolute inset-y-0 right-0 flex items-center pr-3.5 text-slate-400 hover:text-slate-600 transition">
@@ -168,7 +168,7 @@
 
                                 <!-- Submit Button -->
                                 <button type="submit"
-                                    class="w-full flex items-center justify-center gap-2 rounded-lg bg-[#004c66] px-4 py-3.5 text-sm font-semibold text-white shadow-md hover:bg-[#003d52] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 transition-all mt-6"
+                                    class="w-full flex items-center justify-center gap-2 rounded-sm bg-[#3B5566] px-4 py-3.5 text-sm font-semibold text-white shadow-md hover:bg-[#313842] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 transition-all mt-6"
                                     :disabled="state === 'loading'">
                                     <template x-if="state === 'loading'">
                                         <div class="spinner"></div>
@@ -199,8 +199,8 @@
                     <template x-if="state === 'pending'">
                         <div class="text-center py-4" x-transition>
                             <div
-                                class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-50 border border-amber-100 mb-4">
-                                <svg class="w-8 h-8 text-amber-500" fill="none" stroke="currentColor"
+                                class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#FBF1DF] border border-[#E8A33D]/30 mb-4">
+                                <svg class="w-8 h-8 text-[#E8A33D]" fill="none" stroke="currentColor"
                                     viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                                         d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -210,7 +210,7 @@
                             <p class="text-slate-500 text-[13px]">Your account is awaiting approval from your
                                 administrator.</p>
                             <button @click="state='idle'; error=null"
-                                class="mt-6 text-blue-600 hover:text-blue-500 text-sm font-medium transition">
+                                class="mt-6 text-[#3B5566] hover:text-[#313842] text-sm font-medium transition">
                                 ← Back to Login
                             </button>
                         </div>
@@ -220,8 +220,8 @@
                     <template x-if="state === 'locked'">
                         <div class="text-center py-4" x-transition>
                             <div
-                                class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-50 border border-red-100 mb-4">
-                                <svg class="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#F7E2DF] border border-[#C0392B]/20 mb-4">
+                                <svg class="w-8 h-8 text-[#C0392B]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                                         d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
                                 </svg>
@@ -229,7 +229,7 @@
                             <h3 class="text-xl font-[500] text-slate-800 mb-2">Account Locked</h3>
                             <p class="text-slate-500 text-[13px]">Too many failed attempts. Please try again later.</p>
                             <button @click="state='idle'; error=null"
-                                class="mt-6 text-blue-600 hover:text-blue-500 text-sm font-medium transition">
+                                class="mt-6 text-[#3B5566] hover:text-[#313842] text-sm font-medium transition">
                                 ← Back to Login
                             </button>
                         </div>

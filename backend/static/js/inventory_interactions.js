@@ -128,9 +128,9 @@ function importApp() {
 
         statusChipClass(matchStatus) {
             const b = this.statusBucket(matchStatus);
-            if (b === 'CONFIRMED') return 'bg-emerald-100 text-emerald-700';
-            if (b === 'REVIEW') return 'bg-amber-100 text-amber-700';
-            return 'bg-rose-100 text-rose-700';
+            if (b === 'CONFIRMED') return 'bg-safe/15 text-safe';
+            if (b === 'REVIEW') return 'bg-hazard/15 text-hazard';
+            return 'bg-signal/15 text-signal';
         },
 
         setFilter(filter) {

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon %}
 
 {% block title %}{{ chemical.name if chemical else 'Chemical Detail' }} - SAFEWARE Chemicals{% endblock %}
 
@@ -126,10 +127,10 @@ confined spaces.'},
 {% endif %}
 {% if not chemical %}
 <div class="max-w-5xl mx-auto px-4 py-12">
-    <div class="bg-white rounded-xl shadow-lg p-8 text-center">
-        <h1 class="text-3xl font-bold text-slate-900 mb-4">Chemical Not Found</h1>
-        <p class="text-slate-600 mb-6">The requested chemical could not be found in the database.</p>
-        <a href="/" class="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+    <div class="bg-white rounded-sm shadow-lg p-8 text-center">
+        <h1 class="text-3xl font-bold text-steel-900 mb-4">Chemical Not Found</h1>
+        <p class="text-steel-600 mb-6">The requested chemical could not be found in the database.</p>
+        <a href="/" class="inline-flex items-center px-6 py-3 bg-steel-600 text-white rounded-sm hover:bg-steel-700">
             ← Back to Mixer
         </a>
     </div>
@@ -138,23 +139,23 @@ confined spaces.'},
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6" x-data="{ activeTab: 'general' }">
 
     <!-- Sticky Header -->
-    <div class="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-sm mb-6 -mx-4 px-4 py-4">
+    <div class="sticky top-0 z-40 bg-white border-b border-steel-200 shadow-sm mb-6 -mx-4 px-4 py-4">
         <div class="max-w-7xl mx-auto">
             <div class="flex items-start justify-between gap-4">
                 <div class="flex-1">
                     <div class="flex items-center gap-3 mb-2">
-                        <a href="/" class="text-blue-600 hover:text-blue-700 text-sm font-medium">
+                        <a href="/" class="text-steel-600 hover:text-steel-700 text-sm font-medium">
                             ← Back
                         </a>
                     </div>
-                    <h1 class="text-3xl font-bold text-slate-900 mb-3">{{ chemical.name }}</h1>
+                    <h1 class="text-3xl font-bold text-steel-900 mb-3">{{ chemical.name }}</h1>
 
                     <!-- Badges -->
                     <div class="flex flex-wrap gap-2">
                         {% if chemical.cas_numbers %}
                         {% for cas in chemical.cas_numbers %}
                         <span
-                            class="inline-flex items-center gap-1 px-3 py-1 bg-blue-50 text-blue-700 text-sm font-medium rounded-full border border-blue-200">
+                            class="inline-flex items-center gap-1 px-3 py-1 bg-steel-50 text-steel-700 text-sm font-medium rounded-full border border-steel-200">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
@@ -166,7 +167,7 @@ confined spaces.'},
                         {% if chemical.un_numbers %}
                         {% for un in chemical.un_numbers %}
                         <span
-                            class="inline-flex items-center gap-1 px-3 py-1 bg-orange-50 text-orange-700 text-sm font-medium rounded-full border border-orange-200">
+                            class="inline-flex items-center gap-1 px-3 py-1 bg-hazard/10 text-hazard text-sm font-medium rounded-full border border-hazard/30">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
@@ -177,7 +178,7 @@ confined spaces.'},
                         {% endif %}
                         {% if chemical.dot_labels %}
                         <span
-                            class="inline-flex items-center gap-1 px-3 py-1 bg-red-50 text-red-700 text-sm font-medium rounded-full border border-red-200">
+                            class="inline-flex items-center gap-1 px-3 py-1 bg-signal/10 text-signal text-sm font-medium rounded-full border border-signal/30">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -191,7 +192,7 @@ confined spaces.'},
                 <!-- Action Buttons -->
                 <div class="flex gap-2">
                     <button
-                        class="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 text-sm font-medium">
+                        class="px-4 py-2 bg-steel-100 text-steel-700 rounded-sm hover:bg-steel-200 text-sm font-medium">
                         Print
                     </button>
                 </div>
@@ -201,8 +202,8 @@ confined spaces.'},
 
     <!-- NFPA Diamond Section -->
     {% if chemical.nfpa_health is not none or chemical.nfpa_flam is not none or chemical.nfpa_react is not none %}
-    <div class="bg-gradient-to-br from-slate-50 to-blue-50 rounded-xl p-6 mb-6 border border-slate-200">
-        <h2 class="text-lg font-semibold text-slate-900 mb-4">NFPA 704 Diamond</h2>
+    <div class="">
+        <h2 class="text-lg font-semibold text-steel-900 mb-4">NFPA 704 Diamond</h2>
         <div class="nfpa-flex">
             <!-- Visual Diamond -->
             <div class="nfpa-diamond-wrapper">
@@ -225,20 +226,20 @@ confined spaces.'},
             <!-- Legend -->
             <div class="nfpa-legend">
                 <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 bg-blue-500 rounded flex items-center justify-center text-white font-bold">{{
+                    <div class="w-8 h-8 bg-steel-500 rounded flex items-center justify-center text-white font-bold">{{
                         chemical.nfpa_health if chemical.nfpa_health is not none else '?' }}</div>
                     <div>
-                        <p class="text-sm font-semibold text-slate-900">Health</p>
-                        <p class="text-xs text-slate-600">{{ chemical.nfpa_source if chemical.nfpa_source else 'Not
+                        <p class="text-sm font-semibold text-steel-900">Health</p>
+                        <p class="text-xs text-steel-600">{{ chemical.nfpa_source if chemical.nfpa_source else 'Not
                             specified' }}</p>
                     </div>
                 </div>
                 <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 bg-red-500 rounded flex items-center justify-center text-white font-bold">{{
+                    <div class="w-8 h-8 bg-signal rounded flex items-center justify-center text-white font-bold">{{
                         chemical.nfpa_flam if chemical.nfpa_flam is not none else '?' }}</div>
                     <div>
-                        <p class="text-sm font-semibold text-slate-900">Flammability</p>
-                        <p class="text-xs text-slate-600">Flash Point: {{ chemical.fp_value }}°F{% if chemical.fp_range
+                        <p class="text-sm font-semibold text-steel-900">Flammability</p>
+                        <p class="text-xs text-steel-600">Flash Point: {{ chemical.fp_value }}°F{% if chemical.fp_range
                             %} ({{ chemical.fp_range }}){% endif %}</p>
                     </div>
                 </div>
@@ -246,19 +247,19 @@ confined spaces.'},
                     <div class="w-8 h-8 bg-yellow-500 rounded flex items-center justify-center text-white font-bold">{{
                         chemical.nfpa_react if chemical.nfpa_react is not none else '?' }}</div>
                     <div>
-                        <p class="text-sm font-semibold text-slate-900">Instability</p>
-                        <p class="text-xs text-slate-600">Instability hazard</p>
+                        <p class="text-sm font-semibold text-steel-900">Instability</p>
+                        <p class="text-xs text-steel-600">Instability hazard</p>
                     </div>
                 </div>
                 {% if chemical.nfpa_special %}
                 <div class="flex items-center gap-3">
                     <div
-                        class="w-8 h-8 bg-white border-2 border-slate-300 rounded flex items-center justify-center text-slate-900 font-bold {{ 'nfpa-special-water' if nfpa_special_code == 'W' }}">
+                        class="w-8 h-8 bg-white border-2 border-steel-300 rounded flex items-center justify-center text-steel-900 font-bold {{ 'nfpa-special-water' if nfpa_special_code == 'W' }}">
                         <span style="transform:none;">{{ nfpa_special_code }}</span>
                     </div>
                     <div>
-                        <p class="text-sm font-semibold text-slate-900">Special</p>
-                        <p class="text-xs text-slate-600">{{ nfpa_special_description }}</p>
+                        <p class="text-sm font-semibold text-steel-900">Special</p>
+                        <p class="text-xs text-steel-600">{{ nfpa_special_description }}</p>
                     </div>
                 </div>
                 {% endif %}
@@ -268,40 +269,40 @@ confined spaces.'},
     {% endif %}
 
     <!-- Tabs Navigation -->
-    <div class="border-b border-slate-200 mb-6">
+    <div class="border-b border-steel-200 mb-6">
         <nav class="flex gap-1" aria-label="Tabs">
             <button @click="activeTab = 'general'"
-                :class="activeTab === 'general' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'"
+                :class="activeTab === 'general' ? 'border-steel-500 text-steel-600' : 'border-transparent text-steel-500 hover:text-steel-700 hover:border-steel-300'"
                 class="px-4 py-3 border-b-2 font-medium text-sm transition">
                 General Info
             </button>
             <button @click="activeTab = 'hazards'"
-                :class="activeTab === 'hazards' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'"
+                :class="activeTab === 'hazards' ? 'border-steel-500 text-steel-600' : 'border-transparent text-steel-500 hover:text-steel-700 hover:border-steel-300'"
                 class="px-4 py-3 border-b-2 font-medium text-sm transition">
                 Hazards
             </button>
             <button @click="activeTab = 'response'"
-                :class="activeTab === 'response' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'"
+                :class="activeTab === 'response' ? 'border-steel-500 text-steel-600' : 'border-transparent text-steel-500 hover:text-steel-700 hover:border-steel-300'"
                 class="px-4 py-3 border-b-2 font-medium text-sm transition">
                 Response
             </button>
             <button @click="activeTab = 'physical'"
-                :class="activeTab === 'physical' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'"
+                :class="activeTab === 'physical' ? 'border-steel-500 text-steel-600' : 'border-transparent text-steel-500 hover:text-steel-700 hover:border-steel-300'"
                 class="px-4 py-3 border-b-2 font-medium text-sm transition">
                 Physical Properties
             </button>
             <button @click="activeTab = 'regulatory'"
-                :class="activeTab === 'regulatory' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'"
+                :class="activeTab === 'regulatory' ? 'border-steel-500 text-steel-600' : 'border-transparent text-steel-500 hover:text-steel-700 hover:border-steel-300'"
                 class="px-4 py-3 border-b-2 font-medium text-sm transition">
                 Regulatory
             </button>
             <button @click="activeTab = 'reactivity'"
-                :class="activeTab === 'reactivity' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'"
+                :class="activeTab === 'reactivity' ? 'border-steel-500 text-steel-600' : 'border-transparent text-steel-500 hover:text-steel-700 hover:border-steel-300'"
                 class="px-4 py-3 border-b-2 font-medium text-sm transition">
                 Reactivity
             </button>
             <button @click="activeTab = 'eu_compliance'"
-                :class="activeTab === 'eu_compliance' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'"
+                :class="activeTab === 'eu_compliance' ? 'border-steel-500 text-steel-600' : 'border-transparent text-steel-500 hover:text-steel-700 hover:border-steel-300'"
                 class="px-4 py-3 border-b-2 font-medium text-sm transition">
                 EU Compliance
             </button>
@@ -313,18 +314,18 @@ confined spaces.'},
         <!-- General Info Tab -->
         <div x-show="activeTab === 'general'" class="space-y-6">
             {% if chemical.description %}
-            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                <h3 class="text-lg font-semibold text-slate-900 mb-3">Description</h3>
-                <p class="text-slate-700 leading-relaxed">{{ chemical.description }}</p>
+            <div class="bg-white rounded-sm shadow-sm border border-steel-200 p-6">
+                <h3 class="text-lg font-semibold text-steel-900 mb-3">Description</h3>
+                <p class="text-steel-700 leading-relaxed">{{ chemical.description }}</p>
             </div>
             {% endif %}
 
             {% if chemical.synonyms %}
-            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                <h3 class="text-lg font-semibold text-slate-900 mb-3">Synonyms</h3>
+            <div class="bg-white rounded-sm shadow-sm border border-steel-200 p-6">
+                <h3 class="text-lg font-semibold text-steel-900 mb-3">Synonyms</h3>
                 <div class="flex flex-wrap gap-2">
                     {% for synonym in chemical.synonyms.split('|') %}
-                    <span class="px-3 py-1 bg-slate-100 text-slate-700 text-sm rounded-full">{{ synonym.strip()
+                    <span class="px-3 py-1 bg-steel-100 text-steel-700 text-sm rounded-full">{{ synonym.strip()
                         }}</span>
                     {% endfor %}
                 </div>
@@ -332,22 +333,22 @@ confined spaces.'},
             {% endif %}
 
             {% if chemical.formulas %}
-            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                <h3 class="text-lg font-semibold text-slate-900 mb-3">Chemical Formula</h3>
-                <p class="text-2xl font-mono text-blue-600">{{ chemical.formulas }}</p>
+            <div class="bg-white rounded-sm shadow-sm border border-steel-200 p-6">
+                <h3 class="text-lg font-semibold text-steel-900 mb-3">Chemical Formula</h3>
+                <p class="text-2xl font-mono text-steel-600">{{ chemical.formulas }}</p>
                 {% if chemical.molwgt_value %}
-                <p class="text-sm text-slate-600 mt-2">Molecular Weight: {{ chemical.molwgt_value }} g/mol</p>
+                <p class="text-sm text-steel-600 mt-2">Molecular Weight: {{ chemical.molwgt_value }} g/mol</p>
                 {% endif %}
             </div>
             {% endif %}
 
             {% if chemical.icsc_codes %}
-            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                <h3 class="text-lg font-semibold text-slate-900 mb-3">International Chemical Safety Cards (ICSC)</h3>
+            <div class="bg-white rounded-sm shadow-sm border border-steel-200 p-6">
+                <h3 class="text-lg font-semibold text-steel-900 mb-3">International Chemical Safety Cards (ICSC)</h3>
                 <div class="space-y-2">
                     {% for icsc in chemical.icsc_codes %}
                     <a href="https://www.ilo.org/dyn/icsc/showcard.display?p_card_id={{ icsc.code }}" target="_blank"
-                        rel="noopener" class="flex items-center gap-2 text-blue-600 hover:text-blue-700">
+                        rel="noopener" class="flex items-center gap-2 text-steel-600 hover:text-steel-700">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -360,9 +361,9 @@ confined spaces.'},
             {% endif %}
 
             {% if chemical.chris_codes %}
-            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                <h3 class="text-lg font-semibold text-slate-900 mb-3">CHRIS Code</h3>
-                <p class="text-slate-700">{{ chemical.chris_codes }}</p>
+            <div class="bg-white rounded-sm shadow-sm border border-steel-200 p-6">
+                <h3 class="text-lg font-semibold text-steel-900 mb-3">CHRIS Code</h3>
+                <p class="text-steel-700">{{ chemical.chris_codes }}</p>
             </div>
             {% endif %}
         </div>
@@ -370,52 +371,52 @@ confined spaces.'},
         <!-- Hazards Tab -->
         <div x-show="activeTab === 'hazards'" class="space-y-6">
             {% if chemical.special_hazards %}
-            <div class="bg-red-50 border-l-4 border-red-500 rounded-lg p-6">
+            <div class="bg-signal/10 border-l-4 border-signal/30 rounded-sm p-6">
                 <div class="flex items-start gap-3">
-                    <svg class="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor"
+                    <svg class="w-6 h-6 text-signal flex-shrink-0 mt-0.5" fill="none" stroke="currentColor"
                         viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
                     <div>
-                        <h3 class="text-lg font-semibold text-red-900 mb-2">⚠️ Special Hazards</h3>
-                        <p class="text-red-800">{{ chemical.special_hazards }}</p>
+                        <h3 class="text-lg font-semibold text-signal mb-2 flex items-center gap-2">{{ icon("triangle-alert","w-5 h-5") }} Special Hazards</h3>
+                        <p class="text-signal">{{ chemical.special_hazards }}</p>
                     </div>
                 </div>
             </div>
             {% endif %}
 
             {% if chemical.health_haz %}
-            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                <h3 class="text-lg font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                    <span class="text-2xl">🏥</span>
+            <div class="bg-white rounded-sm shadow-sm border border-steel-200 p-6">
+                <h3 class="text-lg font-semibold text-steel-900 mb-3 flex items-center gap-2">
+                    <span class="text-steel-500">{{ icon("cross","w-6 h-6") }}</span>
                     Health Hazards
                 </h3>
-                <p class="text-slate-700 leading-relaxed whitespace-pre-wrap">{{ chemical.health_haz }}</p>
+                <p class="text-steel-700 leading-relaxed whitespace-pre-wrap">{{ chemical.health_haz }}</p>
             </div>
             {% endif %}
 
             {% if chemical.fire_haz %}
-            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                <h3 class="text-lg font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                    <span class="text-2xl">🔥</span>
+            <div class="bg-white rounded-sm shadow-sm border border-steel-200 p-6">
+                <h3 class="text-lg font-semibold text-steel-900 mb-3 flex items-center gap-2">
+                    <span class="text-steel-500">{{ icon("flame","w-6 h-6") }}</span>
                     Fire Hazards
                 </h3>
-                <p class="text-slate-700 leading-relaxed whitespace-pre-wrap">{{ chemical.fire_haz }}</p>
+                <p class="text-steel-700 leading-relaxed whitespace-pre-wrap">{{ chemical.fire_haz }}</p>
             </div>
             {% endif %}
 
             {% if chemical.air_water_reactions %}
-            <div class="bg-blue-50 border-l-4 border-blue-500 rounded-lg p-6">
-                <h3 class="text-lg font-semibold text-blue-900 mb-3">Air & Water Reactions</h3>
-                <p class="text-blue-800">{{ chemical.air_water_reactions }}</p>
+            <div class="bg-steel-50 border-l-4 border-steel-500 rounded-sm p-6">
+                <h3 class="text-lg font-semibold text-steel-900 mb-3">Air & Water Reactions</h3>
+                <p class="text-steel-800">{{ chemical.air_water_reactions }}</p>
             </div>
             {% endif %}
 
             {% if chemical.chemical_profile %}
-            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                <h3 class="text-lg font-semibold text-slate-900 mb-3">Chemical Profile</h3>
-                <p class="text-slate-700 leading-relaxed whitespace-pre-wrap">{{ chemical.chemical_profile }}</p>
+            <div class="bg-white rounded-sm shadow-sm border border-steel-200 p-6">
+                <h3 class="text-lg font-semibold text-steel-900 mb-3">Chemical Profile</h3>
+                <p class="text-steel-700 leading-relaxed whitespace-pre-wrap">{{ chemical.chemical_profile }}</p>
             </div>
             {% endif %}
         </div>
@@ -423,16 +424,16 @@ confined spaces.'},
         <!-- Response Tab -->
         <div x-show="activeTab === 'response'" class="space-y-6">
             {% if chemical.erg_guide %}
-            <div class="bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 rounded-xl p-6">
+            <div class="bg-gradient-to-r from-orange-50 to-red-50 border border-hazard/30 rounded-sm p-6">
                 <div class="flex items-center justify-between">
                     <div>
-                        <h3 class="text-lg font-semibold text-orange-900 mb-2">Emergency Response Guidebook</h3>
-                        <p class="text-orange-700">ERG Guide Number: <span class="font-bold text-xl">{{
+                        <h3 class="text-lg font-semibold text-hazard mb-2">Emergency Response Guidebook</h3>
+                        <p class="text-hazard">ERG Guide Number: <span class="font-bold text-xl">{{
                                 chemical.erg_guide }}</span></p>
                     </div>
                     <a href="https://www.phmsa.dot.gov/sites/phmsa.dot.gov/files/docs/ERG2020.pdf#page={{ (chemical.erg_guide | int) + 100 }}"
                         target="_blank" rel="noopener"
-                        class="px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-semibold flex items-center gap-2">
+                        class="px-6 py-3 bg-hazard text-steel-900 rounded-sm hover:opacity-90 font-semibold flex items-center gap-2">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -444,163 +445,163 @@ confined spaces.'},
             {% endif %}
 
             {% if chemical.isolation %}
-            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                <h3 class="text-lg font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                    <span class="text-2xl">🚧</span>
+            <div class="bg-white rounded-sm shadow-sm border border-steel-200 p-6">
+                <h3 class="text-lg font-semibold text-steel-900 mb-3 flex items-center gap-2">
+                    <span class="text-steel-500">{{ icon("triangle-alert","w-6 h-6") }}</span>
                     Isolation and Evacuation
                 </h3>
-                <p class="text-slate-700 leading-relaxed whitespace-pre-wrap">{{ chemical.isolation }}</p>
+                <p class="text-steel-700 leading-relaxed whitespace-pre-wrap">{{ chemical.isolation }}</p>
             </div>
             {% endif %}
 
             {% if chemical.fire_fight %}
-            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                <h3 class="text-lg font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                    <span class="text-2xl">🧯</span>
+            <div class="bg-white rounded-sm shadow-sm border border-steel-200 p-6">
+                <h3 class="text-lg font-semibold text-steel-900 mb-3 flex items-center gap-2">
+                    <span class="text-steel-500">{{ icon("flame","w-6 h-6") }}</span>
                     Firefighting
                 </h3>
-                <p class="text-slate-700 leading-relaxed whitespace-pre-wrap">{{ chemical.fire_fight }}</p>
+                <p class="text-steel-700 leading-relaxed whitespace-pre-wrap">{{ chemical.fire_fight }}</p>
             </div>
             {% endif %}
 
             {% if chemical.non_fire_resp %}
-            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                <h3 class="text-lg font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                    <span class="text-2xl">🧪</span>
+            <div class="bg-white rounded-sm shadow-sm border border-steel-200 p-6">
+                <h3 class="text-lg font-semibold text-steel-900 mb-3 flex items-center gap-2">
+                    <span class="text-steel-500">{{ icon("flask-conical","w-6 h-6") }}</span>
                     Non-Fire Response
                 </h3>
-                <p class="text-slate-700 leading-relaxed whitespace-pre-wrap">{{ chemical.non_fire_resp }}</p>
+                <p class="text-steel-700 leading-relaxed whitespace-pre-wrap">{{ chemical.non_fire_resp }}</p>
             </div>
             {% endif %}
 
             {% if chemical.first_aid %}
-            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                <h3 class="text-lg font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                    <span class="text-2xl">🚑</span>
+            <div class="bg-white rounded-sm shadow-sm border border-steel-200 p-6">
+                <h3 class="text-lg font-semibold text-steel-900 mb-3 flex items-center gap-2">
+                    <span class="text-steel-500">{{ icon("cross","w-6 h-6") }}</span>
                     First Aid
                 </h3>
-                <p class="text-slate-700 leading-relaxed whitespace-pre-wrap">{{ chemical.first_aid }}</p>
+                <p class="text-steel-700 leading-relaxed whitespace-pre-wrap">{{ chemical.first_aid }}</p>
             </div>
             {% endif %}
 
             {% if chemical.prot_clothing %}
-            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                <h3 class="text-lg font-semibold text-slate-900 mb-3">Protective Clothing</h3>
-                <p class="text-slate-700 leading-relaxed">{{ chemical.prot_clothing }}</p>
+            <div class="bg-white rounded-sm shadow-sm border border-steel-200 p-6">
+                <h3 class="text-lg font-semibold text-steel-900 mb-3">Protective Clothing</h3>
+                <p class="text-steel-700 leading-relaxed">{{ chemical.prot_clothing }}</p>
             </div>
             {% endif %}
         </div>
 
         <!-- Physical Properties Tab -->
         <div x-show="activeTab === 'physical'" class="space-y-6">
-            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <table class="min-w-full divide-y divide-slate-200">
-                    <thead class="bg-slate-50">
+            <div class="bg-white rounded-sm shadow-sm border border-steel-200 overflow-hidden">
+                <table class="min-w-full divide-y divide-steel-200">
+                    <thead class="bg-steel-50">
                         <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                            <th class="px-6 py-3 text-left text-xs font-medium text-steel-500 uppercase tracking-wider">
                                 Property</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                            <th class="px-6 py-3 text-left text-xs font-medium text-steel-500 uppercase tracking-wider">
                                 Value</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                            <th class="px-6 py-3 text-left text-xs font-medium text-steel-500 uppercase tracking-wider">
                                 Source</th>
                         </tr>
                     </thead>
-                    <tbody class="bg-white divide-y divide-slate-200">
+                    <tbody class="bg-white divide-y divide-steel-200">
                         {% if chemical.fp_value is not none %}
-                        <tr class="hover:bg-slate-50">
-                            <td class="px-6 py-4 text-sm font-medium text-slate-900">Flash Point</td>
-                            <td class="px-6 py-4 text-sm text-slate-700">{{ chemical.fp_value }}°F{% if
+                        <tr class="hover:bg-steel-50">
+                            <td class="px-6 py-4 text-sm font-medium text-steel-900">Flash Point</td>
+                            <td class="px-6 py-4 text-sm text-steel-700">{{ chemical.fp_value }}°F{% if
                                 chemical.fp_range %} ({{ chemical.fp_range }}){% endif %}</td>
-                            <td class="px-6 py-4 text-sm text-slate-500">{{ chemical.fp_source if chemical.fp_source
+                            <td class="px-6 py-4 text-sm text-steel-500">{{ chemical.fp_source if chemical.fp_source
                                 else 'N/A' }}</td>
                         </tr>
                         {% endif %}
                         {% if chemical.bp_value is not none %}
-                        <tr class="hover:bg-slate-50">
-                            <td class="px-6 py-4 text-sm font-medium text-slate-900">Boiling Point</td>
-                            <td class="px-6 py-4 text-sm text-slate-700">{{ chemical.bp_value }}°F{% if
+                        <tr class="hover:bg-steel-50">
+                            <td class="px-6 py-4 text-sm font-medium text-steel-900">Boiling Point</td>
+                            <td class="px-6 py-4 text-sm text-steel-700">{{ chemical.bp_value }}°F{% if
                                 chemical.bp_range %} ({{ chemical.bp_range }}){% endif %}</td>
-                            <td class="px-6 py-4 text-sm text-slate-500">{{ chemical.bp_source if chemical.bp_source
+                            <td class="px-6 py-4 text-sm text-steel-500">{{ chemical.bp_source if chemical.bp_source
                                 else 'N/A' }}</td>
                         </tr>
                         {% endif %}
                         {% if chemical.mp_value is not none %}
-                        <tr class="hover:bg-slate-50">
-                            <td class="px-6 py-4 text-sm font-medium text-slate-900">Melting Point</td>
-                            <td class="px-6 py-4 text-sm text-slate-700">{{ chemical.mp_value }}°F{% if
+                        <tr class="hover:bg-steel-50">
+                            <td class="px-6 py-4 text-sm font-medium text-steel-900">Melting Point</td>
+                            <td class="px-6 py-4 text-sm text-steel-700">{{ chemical.mp_value }}°F{% if
                                 chemical.mp_range %} ({{ chemical.mp_range }}){% endif %}</td>
-                            <td class="px-6 py-4 text-sm text-slate-500">{{ chemical.mp_source if chemical.mp_source
+                            <td class="px-6 py-4 text-sm text-steel-500">{{ chemical.mp_source if chemical.mp_source
                                 else 'N/A' }}</td>
                         </tr>
                         {% endif %}
                         {% if chemical.sg_value is not none %}
-                        <tr class="hover:bg-slate-50">
-                            <td class="px-6 py-4 text-sm font-medium text-slate-900">Specific Gravity</td>
-                            <td class="px-6 py-4 text-sm text-slate-700">
+                        <tr class="hover:bg-steel-50">
+                            <td class="px-6 py-4 text-sm font-medium text-steel-900">Specific Gravity</td>
+                            <td class="px-6 py-4 text-sm text-steel-700">
                                 {{ chemical.sg_value }}{% if chemical.sg_value_tempDegF %} @ {{
                                 chemical.sg_value_tempDegF }}°F{% endif %}
-                                {% if chemical.sg_value < 1.0 %} <span class="ml-2 text-xs text-blue-600 font-medium">
+                                {% if chemical.sg_value < 1.0 %} <span class="ml-2 text-xs text-steel-600 font-medium">
                                     (Less dense than water; will float)</span>
                                     {% elif chemical.sg_value > 1.0 %}
-                                    <span class="ml-2 text-xs text-blue-600 font-medium">(Denser than water; will
+                                    <span class="ml-2 text-xs text-steel-600 font-medium">(Denser than water; will
                                         sink)</span>
                                     {% endif %}
                             </td>
-                            <td class="px-6 py-4 text-sm text-slate-500">{{ chemical.sg_source if chemical.sg_source
+                            <td class="px-6 py-4 text-sm text-steel-500">{{ chemical.sg_source if chemical.sg_source
                                 else 'N/A' }}</td>
                         </tr>
                         {% endif %}
                         {% if chemical.vp_value is not none %}
-                        <tr class="hover:bg-slate-50">
-                            <td class="px-6 py-4 text-sm font-medium text-slate-900">Vapor Pressure</td>
-                            <td class="px-6 py-4 text-sm text-slate-700">{{ chemical.vp_value }} {{ chemical.vp_unit if
+                        <tr class="hover:bg-steel-50">
+                            <td class="px-6 py-4 text-sm font-medium text-steel-900">Vapor Pressure</td>
+                            <td class="px-6 py-4 text-sm text-steel-700">{{ chemical.vp_value }} {{ chemical.vp_unit if
                                 chemical.vp_unit else 'mmHg' }}{% if chemical.vp_value_tempDegF %} @ {{
                                 chemical.vp_value_tempDegF }}°F{% endif %}</td>
-                            <td class="px-6 py-4 text-sm text-slate-500">{{ chemical.vp_source if chemical.vp_source
+                            <td class="px-6 py-4 text-sm text-steel-500">{{ chemical.vp_source if chemical.vp_source
                                 else 'N/A' }}</td>
                         </tr>
                         {% endif %}
                         {% if chemical.lel_value is not none %}
-                        <tr class="hover:bg-slate-50">
-                            <td class="px-6 py-4 text-sm font-medium text-slate-900">Lower Explosive Limit (LEL)</td>
-                            <td class="px-6 py-4 text-sm text-slate-700">{{ chemical.lel_value }}{{ chemical.lel_unit if
+                        <tr class="hover:bg-steel-50">
+                            <td class="px-6 py-4 text-sm font-medium text-steel-900">Lower Explosive Limit (LEL)</td>
+                            <td class="px-6 py-4 text-sm text-steel-700">{{ chemical.lel_value }}{{ chemical.lel_unit if
                                 chemical.lel_unit else '%' }}</td>
-                            <td class="px-6 py-4 text-sm text-slate-500">{{ chemical.lel_source if chemical.lel_source
+                            <td class="px-6 py-4 text-sm text-steel-500">{{ chemical.lel_source if chemical.lel_source
                                 else 'N/A' }}</td>
                         </tr>
                         {% endif %}
                         {% if chemical.uel_value is not none %}
-                        <tr class="hover:bg-slate-50">
-                            <td class="px-6 py-4 text-sm font-medium text-slate-900">Upper Explosive Limit (UEL)</td>
-                            <td class="px-6 py-4 text-sm text-slate-700">{{ chemical.uel_value }}{{ chemical.uel_unit if
+                        <tr class="hover:bg-steel-50">
+                            <td class="px-6 py-4 text-sm font-medium text-steel-900">Upper Explosive Limit (UEL)</td>
+                            <td class="px-6 py-4 text-sm text-steel-700">{{ chemical.uel_value }}{{ chemical.uel_unit if
                                 chemical.uel_unit else '%' }}</td>
-                            <td class="px-6 py-4 text-sm text-slate-500">{{ chemical.uel_source if chemical.uel_source
+                            <td class="px-6 py-4 text-sm text-steel-500">{{ chemical.uel_source if chemical.uel_source
                                 else 'N/A' }}</td>
                         </tr>
                         {% endif %}
                         {% if chemical.ai_value is not none %}
-                        <tr class="hover:bg-slate-50">
-                            <td class="px-6 py-4 text-sm font-medium text-slate-900">Autoignition Temperature</td>
-                            <td class="px-6 py-4 text-sm text-slate-700">{{ chemical.ai_value }}°F</td>
-                            <td class="px-6 py-4 text-sm text-slate-500">{{ chemical.ai_source if chemical.ai_source
+                        <tr class="hover:bg-steel-50">
+                            <td class="px-6 py-4 text-sm font-medium text-steel-900">Autoignition Temperature</td>
+                            <td class="px-6 py-4 text-sm text-steel-700">{{ chemical.ai_value }}°F</td>
+                            <td class="px-6 py-4 text-sm text-steel-500">{{ chemical.ai_source if chemical.ai_source
                                 else 'N/A' }}</td>
                         </tr>
                         {% endif %}
                         {% if chemical.molwgt_value is not none %}
-                        <tr class="hover:bg-slate-50">
-                            <td class="px-6 py-4 text-sm font-medium text-slate-900">Molecular Weight</td>
-                            <td class="px-6 py-4 text-sm text-slate-700">{{ chemical.molwgt_value }} g/mol</td>
-                            <td class="px-6 py-4 text-sm text-slate-500">{{ chemical.molwgt_source if
+                        <tr class="hover:bg-steel-50">
+                            <td class="px-6 py-4 text-sm font-medium text-steel-900">Molecular Weight</td>
+                            <td class="px-6 py-4 text-sm text-steel-700">{{ chemical.molwgt_value }} g/mol</td>
+                            <td class="px-6 py-4 text-sm text-steel-500">{{ chemical.molwgt_source if
                                 chemical.molwgt_source else 'N/A' }}</td>
                         </tr>
                         {% endif %}
                         {% if chemical.idlh_value is not none %}
-                        <tr class="hover:bg-slate-50">
-                            <td class="px-6 py-4 text-sm font-medium text-slate-900">IDLH (Immediately Dangerous to Life
+                        <tr class="hover:bg-steel-50">
+                            <td class="px-6 py-4 text-sm font-medium text-steel-900">IDLH (Immediately Dangerous to Life
                                 or Health)</td>
-                            <td class="px-6 py-4 text-sm text-slate-700">{{ chemical.idlh_value }} {{ chemical.idlh_unit
+                            <td class="px-6 py-4 text-sm text-steel-700">{{ chemical.idlh_value }} {{ chemical.idlh_unit
                                 if chemical.idlh_unit else 'ppm' }}</td>
-                            <td class="px-6 py-4 text-sm text-slate-500">{{ chemical.idlh_source if chemical.idlh_source
+                            <td class="px-6 py-4 text-sm text-steel-500">{{ chemical.idlh_source if chemical.idlh_source
                                 else 'N/A' }}</td>
                         </tr>
                         {% endif %}
@@ -611,27 +612,27 @@ confined spaces.'},
 
         <!-- Regulatory Tab -->
         <div x-show="activeTab === 'regulatory'" class="space-y-6">
-            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                <h3 class="text-lg font-semibold text-slate-900 mb-4">Regulatory Information</h3>
+            <div class="bg-white rounded-sm shadow-sm border border-steel-200 p-6">
+                <h3 class="text-lg font-semibold text-steel-900 mb-4">Regulatory Information</h3>
                 <div class="space-y-4">
-                    <div class="border-b border-slate-200 pb-4">
-                        <p class="text-sm font-semibold text-slate-700 mb-1">EPA Consolidated List of Lists</p>
-                        <p class="text-sm text-slate-500">No regulatory information available</p>
+                    <div class="border-b border-steel-200 pb-4">
+                        <p class="text-sm font-semibold text-steel-700 mb-1">EPA Consolidated List of Lists</p>
+                        <p class="text-sm text-steel-500">No regulatory information available</p>
                     </div>
-                    <div class="border-b border-slate-200 pb-4">
-                        <p class="text-sm font-semibold text-slate-700 mb-1">CFATS (Chemical Facility Anti-Terrorism
+                    <div class="border-b border-steel-200 pb-4">
+                        <p class="text-sm font-semibold text-steel-700 mb-1">CFATS (Chemical Facility Anti-Terrorism
                             Standards)</p>
-                        <p class="text-sm text-slate-500">No regulatory information available</p>
+                        <p class="text-sm text-steel-500">No regulatory information available</p>
                     </div>
-                    <div class="border-b border-slate-200 pb-4">
-                        <p class="text-sm font-semibold text-slate-700 mb-1">OSHA Process Safety Management (PSM)</p>
-                        <p class="text-sm text-slate-500">{{ chemical.psm if chemical.psm else 'No regulatory
+                    <div class="border-b border-steel-200 pb-4">
+                        <p class="text-sm font-semibold text-steel-700 mb-1">OSHA Process Safety Management (PSM)</p>
+                        <p class="text-sm text-steel-500">{{ chemical.psm if chemical.psm else 'No regulatory
                             information available' }}</p>
                     </div>
                     <div>
-                        <p class="text-sm font-semibold text-slate-700 mb-1">EPA AEGL (Acute Exposure Guideline Levels)
+                        <p class="text-sm font-semibold text-steel-700 mb-1">EPA AEGL (Acute Exposure Guideline Levels)
                         </p>
-                        <p class="text-sm text-slate-500">No regulatory information available</p>
+                        <p class="text-sm text-steel-500">No regulatory information available</p>
                     </div>
                 </div>
             </div>
@@ -640,27 +641,27 @@ confined spaces.'},
         <!-- Reactivity Tab -->
         <div x-show="activeTab === 'reactivity'" class="space-y-6">
             {% if chemical.reactive_groups %}
-            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                <h3 class="text-lg font-semibold text-slate-900 mb-4">Belongs to the Following Reactive Group(s)</h3>
+            <div class="bg-white rounded-sm shadow-sm border border-steel-200 p-6">
+                <h3 class="text-lg font-semibold text-steel-900 mb-4">Belongs to the Following Reactive Group(s)</h3>
                 <div class="space-y-3">
                     {% for group in chemical.reactive_groups %}
-                    <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                        <p class="font-semibold text-blue-900">{{ group.name }}</p>
+                    <div class="p-4 bg-steel-50 border border-steel-200 rounded-sm">
+                        <p class="font-semibold text-steel-900">{{ group.name }}</p>
                         {% if group.description %}
-                        <p class="text-sm text-blue-700 mt-2">{{ group.description }}</p>
+                        <p class="text-sm text-steel-700 mt-2">{{ group.description }}</p>
                         {% endif %}
                     </div>
                     {% endfor %}
                 </div>
             </div>
             {% else %}
-            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                <p class="text-slate-500">No reactive group information available</p>
+            <div class="bg-white rounded-sm shadow-sm border border-steel-200 p-6">
+                <p class="text-steel-500">No reactive group information available</p>
             </div>
             {% endif %}
 
-            <div class="bg-amber-50 border border-amber-200 rounded-lg p-6">
-                <p class="text-sm text-amber-800">
+            <div class="bg-hazard/10 border border-hazard/30 rounded-sm p-6">
+                <p class="text-sm text-hazard">
                     <strong>Note:</strong> Use the Mixer tool to analyze compatibility between this chemical and others.
                 </p>
             </div>
@@ -671,84 +672,84 @@ confined spaces.'},
             {% if chemical.eu_data %}
             <!-- EC Number -->
             <div
-                class="bg-indigo-50 border border-indigo-200 rounded-xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+                class="bg-steel-50 border border-steel-200 rounded-sm p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div>
-                    <h3 class="text-lg font-bold text-indigo-900 mb-1 flex items-center gap-2">
+                    <h3 class="text-lg font-bold text-steel-900 mb-1 flex items-center gap-2">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
                         </svg>
                         EU REACH / CLP Match
                     </h3>
-                    <p class="text-indigo-800 text-sm">Official substance match found in the European Chemicals Agency
+                    <p class="text-steel-800 text-sm">Official substance match found in the European Chemicals Agency
                         (ECHA) database.</p>
                 </div>
-                <div class="text-center bg-white px-6 py-3 rounded-lg border border-indigo-100 shadow-sm shrink-0">
-                    <p class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">EC Number</p>
-                    <p class="text-xl font-mono font-bold text-indigo-700">{{ chemical.eu_data.ec_number }}</p>
+                <div class="text-center bg-white px-6 py-3 rounded-sm border border-steel-100 shadow-sm shrink-0">
+                    <p class="text-xs font-bold text-steel-500 uppercase tracking-widest mb-1">EC Number</p>
+                    <p class="text-xl font-mono font-bold text-steel-700">{{ chemical.eu_data.ec_number }}</p>
                 </div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <!-- Hazard Classification -->
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                    <h3 class="text-lg font-semibold text-slate-900 mb-4 border-b pb-2 flex items-center gap-2">
-                        <span class="text-rose-500">⚠️</span> Hazard Classifications (H-Codes)
+                <div class="bg-white rounded-sm shadow-sm border border-steel-200 p-6">
+                    <h3 class="text-lg font-semibold text-steel-900 mb-4 border-b pb-2 flex items-center gap-2">
+                        <span class="text-signal">{{ icon("triangle-alert","w-4 h-4") }}</span> Hazard Classifications (H-Codes)
                     </h3>
                     {% if chemical.eu_data.eu_hcodes and 'Not explicitly listed' not in
                     chemical.eu_data.eu_hcodes %}
                     <div class="space-y-2">
                         {% for hcode in chemical.eu_data.eu_hcodes.split('\n') if hcode.strip() %}
-                        <div class="flex items-start gap-2 bg-slate-50 p-2.5 rounded border border-slate-100">
+                        <div class="flex items-start gap-2 bg-steel-50 p-2.5 rounded border border-steel-100">
                             {% set code_parts = hcode.split(': ', 1) %}
                             {% if code_parts|length > 1 %}
-                            <span class="bg-rose-100 text-rose-800 font-bold px-2 py-0.5 rounded text-xs shrink-0">{{
+                            <span class="bg-signal/10 text-signal font-bold px-2 py-0.5 rounded text-xs shrink-0">{{
                                 code_parts[0] }}</span>
-                            <span class="text-sm text-slate-700">{{ code_parts[1] }}</span>
+                            <span class="text-sm text-steel-700">{{ code_parts[1] }}</span>
                             {% else %}
-                            <span class="text-sm text-slate-700">{{ hcode }}</span>
+                            <span class="text-sm text-steel-700">{{ hcode }}</span>
                             {% endif %}
                         </div>
                         {% endfor %}
                     </div>
                     {% else %}
-                    <p class="text-slate-500 text-sm italic py-4">No specific CLP hazard codes reported.</p>
+                    <p class="text-steel-500 text-sm italic py-4">No specific CLP hazard codes reported.</p>
                     {% endif %}
                 </div>
 
                 <div class="space-y-6">
                     <!-- SVHC Status -->
-                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                        <h3 class="text-lg font-semibold text-slate-900 mb-4 border-b pb-2 flex items-center gap-2">
-                            <span class="text-amber-500">🛡️</span> SVHC Status
+                    <div class="bg-white rounded-sm shadow-sm border border-steel-200 p-6">
+                        <h3 class="text-lg font-semibold text-steel-900 mb-4 border-b pb-2 flex items-center gap-2">
+                            <span class="text-hazard">{{ icon("shield-check","w-4 h-4") }}</span> SVHC Status
                         </h3>
                         {% if chemical.eu_data.svhc_status and 'Not explicitly listed' not in
                         chemical.eu_data.svhc_status %}
-                        <div class="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r">
-                            <p class="text-amber-800 font-medium text-sm">{{ chemical.eu_data.svhc_status }}</p>
+                        <div class="bg-hazard/10 border-l-4 border-hazard/30 p-4 rounded-r">
+                            <p class="text-hazard font-medium text-sm">{{ chemical.eu_data.svhc_status }}</p>
                         </div>
                         {% else %}
-                        <p class="text-slate-500 text-sm flex items-center gap-2">
-                            <span class="text-emerald-500">✓</span> Not explicitly listed as Substance of Very High
+                        <p class="text-steel-500 text-sm flex items-center gap-2">
+                            <span class="text-safe">{{ icon("check","w-4 h-4") }}</span> Not explicitly listed as Substance of Very High
                             Concern.
                         </p>
                         {% endif %}
                     </div>
 
                     <!-- Restrictions -->
-                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                        <h3 class="text-lg font-semibold text-slate-900 mb-4 border-b pb-2 flex items-center gap-2">
-                            <span class="text-purple-500">📜</span> REACH Restrictions
+                    <div class="bg-white rounded-sm shadow-sm border border-steel-200 p-6">
+                        <h3 class="text-lg font-semibold text-steel-900 mb-4 border-b pb-2 flex items-center gap-2">
+                            <span class="text-steel-500">{{ icon("file-text","w-4 h-4") }}</span> REACH Restrictions
                         </h3>
                         {% if chemical.eu_data.restrictions and 'Not explicitly listed' not in
                         chemical.eu_data.restrictions %}
-                        <div class="bg-purple-50 border-l-4 border-purple-500 p-4 rounded-r">
-                            <p class="text-purple-800 font-medium text-sm leading-relaxed whitespace-pre-wrap">{{
+                        <div class="bg-steel-50 border-l-4 border-steel-500 p-4 rounded-r">
+                            <p class="text-steel-800 font-medium text-sm leading-relaxed whitespace-pre-wrap">{{
                                 chemical.eu_data.restrictions }}</p>
                         </div>
                         {% else %}
-                        <p class="text-slate-500 text-sm flex items-center gap-2">
-                            <span class="text-emerald-500">✓</span> Not explicitly restricted under Annex XVII.
+                        <p class="text-steel-500 text-sm flex items-center gap-2">
+                            <span class="text-safe">{{ icon("check","w-4 h-4") }}</span> Not explicitly restricted under Annex XVII.
                         </p>
                         {% endif %}
                     </div>
@@ -756,14 +757,14 @@ confined spaces.'},
             </div>
             {% else %}
             <!-- No EU Data Fallback -->
-            <div class="bg-slate-50 rounded-xl border border-slate-200 p-12 text-center text-slate-500">
-                <svg class="w-12 h-12 mx-auto mb-4 text-slate-300" fill="none" stroke="currentColor"
+            <div class="bg-steel-50 rounded-sm border border-steel-200 p-12 text-center text-steel-500">
+                <svg class="w-12 h-12 mx-auto mb-4 text-steel-300" fill="none" stroke="currentColor"
                     viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z">
                     </path>
                 </svg>
-                <h3 class="text-lg font-semibold text-slate-700 mb-2">No EU REACH/CLP Profile</h3>
+                <h3 class="text-lg font-semibold text-steel-700 mb-2">No EU REACH/CLP Profile</h3>
                 <p>This chemical (CAS: {% if chemical.cas_numbers %}{{ chemical.cas_numbers[0] }}{% else %}Unknown{%
                     endif %}) is not currently tracked or mapped in our European regulatory database.</p>
             </div>

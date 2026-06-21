@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon %}
 
 {% block title %}Inventory Analysis - SAFEWARE Safety Platform{% endblock %}
 {% block breadcrumb %}Inventory Analysis{% endblock %}
@@ -7,21 +8,21 @@
 <!-- Include Openlayers or Canvas elements for Matrix -->
 <style>
     .risk-Compatible {
-        background: #dcfce7;
-        color: #166534;
-        border: 1px solid #86efac;
+        background: #DCEDE5;
+        color: #2E7D5B;
+        border: 1px solid #9EC9B5;
     }
 
     .risk-Caution {
-        background: #fef9c3;
-        color: #854d0e;
-        border: 1px solid #facc15;
+        background: #FBF1DF;
+        color: #9a6a16;
+        border: 1px solid #E8A33D;
     }
 
     .risk-Incompatible {
-        background: #fee2e2;
-        color: #991b1b;
-        border: 1px solid #fca5a5;
+        background: #F7E2DF;
+        color: #C0392B;
+        border: 1px solid #E2A9A2;
     }
 
     /* ── Matrix Overlay ── */
@@ -29,7 +30,7 @@
         position: fixed;
         inset: 0;
         z-index: 100;
-        background: #f8faf8;
+        background: #F5F6F7;
         display: flex;
         flex-direction: column;
         animation: matOverIn 0.25s ease;
@@ -53,13 +54,13 @@
         justify-content: space-between;
         padding: 10px 20px;
         background: #fff;
-        border-bottom: 1px solid #e2e8f0;
+        border-bottom: 1px solid #E2E5E9;
         flex-shrink: 0;
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
     }
 
     .mat-header h3 {
-        color: #1e293b;
+        color: #1B1F24;
         font-weight: 800;
         font-size: 15px;
         letter-spacing: -0.3px;
@@ -76,8 +77,8 @@
         border: 2px solid transparent;
         cursor: pointer;
         transition: all 0.2s;
-        background: #f1f5f9;
-        color: #64748b;
+        background: #ECEEF1;
+        color: #5A6470;
     }
 
     .mat-filt.active {
@@ -86,27 +87,27 @@
     }
 
     .mat-filt.f-all.active {
-        background: #3b82f6;
+        background: #3B5566;
         color: #fff;
-        border-color: #3b82f6;
+        border-color: #3B5566;
     }
 
     .mat-filt.f-comp.active {
-        background: #dcfce7;
-        color: #166534;
-        border-color: #86efac;
+        background: #DCEDE5;
+        color: #2E7D5B;
+        border-color: #9EC9B5;
     }
 
     .mat-filt.f-caut.active {
-        background: #fef9c3;
-        color: #854d0e;
-        border-color: #facc15;
+        background: #FBF1DF;
+        color: #9a6a16;
+        border-color: #E8A33D;
     }
 
     .mat-filt.f-incomp.active {
-        background: #fee2e2;
-        color: #991b1b;
-        border-color: #f87171;
+        background: #F7E2DF;
+        color: #C0392B;
+        border-color: #C0392B;
     }
 
     .mat-filt .filt-dot {
@@ -125,7 +126,7 @@
         flex: 1;
         position: relative;
         overflow: hidden;
-        background: #f8faf8;
+        background: #F5F6F7;
     }
 
     .mat-canvas {
@@ -142,8 +143,8 @@
         position: fixed;
         pointer-events: none;
         z-index: 120;
-        background: #0f172a;
-        color: #f1f5f9;
+        background: #1B1F24;
+        color: #ECEEF1;
         padding: 10px 16px;
         border-radius: 12px;
         font-size: 12px;
@@ -163,7 +164,7 @@
         position: absolute;
         bottom: 16px;
         right: 16px;
-        border: 2px solid #cbd5e1;
+        border: 2px solid #98A2AE;
         border-radius: 10px;
         overflow: hidden;
         box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
@@ -172,8 +173,8 @@
 
     .mm-vp {
         position: absolute;
-        border: 2px solid #3b82f6;
-        background: rgba(59, 130, 246, 0.12);
+        border: 2px solid #3B5566;
+        background: rgba(59,85,102,0.12);
         pointer-events: none;
         border-radius: 2px;
     }
@@ -192,8 +193,8 @@
         height: 38px;
         border-radius: 10px;
         background: #fff;
-        border: 1px solid #e2e8f0;
-        color: #334155;
+        border: 1px solid #E2E5E9;
+        color: #2A3038;
         font-size: 18px;
         font-weight: 700;
         cursor: pointer;
@@ -205,7 +206,7 @@
     }
 
     .z-btn:hover {
-        background: #f1f5f9;
+        background: #ECEEF1;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
     }
 </style>
@@ -218,41 +219,41 @@
     <!-- ── ORIGINAL FILE BADGE (Persistent) ── -->
     <template x-if="analysis && analysis.original_filename">
         <div
-            class="absolute right-4 top-2 hidden lg:flex items-center gap-3 bg-slate-900 text-white px-5 py-2.5 rounded-2xl shadow-xl shadow-blue-900/10 border border-slate-700/60 z-10 w-fit">
-            <div class="p-1.5 bg-blue-500/20 rounded-lg">
-                <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            class="absolute right-4 top-2 hidden lg:flex items-center gap-3 bg-steel-900 text-white px-5 py-2.5 rounded-sm shadow-xl shadow-blue-900/10 border border-steel-700/60 z-10 w-fit">
+            <div class="p-1.5 bg-steel-500/20 rounded-sm">
+                <svg class="w-5 h-5 text-steel-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z">
                     </path>
                 </svg>
             </div>
             <div class="flex flex-col">
-                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">Active
+                <span class="text-[10px] font-bold text-steel-400 uppercase tracking-widest leading-none mb-1">Active
                     File Database</span>
                 <div class="flex items-center gap-2">
-                    <span class="text-sm font-semibold leading-none tracking-tight text-blue-100"
+                    <span class="text-sm font-semibold leading-none tracking-tight text-steel-100"
                         x-text="analysis.original_filename"></span>
-                    <span class="text-[10px] text-slate-500 font-mono" x-text="formatTime(analysis.upload_date)"></span>
+                    <span class="text-[10px] text-steel-500 font-mono" x-text="formatTime(analysis.upload_date)"></span>
                 </div>
             </div>
         </div>
     </template>
 
     <div class="mb-6">
-        <h1 class="text-3xl font-bold text-slate-900">Unified Enterprise Report</h1>
-        <p class="text-slate-500 mt-1">NOAA Reactivity Analysis & EU CLP Compliance</p>
+        <h1 class="text-3xl font-bold text-steel-900">Unified Enterprise Report</h1>
+        <p class="text-steel-500 mt-1">NOAA Reactivity Analysis & EU CLP Compliance</p>
     </div>
 
     <!-- Loading -->
-    <div x-show="loading" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-10 text-center">
-        <svg class="animate-spin h-8 w-8 text-indigo-600 mx-auto mb-3" fill="none" viewBox="0 0 24 24">
+    <div x-show="loading" class="bg-white rounded-sm shadow-sm border border-steel-200 p-10 text-center">
+        <svg class="animate-spin h-8 w-8 text-steel-600 mx-auto mb-3" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
         </svg>
-        <p class="text-slate-600">Generating analytical models...</p>
+        <p class="text-steel-600">Generating analytical models...</p>
     </div>
 
-    <div x-show="error" class="bg-rose-50 border border-rose-200 rounded-xl p-4 text-rose-700 mb-6" x-text="error">
+    <div x-show="error" class="bg-signal/15 border border-signal/30 rounded-sm p-4 text-signal mb-6" x-text="error">
     </div>
 
     <template x-if="analysis && !loading">
@@ -260,19 +261,19 @@
 
             <!-- SEC 1: KPI Cards -->
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div class="bg-white rounded-xl border border-slate-200 p-4 text-center">
-                    <p class="text-2xl font-bold text-slate-900" x-text="analysis.total_chemicals || 0"></p>
-                    <p class="text-xs text-slate-500 mt-1 uppercase font-semibold">Total Chemicals</p>
+                <div class="bg-white rounded-sm border border-steel-200 p-4 text-center">
+                    <p class="text-2xl font-bold text-steel-900" x-text="analysis.total_chemicals || 0"></p>
+                    <p class="text-xs text-steel-500 mt-1 uppercase font-semibold">Total Chemicals</p>
                 </div>
-                <div class="bg-white rounded-xl border border-emerald-200 p-4 text-center risk-Compatible">
+                <div class="bg-white rounded-sm border border-safe/30 p-4 text-center risk-Compatible">
                     <p class="text-2xl font-bold" x-text="analysis.summary?.compatible_pairs || 0"></p>
                     <p class="text-xs mt-1 uppercase font-semibold opacity-90">Compatible Pairs</p>
                 </div>
-                <div class="bg-white rounded-xl border border-amber-200 p-4 text-center risk-Caution">
+                <div class="bg-white rounded-sm border border-hazard/30 p-4 text-center risk-Caution">
                     <p class="text-2xl font-bold" x-text="analysis.summary?.caution_pairs || 0"></p>
                     <p class="text-xs mt-1 uppercase font-semibold opacity-90">Caution Pairs</p>
                 </div>
-                <div class="bg-white rounded-xl border border-rose-200 p-4 text-center risk-Incompatible">
+                <div class="bg-white rounded-sm border border-signal/30 p-4 text-center risk-Incompatible">
                     <p class="text-2xl font-bold" x-text="analysis.summary?.incompatible_pairs || 0"></p>
                     <p class="text-xs mt-1 uppercase font-semibold opacity-90">Incompatible Pairs</p>
                 </div>
@@ -280,15 +281,15 @@
 
             <!-- EXPORT CONTROLS -->
             <div
-                class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col md:flex-row items-center justify-between gap-4">
+                class="bg-white rounded-sm shadow-sm border border-steel-200 p-6 flex flex-col md:flex-row items-center justify-between gap-4">
                 <div>
-                    <h3 class="font-bold text-slate-800">Unified Safety Actions</h3>
-                    <p class="text-sm text-slate-500">Run an exploratory matrix or generate a compliant Excel report.
+                    <h3 class="font-bold text-steel-800">Unified Safety Actions</h3>
+                    <p class="text-sm text-steel-500">Run an exploratory matrix or generate a compliant Excel report.
                     </p>
                 </div>
                 <div class="flex items-center gap-3">
                     <button @click="openAddToWareModal()"
-                        class="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition shadow-sm">
+                        class="inline-flex items-center gap-2 px-5 py-2.5 rounded-sm bg-safe text-white text-sm font-semibold hover:bg-safe transition shadow-sm">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M8 4H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-2m-4-1v8m0 0l3-3m-3 3L9 8" />
@@ -296,7 +297,7 @@
                         Add to Warehouse
                     </button>
                     <button @click="openMatrixOverlay()"
-                        class="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-300 text-sm font-semibold hover:bg-slate-200 transition">
+                        class="inline-flex items-center gap-2 px-5 py-2.5 rounded-sm bg-steel-100 text-steel-700 border border-steel-300 text-sm font-semibold hover:bg-steel-200 transition">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z">
@@ -305,7 +306,7 @@
                         Launch Interactive Matrix
                     </button>
                     <button @click="downloadUnifiedReport()"
-                        class="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg text-white text-sm font-bold shadow-lg hover:shadow-blue-500/30 transition-all bg-gradient-to-r from-blue-700 to-indigo-600">
+                        class="inline-flex items-center gap-2 px-6 py-2.5 rounded-sm text-white text-sm font-bold shadow-lg hover:shadow-blue-500/30 transition-all bg-gradient-to-r from-blue-700 to-indigo-600">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
@@ -318,20 +319,20 @@
             <!-- SEC 3: Individual Self-Hazards & Gas Emitting Conditions -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <!-- Individual Intrinsic Alerts -->
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                    <h3 class="font-bold text-slate-800 mb-4 border-b pb-2">Intrinsic Chemical Alerts</h3>
+                <div class="bg-white rounded-sm shadow-sm border border-steel-200 p-6">
+                    <h3 class="font-bold text-steel-800 mb-4 border-b pb-2">Intrinsic Chemical Alerts</h3>
                     <div class="space-y-3 max-h-80 overflow-y-auto pr-2">
                         <template x-if="!analysis.individual_alerts || analysis.individual_alerts.length === 0">
-                            <p class="text-sm text-slate-500">No special intrinsic hazards detected.</p>
+                            <p class="text-sm text-steel-500">No special intrinsic hazards detected.</p>
                         </template>
                         <template x-for="alert in analysis.individual_alerts" :key="alert.chemical_id + alert.hazard">
-                            <div class="flex items-start gap-3 p-3 bg-red-50 border border-red-100 rounded-lg">
+                            <div class="flex items-start gap-3 p-3 bg-signal/15 border border-signal/30 rounded-sm">
                                 <span
-                                    class="bg-red-600 text-white rounded px-2 py-0.5 text-[10px] font-bold mt-0.5 shrink-0"
+                                    class="bg-signal text-white rounded px-2 py-0.5 text-[10px] font-bold mt-0.5 shrink-0"
                                     x-text="alert.hazard"></span>
                                 <div>
-                                    <p class="text-sm font-bold text-slate-800" x-text="alert.chemical_name"></p>
-                                    <p class="text-xs text-red-800 mt-1" x-text="alert.explanation"></p>
+                                    <p class="text-sm font-bold text-steel-800" x-text="alert.chemical_name"></p>
+                                    <p class="text-xs text-signal mt-1" x-text="alert.explanation"></p>
                                 </div>
                             </div>
                         </template>
@@ -339,31 +340,31 @@
                 </div>
 
                 <!-- Aggregated Unique Hazards & Gases -->
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                    <h3 class="font-bold text-slate-800 mb-4 border-b pb-2">Network Emitting Hazards & Gases</h3>
+                <div class="bg-white rounded-sm shadow-sm border border-steel-200 p-6">
+                    <h3 class="font-bold text-steel-800 mb-4 border-b pb-2">Network Emitting Hazards & Gases</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <p class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Hazard Potential
+                            <p class="text-xs font-bold text-steel-500 uppercase tracking-widest mb-3">Hazard Potential
                             </p>
                             <template x-if="!analysis.unique_hazards || analysis.unique_hazards.length === 0">
-                                <p class="text-sm text-slate-400">None detected</p>
+                                <p class="text-sm text-steel-400">None detected</p>
                             </template>
                             <div class="flex flex-wrap gap-2">
                                 <template x-for="h in analysis.unique_hazards" :key="h">
-                                    <span class="px-2 py-1 bg-amber-100 text-amber-800 text-xs font-semibold rounded"
+                                    <span class="px-2 py-1 bg-hazard/15 text-hazard text-xs font-semibold rounded"
                                         x-text="h"></span>
                                 </template>
                             </div>
                         </div>
                         <div>
-                            <p class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Toxic Gas
+                            <p class="text-xs font-bold text-steel-500 uppercase tracking-widest mb-3">Toxic Gas
                                 Emission</p>
                             <template x-if="!analysis.unique_gases || analysis.unique_gases.length === 0">
-                                <p class="text-sm text-slate-400">None detected</p>
+                                <p class="text-sm text-steel-400">None detected</p>
                             </template>
                             <div class="flex flex-wrap gap-2">
                                 <template x-for="g in analysis.unique_gases" :key="g">
-                                    <span class="px-2 py-1 bg-purple-100 text-purple-800 text-xs font-semibold rounded"
+                                    <span class="px-2 py-1 bg-steel-100 text-steel-800 text-xs font-semibold rounded"
                                         x-text="g"></span>
                                 </template>
                             </div>
@@ -373,9 +374,9 @@
             </div>
 
             <!-- Storage Proximity Violations (Moved to Top priority) -->
-            <div class="bg-white rounded-xl shadow-[0_0_15px_rgba(239,68,68,0.1)] border-2 border-rose-200 p-6"
+            <div class="bg-white rounded-sm shadow-[0_0_15px_rgba(239,68,68,0.1)] border-2 border-signal/30 p-6"
                 x-show="analysis.location_warnings && analysis.location_warnings.length > 0">
-                <h3 class="font-bold text-rose-800 mb-4 border-b border-rose-100 pb-2 flex items-center gap-2">
+                <h3 class="font-bold text-signal mb-4 border-b border-signal/30 pb-2 flex items-center gap-2">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z">
@@ -386,14 +387,14 @@
                 <div class="space-y-3">
                     <template x-for="(w, idx) in analysis.location_warnings" :key="idx">
                         <div
-                            class="p-4 rounded-lg bg-rose-50 border border-rose-100 flex flex-col sm:flex-row gap-3 items-start justify-between">
+                            class="p-4 rounded-sm bg-signal/15 border border-signal/30 flex flex-col sm:flex-row gap-3 items-start justify-between">
                             <div>
-                                <h4 class="font-black text-rose-900 text-sm tracking-wide mb-1"
+                                <h4 class="font-black text-signal text-sm tracking-wide mb-1"
                                     x-text="`${w.chemical_a} × ${w.chemical_b}`"></h4>
-                                <p class="text-rose-700 text-sm" x-text="w.message"></p>
+                                <p class="text-signal text-sm" x-text="w.message"></p>
                             </div>
                             <span
-                                class="bg-rose-600 text-white rounded px-2.5 py-1 text-[10px] font-black tracking-widest uppercase shrink-0">Immediate
+                                class="bg-signal text-white rounded px-2.5 py-1 text-[10px] font-black tracking-widest uppercase shrink-0">Immediate
                                 Action Required</span>
                         </div>
                     </template>
@@ -403,70 +404,70 @@
             <!-- SEC 4: Incompatible Pairs Analysis - Professional Redesign -->
             <div class="space-y-4 pt-2" x-data="{ expandedPair: null }">
                 <div class="flex items-center justify-between">
-                    <h3 class="font-bold text-slate-800 text-lg">Incompatible Pairs Documentation</h3>
+                    <h3 class="font-bold text-steel-800 text-lg">Incompatible Pairs Documentation</h3>
                     <span
-                        class="bg-red-100 text-red-800 px-3 py-1 text-xs font-black rounded-full shadow-sm tracking-wide"
+                        class="bg-signal/15 text-signal px-3 py-1 text-xs font-black rounded-sm shadow-sm tracking-wide"
                         x-text="(incompatiblePairs().length) + ' SEVERE INTERACTIONS'"></span>
                 </div>
 
                 <template x-if="incompatiblePairs().length === 0">
-                    <div class="bg-slate-50 border border-slate-200 rounded-xl p-12 text-center text-slate-500">
-                        <svg class="w-12 h-12 mx-auto mb-3 text-slate-300" fill="none" stroke="currentColor"
+                    <div class="bg-steel-50 border border-steel-200 rounded-sm p-12 text-center text-steel-500">
+                        <svg class="w-12 h-12 mx-auto mb-3 text-steel-300" fill="none" stroke="currentColor"
                             viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                                 d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z">
                             </path>
                         </svg>
-                        <p class="font-medium text-slate-600">No strict incompatibilities detected in this inventory
+                        <p class="font-medium text-steel-600">No strict incompatibilities detected in this inventory
                             network.</p>
                     </div>
                 </template>
 
                 <div class="columns-1 sm:columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-4 space-y-4">
                     <template x-for="pair in incompatiblePairs()" :key="pair.chemical_a_id + '-' + pair.chemical_b_id">
-                        <div class="break-inside-avoid mb-4 bg-white border-t-4 border-rose-500 rounded-xl shadow-[0_2px_10px_rgba(0,0,0,0.04)] hover:shadow-md transition duration-200 cursor-pointer overflow-hidden flex flex-col"
+                        <div class="break-inside-avoid mb-4 bg-white border-t-4 border-signal/30 rounded-sm shadow-[0_2px_10px_rgba(0,0,0,0.04)] hover:shadow-md transition duration-200 cursor-pointer overflow-hidden flex flex-col"
                             @click="expandedPair = expandedPair === pair.chemical_a_id + '-' + pair.chemical_b_id ? null : pair.chemical_a_id + '-' + pair.chemical_b_id">
 
                             <!-- Header (Collapsed State) -->
                             <div
-                                class="flex items-center justify-between p-3 gap-2 bg-slate-50/50 hover:bg-rose-50/50 transition-colors">
+                                class="flex items-center justify-between p-3 gap-2 bg-steel-50/50 hover:bg-signal/50 transition-colors">
                                 <span
-                                    class="text-xs font-bold text-slate-800 text-center flex-1 break-words leading-tight"
+                                    class="text-xs font-bold text-steel-800 text-center flex-1 break-words leading-tight"
                                     x-text="pair.chemical_a_name"></span>
                                 <span
-                                    class="bg-rose-500 text-white rounded-full w-5 h-5 flex items-center justify-center font-bold text-[10px] shrink-0 shadow-sm leading-none">+</span>
+                                    class="bg-signal text-white rounded-sm w-5 h-5 flex items-center justify-center font-bold text-[10px] shrink-0 shadow-sm leading-none">+</span>
                                 <span
-                                    class="text-xs font-bold text-slate-800 text-center flex-1 break-words leading-tight"
+                                    class="text-xs font-bold text-steel-800 text-center flex-1 break-words leading-tight"
                                     x-text="pair.chemical_b_name"></span>
                             </div>
 
                             <!-- Expanding Body -->
                             <div x-show="expandedPair === pair.chemical_a_id + '-' + pair.chemical_b_id" x-collapse
                                 x-cloak>
-                                <div class="p-4 border-t border-rose-100 bg-white">
+                                <div class="p-4 border-t border-signal/30 bg-white">
                                     <h4
-                                        class="text-[10px] font-black text-rose-800 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                                        class="text-[10px] font-black text-signal uppercase tracking-widest mb-2 flex items-center gap-1.5">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                                 d="M13 10V3L4 14h7v7l9-11h-7z"></path>
                                         </svg>
                                         Predicted Mechanism
                                     </h4>
-                                    <p class="text-xs text-slate-700 leading-relaxed mb-4 p-2.5 bg-slate-50 rounded border border-slate-100 italic"
+                                    <p class="text-xs text-steel-700 leading-relaxed mb-4 p-2.5 bg-steel-50 rounded border border-steel-100 italic"
                                         x-text="pair.explanation || 'Consult expert safety literature for specific reaction conditions.'">
                                     </p>
 
                                     <template x-if="pair.hazards && pair.hazards.length">
                                         <div>
                                             <p
-                                                class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
-                                                <span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+                                                class="text-[9px] font-bold text-steel-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                                                <span class="w-1.5 h-1.5 rounded-sm bg-signal/15"></span>
                                                 Consequences
                                             </p>
                                             <div class="flex flex-wrap gap-1">
                                                 <template x-for="h in pair.hazards" :key="h">
                                                     <span
-                                                        class="inline-flex items-center px-1.5 py-0.5 rounded bg-white border border-rose-200 text-rose-600 shadow-sm text-[9px] font-bold tracking-wide uppercase"
+                                                        class="inline-flex items-center px-1.5 py-0.5 rounded bg-white border border-signal/30 text-signal shadow-sm text-[9px] font-bold tracking-wide uppercase"
                                                         x-text="h"></span>
                                                 </template>
                                             </div>
@@ -489,7 +490,7 @@
         <div class="mat-header">
             <div class="flex items-center gap-4">
                 <h3>⬡ Enterprise Incompatibility Matrix</h3>
-                <span class="text-xs text-slate-400 font-mono"
+                <span class="text-xs text-steel-400 font-mono"
                     x-text="(analysis?.total_chemicals||0) + ' chemicals'"></span>
             </div>
             <div class="flex items-center gap-3 flex-wrap">
@@ -504,9 +505,9 @@
                 <button class="mat-filt f-incomp" :class="{'active': matrixFilter==='Incompatible'}"
                     @click="setMatrixFilter('Incompatible')"><span class="filt-dot" style="background:#ef4444;"></span>
                     Incompatible <span class="filt-cnt" x-text="filterCounts.Incompatible||0"></span></button>
-                <div style="width:1px;height:24px;background:#e2e8f0;margin:0 4px;"></div>
+                <div style="width:1px;height:24px;background:#E2E5E9;margin:0 4px;"></div>
                 <button @click="closeMatrixOverlay()" class="z-btn" title="Close (Esc)"
-                    style="color:#ef4444;">✕</button>
+                    style="color:#ef4444;">{{ icon('x','w-4 h-4') }}</button>
             </div>
         </div>
 
@@ -530,12 +531,12 @@
     <!-- Add to Warehouse Modal -->
     <div x-show="showAddToWareModal" x-transition class="fixed inset-0 z-50 flex items-center justify-center p-4"
         style="display:none;">
-        <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" @click="showAddToWareModal = false"></div>
-        <div class="relative w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 border border-slate-100 animate-fade-in" @click.stop>
+        <div class="absolute inset-0 bg-steel-900/50 backdrop-blur-sm" @click="showAddToWareModal = false"></div>
+        <div class="relative w-full max-w-md bg-white rounded-sm shadow-2xl p-6 border border-steel-100 animate-fade-in" @click.stop>
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-bold text-slate-900">Add Batch to Warehouse Pool</h3>
+                <h3 class="text-lg font-bold text-steel-900">Add Batch to Warehouse Pool</h3>
                 <button @click="showAddToWareModal = false"
-                    class="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition">
+                    class="p-1.5 rounded-sm hover:bg-steel-100 text-steel-500 transition">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M6 18L18 6M6 6l12 12" />
@@ -543,30 +544,30 @@
                 </button>
             </div>
             
-            <p class="text-sm text-slate-500 mb-5">
+            <p class="text-sm text-steel-500 mb-5">
                 This will copy all confirmed matched chemicals from this batch into the warehouse unplaced chemical pool.
             </p>
 
             <div class="space-y-4">
                 <div>
-                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Warehouse Name / ID</label>
+                    <label class="block text-xs font-semibold text-steel-500 uppercase tracking-wider mb-1.5">Warehouse Name / ID</label>
                     <input type="text" x-model="wareForm.name"
-                        class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm">
+                        class="w-full px-3 py-2 border border-steel-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm">
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Date Added</label>
+                    <label class="block text-xs font-semibold text-steel-500 uppercase tracking-wider mb-1.5">Date Added</label>
                     <input type="date" x-model="wareForm.date"
-                        class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm">
+                        class="w-full px-3 py-2 border border-steel-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm">
                 </div>
             </div>
 
             <div class="flex justify-end gap-3 mt-6">
                 <button @click="showAddToWareModal = false"
-                    class="px-4 py-2 border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 text-sm font-medium transition">Cancel</button>
+                    class="px-4 py-2 border border-steel-200 text-steel-700 rounded-sm hover:bg-steel-50 text-sm font-medium transition">Cancel</button>
                 <button @click="importToWarehouse()"
-                    class="px-5 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-semibold transition shadow-sm flex items-center gap-1.5">
+                    class="px-5 py-2 bg-safe text-white rounded-sm hover:bg-safe text-sm font-semibold transition shadow-sm flex items-center gap-1.5">
                     <template x-if="importing">
-                        <span class="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-1"></span>
+                        <span class="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-sm mr-1"></span>
                     </template>
                     Confirm Import
                 </button>
@@ -589,11 +590,11 @@
 
             // NOAA Colors
             this.riskConfig = {
-                'Compatible': { bg: '#f0fdf4', border: '#86efac', text: '#166534', label: 'Compatible', iconColor: '#22c55e' },
-                'Caution': { bg: '#fefce8', border: '#facc15', text: '#854d0e', label: 'Caution', iconColor: '#eab308' },
-                'Incompatible': { bg: '#fef2f2', border: '#fca5a5', text: '#991b1b', label: 'Incompatible', iconColor: '#ef4444' },
+                'Compatible': { bg: '#f0fdf4', border: '#9EC9B5', text: '#2E7D5B', label: 'Compatible', iconColor: '#22c55e' },
+                'Caution': { bg: '#fefce8', border: '#E8A33D', text: '#9a6a16', label: 'Caution', iconColor: '#eab308' },
+                'Incompatible': { bg: '#fef2f2', border: '#E2A9A2', text: '#C0392B', label: 'Incompatible', iconColor: '#ef4444' },
             };
-            this.selfConfig = { bg: '#f8fafc', border: '#cbd5e1' };
+            this.selfConfig = { bg: '#f8fafc', border: '#98A2AE' };
             this.dimAlpha = 0.06;
 
             this._bind(); this._fitToView(); this._drawMinimap();
@@ -660,14 +661,14 @@
                     ctx.strokeStyle = cfg.border; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, cW - 1, cH - 1);
 
                     if (this.hoveredCell && this.hoveredCell.r === i && this.hoveredCell.c === j) {
-                        ctx.globalAlpha = 1; ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 3 / this.scale;
+                        ctx.globalAlpha = 1; ctx.strokeStyle = '#3B5566'; ctx.lineWidth = 3 / this.scale;
                         ctx.strokeRect(x, y, cW, cH); ctx.strokeStyle = cfg.border; ctx.lineWidth = 1;
                     }
 
                     if (ctx.globalAlpha < 0.1 || !showText) continue;
 
                     if (isDiag) {
-                        ctx.fillStyle = '#64748b'; ctx.font = 'bold 11px Inter, system-ui, sans-serif';
+                        ctx.fillStyle = '#5A6470'; ctx.font = 'bold 11px Inter, system-ui, sans-serif';
                         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                         this._wrapText(ctx, (chems[i]?.name || '').toUpperCase(), x + cW / 2, y + cH / 2, cW - 12, 13);
                         continue;
@@ -682,7 +683,7 @@
                     if (showHazards) {
                         const pair = this._getPair(i, j);
                         const items = [...(pair?.hazards || cell.hazards || []), ...(pair?.gases || cell.gases || [])];
-                        ctx.font = '10px Inter, system-ui, sans-serif'; ctx.fillStyle = '#64748b';
+                        ctx.font = '10px Inter, system-ui, sans-serif'; ctx.fillStyle = '#5A6470';
                         const maxItems = showFullDetail ? 7 : 3;
                         for (let k = 0; k < Math.min(items.length, maxItems); k++) {
                             if (ty > y + cH - 10) break;
@@ -698,24 +699,24 @@
             for (let j = c0; j < c1; j++) {
                 const bx = lW + j * cW, by = 0, bw = cW, bh = hH;
                 ctx.fillStyle = '#f8fafc'; this._roundRect(ctx, bx + 1, by + 1, bw - 2, bh - 2, 4); ctx.fill();
-                ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 1; this._roundRect(ctx, bx + 1, by + 1, bw - 2, bh - 2, 4); ctx.stroke();
-                ctx.fillStyle = '#3b82f6'; ctx.fillRect(bx + 1, by + bh - 3, bw - 2, 3);
+                ctx.strokeStyle = '#98A2AE'; ctx.lineWidth = 1; this._roundRect(ctx, bx + 1, by + 1, bw - 2, bh - 2, 4); ctx.stroke();
+                ctx.fillStyle = '#3B5566'; ctx.fillRect(bx + 1, by + bh - 3, bw - 2, 3);
                 if (showText) {
-                    ctx.fillStyle = '#1e293b'; ctx.font = 'bold 11px Inter, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+                    ctx.fillStyle = '#1B1F24'; ctx.font = 'bold 11px Inter, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
                     this._wrapTextBox(ctx, (chems[j]?.name || '').toUpperCase(), bx + bw / 2, by + 6, bw - 12, 14);
                 }
             }
 
-            ctx.fillStyle = '#f1f5f9'; this._roundRect(ctx, 1, 1, lW - 2, hH - 2, 4); ctx.fill();
-            ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1; this._roundRect(ctx, 1, 1, lW - 2, hH - 2, 4); ctx.stroke();
+            ctx.fillStyle = '#ECEEF1'; this._roundRect(ctx, 1, 1, lW - 2, hH - 2, 4); ctx.fill();
+            ctx.strokeStyle = '#E2E5E9'; ctx.lineWidth = 1; this._roundRect(ctx, 1, 1, lW - 2, hH - 2, 4); ctx.stroke();
 
             for (let i = r0; i < r1; i++) {
                 const bx = 0, by = hH + i * cH, bw = lW, bh = cH;
                 ctx.fillStyle = '#f8fafc'; this._roundRect(ctx, bx + 1, by + 1, bw - 2, bh - 2, 4); ctx.fill();
-                ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 1; this._roundRect(ctx, bx + 1, by + 1, bw - 2, bh - 2, 4); ctx.stroke();
-                ctx.fillStyle = '#3b82f6'; ctx.fillRect(bx + bw - 3, by + 1, 3, bh - 2);
+                ctx.strokeStyle = '#98A2AE'; ctx.lineWidth = 1; this._roundRect(ctx, bx + 1, by + 1, bw - 2, bh - 2, 4); ctx.stroke();
+                ctx.fillStyle = '#3B5566'; ctx.fillRect(bx + bw - 3, by + 1, 3, bh - 2);
                 if (showText) {
-                    ctx.fillStyle = '#1e293b'; ctx.font = 'bold 11px Inter, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                    ctx.fillStyle = '#1B1F24'; ctx.font = 'bold 11px Inter, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                     this._wrapTextBox(ctx, (chems[i]?.name || '').toUpperCase(), bx + (bw - 3) / 2, by + bh / 2, bw - 16 - 3, 14);
                 }
             }
@@ -734,7 +735,7 @@
                 for (let j = 0; j <= i; j++) {
                     const status = matrix[i][j]?.status || 'Compatible';
                     if (this.filter !== 'ALL' && i !== j && status !== this.filter) ctx.fillStyle = 'rgba(0,0,0,0.05)';
-                    else ctx.fillStyle = (i === j) ? '#cbd5e1' : (this.riskConfig[status]?.bg || '#f0fdf4');
+                    else ctx.fillStyle = (i === j) ? '#98A2AE' : (this.riskConfig[status]?.bg || '#f0fdf4');
                     ctx.fillRect(this.labelW + j * this.cellW, this.headerH + i * this.cellH, this.cellW, this.cellH);
                 }
             }
@@ -781,7 +782,7 @@
                 const pair = this._getPair(found.r, found.c);
                 const tip = document.getElementById('mat-tip');
                 if (found.r !== found.c && pair) {
-                    tip.innerHTML = `<strong>${pair.chemical_a_name}</strong><br><span style="opacity:0.6;font-size:10px;">with</span><br><strong>${pair.chemical_b_name}</strong><br><br><span style="color:#f87171;font-weight:bold">${pair.status}</span><br><span style="color:#94a3b8;font-size:11px">${pair.explanation || ''}</span>`;
+                    tip.innerHTML = `<strong>${pair.chemical_a_name}</strong><br><span style="opacity:0.6;font-size:10px;">with</span><br><strong>${pair.chemical_b_name}</strong><br><br><span style="color:#C0392B;font-weight:bold">${pair.status}</span><br><span style="color:#94a3b8;font-size:11px">${pair.explanation || ''}</span>`;
                     tip.style.left = (e.clientX + 15) + 'px'; tip.style.top = (e.clientY + 15) + 'px';
                     tip.classList.add('show');
                 } else { tip.classList.remove('show'); }

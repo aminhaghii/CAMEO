@@ -38,51 +38,47 @@
         }
 
         .glass-card {
-            background: rgba(255, 255, 255, 0.06);
-            backdrop-filter: blur(24px);
-            -webkit-backdrop-filter: blur(24px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            background: #1B1F24;
+            border: 1px solid #2A3038;
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
         }
 
         .glass-input {
-            background: rgba(255, 255, 255, 0.07);
-            border: 1px solid rgba(255, 255, 255, 0.15);
+            background: #23282F;
+            border: 1px solid #2A3038;
             color: white;
-            transition: all 0.3s ease;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
         }
 
         .glass-input:focus {
-            background: rgba(255, 255, 255, 0.12);
-            border-color: rgba(59, 130, 246, 0.6);
-            box-shadow: 0 0 20px rgba(59, 130, 246, 0.2);
+            background: #23282F;
+            border-color: #3B5566;
+            box-shadow: 0 0 0 3px rgba(59, 85, 102, 0.35);
             outline: none;
         }
 
         .glass-input::placeholder {
-            color: rgba(255, 255, 255, 0.4);
+            color: rgba(255, 255, 255, 0.35);
         }
 
         .glass-select {
-            background: rgba(255, 255, 255, 0.07);
-            border: 1px solid rgba(255, 255, 255, 0.15);
+            background: #23282F;
+            border: 1px solid #2A3038;
             color: white;
         }
 
         .glass-select option {
-            background: #1e293b;
+            background: #23282F;
             color: white;
         }
 
         .btn-glow {
-            background: linear-gradient(135deg, #3b82f6, #2563eb);
-            box-shadow: 0 4px 20px rgba(59, 130, 246, 0.4);
-            transition: all 0.3s ease;
+            background: #3B5566;
+            transition: background 0.15s ease;
         }
 
         .btn-glow:hover {
-            box-shadow: 0 6px 30px rgba(59, 130, 246, 0.6);
-            transform: translateY(-1px);
+            background: #313842;
         }
 
         @keyframes spin {
@@ -121,7 +117,7 @@
             style="background-image: url('{{ url_for('static', filename='img/auth/bg-matrix.png') }}')"></div>
         <div class="bg-slide" :class="{ 'active': current === 3 }"
             style="background-image: url('{{ url_for('static', filename='img/auth/bg-refinery.png') }}')"></div>
-        <div class="absolute inset-0 bg-gradient-to-br from-slate-900/80 via-slate-900/70 to-blue-900/60"></div>
+        <div class="absolute inset-0 bg-gradient-to-br from-[#1B1F24]/85 via-[#1B1F24]/75 to-[#23282F]/70"></div>
     </div>
 
     <!-- Main -->
@@ -131,7 +127,7 @@
             <!-- Logo -->
             <div class="text-center mb-6">
                 <div
-                    class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-cyan-400 shadow-2xl mb-3">
+                    class="inline-flex items-center justify-center w-14 h-14 rounded-sm bg-[#3B5566] shadow-2xl mb-3">
                     <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
@@ -142,16 +138,16 @@
             </div>
 
             <!-- Registration Card -->
-            <div class="glass-card rounded-2xl p-8">
+            <div class="glass-card rounded-sm p-8">
 
                 <!-- FORM State -->
                 <template x-if="state === 'idle' || state === 'error'">
                     <div>
                         <!-- Errors -->
                         <div x-show="errors.length > 0" x-transition
-                            class="mb-4 rounded-lg bg-red-500/10 border border-red-500/20 p-3">
+                            class="mb-4 rounded-sm bg-[#C0392B]/15 border border-[#C0392B]/30 p-3">
                             <template x-for="err in errors" :key="err">
-                                <p class="text-red-300 text-xs flex items-center gap-1 mb-1" x-text="'• ' + err"></p>
+                                <p class="text-[#e0a59e] text-xs flex items-center gap-1 mb-1" x-text="'• ' + err"></p>
                             </template>
                         </div>
 
@@ -162,7 +158,7 @@
                                     class="block text-white/60 text-xs font-medium mb-1.5 uppercase tracking-wider">Full
                                     Name</label>
                                 <input type="text" x-model="fullName" required
-                                    class="glass-input w-full px-4 py-2.5 rounded-xl text-sm" placeholder="John Doe">
+                                    class="glass-input w-full px-4 py-2.5 rounded-sm text-sm" placeholder="John Doe">
                             </div>
 
                             <!-- Email -->
@@ -170,7 +166,7 @@
                                 <label
                                     class="block text-white/60 text-xs font-medium mb-1.5 uppercase tracking-wider">Email</label>
                                 <input type="email" x-model="email" required
-                                    class="glass-input w-full px-4 py-2.5 rounded-xl text-sm"
+                                    class="glass-input w-full px-4 py-2.5 rounded-sm text-sm"
                                     placeholder="your@company.com">
                             </div>
 
@@ -179,7 +175,7 @@
                                 <label
                                     class="block text-white/60 text-xs font-medium mb-1.5 uppercase tracking-wider">Company</label>
                                 <select x-model="companyId" required
-                                    class="glass-select w-full px-4 py-2.5 rounded-xl text-sm">
+                                    class="glass-select w-full px-4 py-2.5 rounded-sm text-sm">
                                     <option value="">Select your company...</option>
                                     <template x-for="c in companies" :key="c.id">
                                         <option :value="c.id" x-text="c.name"></option>
@@ -192,23 +188,23 @@
                                 <label
                                     class="block text-white/60 text-xs font-medium mb-1.5 uppercase tracking-wider">Password</label>
                                 <input type="password" x-model="password" @input="checkStrength()" required
-                                    class="glass-input w-full px-4 py-2.5 rounded-xl text-sm"
+                                    class="glass-input w-full px-4 py-2.5 rounded-sm text-sm"
                                     placeholder="Min 8 chars, A-z, 0-9, !@#">
                                 <!-- Strength bar -->
                                 <div class="mt-2 flex gap-1">
                                     <div class="strength-bar flex-1"
-                                        :class="strength >= 1 ? (strength >= 3 ? 'bg-emerald-500' : strength >= 2 ? 'bg-amber-500' : 'bg-red-500') : 'bg-white/10'">
+                                        :class="strength >= 1 ? (strength >= 3 ? 'bg-[#2E7D5B]' : strength >= 2 ? 'bg-[#E8A33D]' : 'bg-[#C0392B]') : 'bg-white/10'">
                                     </div>
                                     <div class="strength-bar flex-1"
-                                        :class="strength >= 2 ? (strength >= 3 ? 'bg-emerald-500' : 'bg-amber-500') : 'bg-white/10'">
+                                        :class="strength >= 2 ? (strength >= 3 ? 'bg-[#2E7D5B]' : 'bg-[#E8A33D]') : 'bg-white/10'">
                                     </div>
                                     <div class="strength-bar flex-1"
-                                        :class="strength >= 3 ? 'bg-emerald-500' : 'bg-white/10'"></div>
+                                        :class="strength >= 3 ? 'bg-[#2E7D5B]' : 'bg-white/10'"></div>
                                     <div class="strength-bar flex-1"
-                                        :class="strength >= 4 ? 'bg-emerald-500' : 'bg-white/10'"></div>
+                                        :class="strength >= 4 ? 'bg-[#2E7D5B]' : 'bg-white/10'"></div>
                                 </div>
                                 <p class="text-xs mt-1"
-                                    :class="strength >= 3 ? 'text-emerald-400' : strength >= 2 ? 'text-amber-400' : 'text-white/30'"
+                                    :class="strength >= 3 ? 'text-[#5fae8a]' : strength >= 2 ? 'text-[#E8A33D]' : 'text-white/30'"
                                     x-text="strengthLabel"></p>
                             </div>
 
@@ -218,12 +214,12 @@
                                     class="block text-white/60 text-xs font-medium mb-1.5 uppercase tracking-wider">Confirm
                                     Password</label>
                                 <input type="password" x-model="confirmPassword" required
-                                    class="glass-input w-full px-4 py-2.5 rounded-xl text-sm"
+                                    class="glass-input w-full px-4 py-2.5 rounded-sm text-sm"
                                     placeholder="Repeat password">
                             </div>
 
                             <button type="submit"
-                                class="btn-glow w-full py-3 rounded-xl text-white font-semibold text-sm uppercase tracking-wider flex items-center justify-center gap-2"
+                                class="btn-glow w-full py-3 rounded-sm text-white font-semibold text-sm uppercase tracking-wider flex items-center justify-center gap-2"
                                 :disabled="state === 'loading'">
                                 <template x-if="state === 'loading'">
                                     <div class="spinner"></div>
@@ -234,7 +230,7 @@
 
                         <p class="text-center text-white/40 text-sm mt-5">
                             Already have an account?
-                            <a href="/auth/login" class="text-blue-400 hover:text-blue-300 font-medium transition">Sign
+                            <a href="/auth/login" class="text-[#98A2AE] hover:text-white font-medium transition">Sign
                                 In</a>
                         </p>
                     </div>
@@ -244,17 +240,17 @@
                 <template x-if="state === 'success'">
                     <div class="text-center py-6" x-transition>
                         <div
-                            class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/20 mb-4">
-                            <svg class="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#2E7D5B]/15 border border-[#2E7D5B]/30 mb-4">
+                            <svg class="w-8 h-8 text-[#5fae8a]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M5 13l4 4L19 7" />
                             </svg>
                         </div>
                         <h3 class="text-xl font-semibold text-white mb-2">Registration Successful!</h3>
                         <p class="text-white/50 text-sm mb-1">Your account has been created.</p>
-                        <p class="text-amber-400/80 text-sm">Pending approval from your company administrator.</p>
+                        <p class="text-[#E8A33D] text-sm">Pending approval from your company administrator.</p>
                         <a href="/auth/login"
-                            class="inline-block mt-6 text-blue-400 hover:text-blue-300 text-sm font-medium transition">
+                            class="inline-block mt-6 text-[#98A2AE] hover:text-white text-sm font-medium transition">
                             ← Go to Login
                         </a>
                     </div>

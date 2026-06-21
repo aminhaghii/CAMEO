@@ -1,0 +1,56 @@
+{#
+  Hardened Steel shared components. Import per page:
+     {% from "_components.html" import btn, badge, card, empty_state, spinner, field %}
+  Replaces the old per-page .um-/.s-/.pl-/.btn-glow/.luxury-input systems.
+#}
+{% from "_icons.html" import icon %}
+
+{# Button. variant: primary | hazard | danger | ghost. Use as wrapper for custom content via caller. #}
+{% macro btn(label, variant='primary', icon_name='', type='button', cls='', attrs='') -%}
+<button type="{{ type }}" class="btn btn-{{ variant }} {{ cls }}" {{ attrs|safe }}>
+  {%- if icon_name %}{{ icon(icon_name, 'w-4 h-4') }}{% endif -%}
+  {{ label }}
+</button>
+{%- endmacro %}
+
+{# Safety / status badge. status: safe | caution | incompatible | nodata | neutral #}
+{% set _BADGE_ICON = {'safe':'shield-check','caution':'triangle-alert','incompatible':'octagon-x','nodata':'circle-help','neutral':'activity'} %}
+{% macro badge(text, status='neutral', cls='') -%}
+<span class="badge badge-{{ status }} {{ cls }}">{{ icon(_BADGE_ICON.get(status, 'activity'), 'w-3.5 h-3.5') }}{{ text }}</span>
+{%- endmacro %}
+
+{# Card wrapper. Use with {% call card() %}...content...{% endcall %} #}
+{% macro card(cls='') -%}
+<div class="content-card {{ cls }}">{{ caller() }}</div>
+{%- endmacro %}
+
+{# Card header row with optional eyebrow + actions slot. #}
+{% macro card_header(title, subtitle='') -%}
+<div class="flex items-start justify-between mb-4">
+  <div>
+    <h2 class="text-base font-semibold text-steel-900">{{ title }}</h2>
+    {% if subtitle %}<p class="text-xs text-steel-400 mt-0.5">{{ subtitle }}</p>{% endif %}
+  </div>
+  {% if caller %}<div class="flex items-center gap-2">{{ caller() }}</div>{% endif %}
+</div>
+{%- endmacro %}
+
+{# Empty state. #}
+{% macro empty_state(icon_name='clipboard-list', title='Nothing here yet', body='', cls='') -%}
+<div class="empty-state {{ cls }}">
+  <div class="empty-icon">{{ icon(icon_name, 'w-6 h-6') }}</div>
+  <h3>{{ title }}</h3>
+  {% if body %}<p>{{ body }}</p>{% endif %}
+  {% if caller %}<div class="mt-4 flex justify-center">{{ caller() }}</div>{% endif %}
+</div>
+{%- endmacro %}
+
+{# Inline loading spinner with optional label. #}
+{% macro spinner(label='') -%}
+<span class="inline-flex items-center gap-2 text-steel-400 text-sm"><span class="spinner"></span>{% if label %}{{ label }}{% endif %}</span>
+{%- endmacro %}
+
+{# Text input. #}
+{% macro field(name, placeholder='', type='text', value='', cls='', attrs='') -%}
+<input type="{{ type }}" name="{{ name }}" value="{{ value }}" placeholder="{{ placeholder }}" class="field {{ cls }}" {{ attrs|safe }}>
+{%- endmacro %}

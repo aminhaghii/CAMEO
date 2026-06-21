@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon %}
 
 {% block title %}Inventory Import - SAFEWARE Safety Platform{% endblock %}
 
@@ -7,15 +8,15 @@
 
     <!-- Header -->
     <div class="mb-8">
-        <h1 class="text-3xl font-bold text-slate-900">Inventory Import</h1>
-        <p class="text-slate-500 mt-1">Upload a CSV or Excel file to match chemicals against the SAFEWARE database.</p>
+        <h1 class="text-3xl font-bold text-steel-900">Inventory Import</h1>
+        <p class="text-steel-400 mt-1">Upload a CSV or Excel file to match chemicals against the SAFEWARE database.</p>
     </div>
 
     <!-- ══════════════ STEP 1: Upload ══════════════ -->
-    <div x-show="step === 'upload'" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+    <div x-show="step === 'upload'" class="bg-white rounded shadow-sm border border-steel-200 p-8">
         <div
-            class="border-2 border-dashed rounded-xl p-12 text-center transition-colors cursor-pointer"
-            :class="dragOver ? 'border-blue-500 bg-blue-50' : 'border-slate-300 hover:border-blue-400 hover:bg-slate-50'"
+            class="border-2 border-dashed rounded p-12 text-center transition-colors cursor-pointer"
+            :class="dragOver ? 'border-steel-500 bg-steel-100' : 'border-steel-200 hover:border-steel-400 hover:bg-steel-100'"
             @dragover.prevent="dragOver = true"
             @dragleave.prevent="dragOver = false"
             @drop.prevent="handleDrop($event)"
@@ -23,30 +24,30 @@
         >
             <input type="file" x-ref="fileInput" class="hidden" accept=".csv,.xlsx,.xls,.json" @change="handleFileSelect($event)">
             <div class="flex flex-col items-center gap-3">
-                <div class="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center">
-                    <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="w-16 h-16 rounded-sm bg-steel-100 flex items-center justify-center">
+                    <svg class="w-8 h-8 text-steel-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
                     </svg>
                 </div>
-                <p class="text-lg font-semibold text-slate-700">Drop your inventory file here</p>
-                <p class="text-sm text-slate-400">or click to browse &mdash; CSV, XLSX, XLS, JSON</p>
+                <p class="text-lg font-semibold text-steel-700">Drop your inventory file here</p>
+                <p class="text-sm text-steel-300">or click to browse &mdash; CSV, XLSX, XLS, JSON</p>
             </div>
         </div>
 
-        <div x-show="selectedFile" class="mt-6 flex items-center justify-between bg-slate-50 rounded-lg px-5 py-4 border border-slate-200">
+        <div x-show="selectedFile" class="mt-6 flex items-center justify-between bg-steel-100 rounded px-5 py-4 border border-steel-200">
             <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-                    <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="w-10 h-10 rounded bg-safe/15 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-safe" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                     </svg>
                 </div>
                 <div>
-                    <p class="font-semibold text-slate-800" x-text="selectedFile?.name"></p>
-                    <p class="text-xs text-slate-400" x-text="formatSize(selectedFile?.size)"></p>
+                    <p class="font-semibold text-steel-800" x-text="selectedFile?.name"></p>
+                    <p class="text-xs text-steel-300" x-text="formatSize(selectedFile?.size)"></p>
                 </div>
             </div>
             <button @click="startUpload()" :disabled="uploading"
-                class="px-6 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition disabled:opacity-50">
+                class="px-6 py-2.5 bg-steel-500 text-white font-semibold rounded hover:bg-steel-600 transition disabled:opacity-50">
                 <span x-show="!uploading">Start Import</span>
                 <span x-show="uploading" class="flex items-center gap-2">
                     <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
@@ -54,22 +55,22 @@
                 </span>
             </button>
         </div>
-        <div x-show="uploadError" class="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm" x-text="uploadError"></div>
+        <div x-show="uploadError" class="mt-4 p-4 bg-red-50 border border-red-200 rounded text-red-700 text-sm" x-text="uploadError"></div>
     </div>
 
     <!-- ══════════════ STEP 2: Processing ══════════════ -->
-    <div x-show="step === 'processing'" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+    <div x-show="step === 'processing'" class="bg-white rounded shadow-sm border border-steel-200 p-8">
         <div class="text-center mb-6">
-            <div class="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-4">
-                <svg class="animate-spin h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+            <div class="w-16 h-16 rounded-sm bg-steel-100 flex items-center justify-center mx-auto mb-4">
+                <svg class="animate-spin h-8 w-8 text-steel-600" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
             </div>
-            <h2 class="text-xl font-bold text-slate-900">Processing Inventory</h2>
-            <p class="text-slate-500 mt-1" x-text="statusFilename"></p>
+            <h2 class="text-xl font-bold text-steel-900">Processing Inventory</h2>
+            <p class="text-steel-400 mt-1" x-text="statusFilename"></p>
         </div>
-        <div class="w-full bg-slate-200 rounded-full h-4 overflow-hidden mb-3">
-            <div class="bg-blue-600 h-full rounded-full transition-all duration-300" :style="'width:' + progressPct + '%'"></div>
+        <div class="w-full bg-steel-200 rounded-sm h-4 overflow-hidden mb-3">
+            <div class="bg-steel-500 h-full rounded-sm transition-all duration-300" :style="'width:' + progressPct + '%'"></div>
         </div>
-        <div class="flex justify-between text-sm text-slate-500">
+        <div class="flex justify-between text-sm text-steel-400">
             <span x-text="'Row ' + statusProcessed + ' / ' + statusTotal"></span>
             <span x-text="progressPct + '%'"></span>
         </div>
@@ -80,60 +81,60 @@
 
         <!-- Summary Cards (Filter Buttons) -->
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <button @click="setFilter('TOTAL')" class="bg-white rounded-xl shadow-sm border p-5 text-center transition"
-                    :class="activeFilter === 'TOTAL' ? 'border-blue-500 ring-2 ring-blue-200' : 'border-slate-200 hover:border-blue-300'">
-                <p class="text-3xl font-bold text-slate-900" x-text="statusCounts.total"></p>
-                <p class="text-sm text-slate-500 mt-1">Total Rows</p>
+            <button @click="setFilter('TOTAL')" class="bg-white rounded shadow-sm border p-5 text-center transition"
+                    :class="activeFilter === 'TOTAL' ? 'border-steel-500 ring-2 ring-steel-300' : 'border-steel-200 hover:border-steel-300'">
+                <p class="text-3xl font-bold text-steel-900" x-text="statusCounts.total"></p>
+                <p class="text-sm text-steel-400 mt-1">Total Rows</p>
             </button>
 
-            <button @click="setFilter('CONFIRMED')" class="bg-white rounded-xl shadow-sm border p-5 text-center transition"
-                    :class="activeFilter === 'CONFIRMED' ? 'border-emerald-500 ring-2 ring-emerald-200' : 'border-emerald-200 hover:border-emerald-400'">
-                <p class="text-3xl font-bold text-emerald-600" x-text="statusCounts.confirmed"></p>
-                <p class="text-sm text-slate-500 mt-1">Confirmed</p>
+            <button @click="setFilter('CONFIRMED')" class="bg-white rounded shadow-sm border p-5 text-center transition"
+                    :class="activeFilter === 'CONFIRMED' ? 'border-safe ring-2 ring-safe/30' : 'border-safe/30 hover:border-safe/60'">
+                <p class="text-3xl font-bold text-safe" x-text="statusCounts.confirmed"></p>
+                <p class="text-sm text-steel-400 mt-1">Confirmed</p>
             </button>
 
-            <button @click="setFilter('REVIEW')" class="bg-white rounded-xl shadow-sm border p-5 text-center transition"
-                    :class="activeFilter === 'REVIEW' ? 'border-amber-500 ring-2 ring-amber-200' : 'border-amber-200 hover:border-amber-400'">
-                <p class="text-3xl font-bold text-amber-600" x-text="statusCounts.review"></p>
-                <p class="text-sm text-slate-500 mt-1">Review Required</p>
+            <button @click="setFilter('REVIEW')" class="bg-white rounded shadow-sm border p-5 text-center transition"
+                    :class="activeFilter === 'REVIEW' ? 'border-hazard ring-2 ring-hazard/30' : 'border-hazard/40 hover:border-hazard/70'">
+                <p class="text-3xl font-bold text-hazard" x-text="statusCounts.review"></p>
+                <p class="text-sm text-steel-400 mt-1">Review Required</p>
             </button>
 
-            <button @click="setFilter('REJECTED')" class="bg-white rounded-xl shadow-sm border p-5 text-center transition"
-                    :class="activeFilter === 'REJECTED' ? 'border-rose-500 ring-2 ring-rose-200' : 'border-rose-200 hover:border-rose-400'">
-                <p class="text-3xl font-bold text-rose-600" x-text="statusCounts.rejected"></p>
-                <p class="text-sm text-slate-500 mt-1">Rejected</p>
+            <button @click="setFilter('REJECTED')" class="bg-white rounded shadow-sm border p-5 text-center transition"
+                    :class="activeFilter === 'REJECTED' ? 'border-signal ring-2 ring-signal/30' : 'border-signal/30 hover:border-signal/60'">
+                <p class="text-3xl font-bold text-signal" x-text="statusCounts.rejected"></p>
+                <p class="text-sm text-steel-400 mt-1">Rejected</p>
             </button>
         </div>
 
         <!-- Match Rate Bar -->
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+        <div class="bg-white rounded shadow-sm border border-steel-200 p-6 mb-6">
             <div class="flex items-center justify-between mb-2">
-                <h3 class="font-semibold text-slate-800">Match Rate</h3>
+                <h3 class="font-semibold text-steel-800">Match Rate</h3>
                 <span class="text-lg font-bold" :class="matchRateColor" x-text="matchRatePct + '%'"></span>
             </div>
-            <div class="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
-                <div class="h-full rounded-full transition-all duration-500" :class="matchRateBarColor" :style="'width:' + matchRatePct + '%'"></div>
+            <div class="w-full bg-steel-200 rounded-sm h-3 overflow-hidden">
+                <div class="h-full rounded-sm transition-all duration-500" :class="matchRateBarColor" :style="'width:' + matchRatePct + '%'"></div>
             </div>
-            <div class="flex gap-6 mt-4 text-sm text-slate-500">
-                <span>Avg Quality: <strong class="text-slate-700" x-text="summary?.avg_quality_score || 0"></strong></span>
-                <span>Avg Confidence: <strong class="text-slate-700" x-text="((summary?.avg_confidence || 0) * 100).toFixed(0) + '%'"></strong></span>
+            <div class="flex gap-6 mt-4 text-sm text-steel-400">
+                <span>Avg Quality: <strong class="text-steel-700" x-text="summary?.avg_quality_score || 0"></strong></span>
+                <span>Avg Confidence: <strong class="text-steel-700" x-text="((summary?.avg_confidence || 0) * 100).toFixed(0) + '%'"></strong></span>
             </div>
         </div>
 
         <!-- Method Breakdown -->
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6" x-show="summary?.method_breakdown">
-            <h3 class="font-semibold text-slate-800 mb-3">Match Methods</h3>
+        <div class="bg-white rounded shadow-sm border border-steel-200 p-6 mb-6" x-show="summary?.method_breakdown">
+            <h3 class="font-semibold text-steel-800 mb-3">Match Methods</h3>
             <div class="flex flex-wrap gap-2">
                 <template x-for="(count, method) in summary?.method_breakdown || {}" :key="method">
-                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium"
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-sm text-sm font-medium"
                           :class="{
-                              'bg-emerald-100 text-emerald-700': method === 'exact_cas',
-                              'bg-blue-100 text-blue-700': method.startsWith('exact_'),
-                              'bg-cyan-100 text-cyan-700': method === 'normalized',
-                              'bg-purple-100 text-purple-700': method === 'exact_synonym',
-                              'bg-amber-100 text-amber-700': method.startsWith('fuzzy_'),
-                              'bg-slate-100 text-slate-600': method === 'unmatched',
-                              'bg-green-100 text-green-700': method === 'manual_confirm',
+                              'bg-safe/15 text-safe': method === 'exact_cas',
+                              'bg-steel-100 text-steel-700': method.startsWith('exact_'),
+                              'bg-steel-100 text-steel-600': method === 'normalized',
+                              'bg-steel-100 text-steel-600': method === 'exact_synonym',
+                              'bg-hazard/15 text-hazard': method.startsWith('fuzzy_'),
+                              'bg-steel-100 text-steel-600': method === 'unmatched',
+                              'bg-safe/15 text-safe': method === 'manual_confirm',
                           }">
                         <span x-text="method.replace(/_/g, ' ')"></span>
                         <span class="font-bold" x-text="count"></span>
@@ -143,27 +144,27 @@
         </div>
 
         <!-- Interactive Inventory Table -->
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+        <div class="bg-white rounded shadow-sm border border-steel-200 p-6 mb-6">
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
                 <div>
-                    <h3 class="font-semibold text-slate-800">Inventory Rows</h3>
-                    <p class="text-sm text-slate-500">
+                    <h3 class="font-semibold text-steel-800">Inventory Rows</h3>
+                    <p class="text-sm text-steel-400">
                         Active filter:
-                        <span class="font-medium text-slate-700" x-text="activeFilterLabel"></span>
+                        <span class="font-medium text-steel-700" x-text="activeFilterLabel"></span>
                         •
                         <span x-text="filteredRows.length"></span> rows
                     </p>
                 </div>
                 <button @click="openAddModal()"
-                        class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition">
+                        class="inline-flex items-center gap-2 px-4 py-2.5 rounded bg-steel-500 text-white font-semibold hover:bg-steel-600 transition">
                     <span class="text-lg leading-none">+</span>
                     <span>Add Chemical</span>
                 </button>
             </div>
 
-            <div class="overflow-x-auto border border-slate-200 rounded-lg">
+            <div class="overflow-x-auto border border-steel-200 rounded">
                 <table class="min-w-full text-sm">
-                    <thead class="bg-slate-50 text-slate-600">
+                    <thead class="bg-steel-100 text-steel-600">
                         <tr>
                             <th class="px-3 py-2 text-left">Row</th>
                             <th class="px-3 py-2 text-left">Chemical Name</th>
@@ -174,10 +175,10 @@
                             <th class="px-3 py-2 text-left">Actions</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-100">
+                    <tbody class="divide-y divide-steel-100">
                         <template x-if="filteredRows.length === 0">
                             <tr>
-                                <td colspan="7" class="px-4 py-6 text-center text-slate-500">
+                                <td colspan="7" class="px-4 py-6 text-center text-steel-400">
                                     No rows match this filter.
                                 </td>
                             </tr>
@@ -185,14 +186,14 @@
 
                         <template x-for="row in filteredRows" :key="row.staging_id">
                             <tr>
-                                <td class="px-3 py-2 text-slate-500 font-mono text-xs" x-text="row.row_index"></td>
-                                <td class="px-3 py-2 font-medium text-slate-800" x-text="row.name || '-' "></td>
-                                <td class="px-3 py-2 font-mono text-xs text-slate-600" x-text="row.cas || '-' "></td>
-                                <td class="px-3 py-2 text-slate-700">
+                                <td class="px-3 py-2 text-steel-400 font-mono text-xs" x-text="row.row_index"></td>
+                                <td class="px-3 py-2 font-medium text-steel-800" x-text="row.name || '-' "></td>
+                                <td class="px-3 py-2 font-mono text-xs text-steel-600" x-text="row.cas || '-' "></td>
+                                <td class="px-3 py-2 text-steel-700">
                                     <span x-text="row.quantity || '-' "></span>
-                                    <span class="text-slate-400" x-text="row.unit || ''"></span>
+                                    <span class="text-steel-300" x-text="row.unit || ''"></span>
                                 </td>
-                                <td class="px-3 py-2 text-slate-700" x-text="row.location || '-' "></td>
+                                <td class="px-3 py-2 text-steel-700" x-text="row.location || '-' "></td>
                                 <td class="px-3 py-2">
                                     <span class="inline-flex px-2 py-0.5 rounded text-xs font-semibold"
                                           :class="statusChipClass(row.match_status)"
@@ -201,12 +202,12 @@
                                 <td class="px-3 py-2">
                                     <div class="flex items-center gap-2">
                                         <button @click="openEditModal(row)"
-                                                class="px-2.5 py-1 rounded border border-blue-200 text-blue-700 hover:bg-blue-50 text-xs font-medium">
-                                            ✏️ Edit
+                                                class="px-2.5 py-1 rounded border border-steel-200 text-steel-700 hover:bg-steel-100 text-xs font-medium">
+                                            {{ icon('pencil', 'w-3.5 h-3.5') }} Edit
                                         </button>
                                         <button @click="openDeleteModal(row)"
-                                                class="px-2.5 py-1 rounded border border-rose-200 text-rose-700 hover:bg-rose-50 text-xs font-medium">
-                                            🗑️ Delete
+                                                class="px-2.5 py-1 rounded border border-signal/30 text-signal hover:bg-signal/10 text-xs font-medium">
+                                            {{ icon('trash-2', 'w-3.5 h-3.5') }} Delete
                                         </button>
                                     </div>
                                 </td>
@@ -218,16 +219,16 @@
         </div>
 
         <!-- Column Mapping Transparency (Phase 1.7) -->
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6" x-show="columnMappingResult && columnMappingResult.column_mapping">
+        <div class="bg-white rounded shadow-sm border border-steel-200 p-6 mb-6" x-show="columnMappingResult && columnMappingResult.column_mapping">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="font-semibold text-slate-800">Column Mapping Analysis</h3>
-                <span class="text-xs px-2 py-1 rounded bg-slate-100 text-slate-600"
+                <h3 class="font-semibold text-steel-800">Column Mapping Analysis</h3>
+                <span class="text-xs px-2 py-1 rounded bg-steel-100 text-steel-600"
                       x-text="columnMappingResult?.feature_flags?.deep_content_analysis ? 'Deep Content Analysis: ON' : 'Deep Content Analysis: OFF'"></span>
             </div>
 
-            <div class="overflow-x-auto border border-slate-200 rounded-lg">
+            <div class="overflow-x-auto border border-steel-200 rounded">
                 <table class="min-w-full text-sm">
-                    <thead class="bg-slate-50 text-slate-600">
+                    <thead class="bg-steel-100 text-steel-600">
                         <tr>
                             <th class="px-3 py-2 text-left">Raw Header</th>
                             <th class="px-3 py-2 text-left">Detected Type</th>
@@ -238,38 +239,38 @@
                             <th class="px-3 py-2 text-left">Reasoning</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-100">
+                    <tbody class="divide-y divide-steel-100">
                         <template x-for="(info, rawCol) in (columnMappingResult?.column_mapping || {})" :key="rawCol">
                             <tr>
-                                <td class="px-3 py-2 font-mono text-xs text-slate-700" x-text="rawCol"></td>
+                                <td class="px-3 py-2 font-mono text-xs text-steel-700" x-text="rawCol"></td>
                                 <td class="px-3 py-2">
                                     <span class="inline-flex px-2 py-0.5 rounded text-xs font-semibold"
                                           :class="{
-                                              'bg-emerald-100 text-emerald-700': info.semantic_type === 'name' || info.semantic_type === 'cas',
-                                              'bg-blue-100 text-blue-700': info.semantic_type === 'quantity' || info.semantic_type === 'unit',
-                                              'bg-purple-100 text-purple-700': info.semantic_type === 'formula' || info.semantic_type === 'un_number',
-                                              'bg-amber-100 text-amber-700': info.semantic_type === 'location' || info.semantic_type === 'supplier',
-                                              'bg-rose-100 text-rose-700': info.semantic_type === 'unknown',
-                                              'bg-slate-100 text-slate-600': !(info.semantic_type === 'name' || info.semantic_type === 'cas' || info.semantic_type === 'quantity' || info.semantic_type === 'unit' || info.semantic_type === 'formula' || info.semantic_type === 'un_number' || info.semantic_type === 'location' || info.semantic_type === 'supplier' || info.semantic_type === 'unknown')
+                                              'bg-safe/15 text-safe': info.semantic_type === 'name' || info.semantic_type === 'cas',
+                                              'bg-steel-100 text-steel-700': info.semantic_type === 'quantity' || info.semantic_type === 'unit',
+                                              'bg-steel-100 text-steel-600': info.semantic_type === 'formula' || info.semantic_type === 'un_number',
+                                              'bg-hazard/15 text-hazard': info.semantic_type === 'location' || info.semantic_type === 'supplier',
+                                              'bg-signal/15 text-signal': info.semantic_type === 'unknown',
+                                              'bg-steel-100 text-steel-600': !(info.semantic_type === 'name' || info.semantic_type === 'cas' || info.semantic_type === 'quantity' || info.semantic_type === 'unit' || info.semantic_type === 'formula' || info.semantic_type === 'un_number' || info.semantic_type === 'location' || info.semantic_type === 'supplier' || info.semantic_type === 'unknown')
                                           }"
                                           x-text="info.semantic_type"></span>
                                 </td>
-                                <td class="px-3 py-2 font-semibold" x-text="(info.confidence || 0) + '%'" :class="(info.confidence || 0) >= 80 ? 'text-emerald-700' : (info.confidence || 0) >= 65 ? 'text-amber-700' : 'text-rose-700'"></td>
-                                <td class="px-3 py-2 text-xs text-slate-600" x-text="info.method"></td>
+                                <td class="px-3 py-2 font-semibold" x-text="(info.confidence || 0) + '%'" :class="(info.confidence || 0) >= 80 ? 'text-safe' : (info.confidence || 0) >= 65 ? 'text-hazard' : 'text-signal'"></td>
+                                <td class="px-3 py-2 text-xs text-steel-600" x-text="info.method"></td>
                                 <td class="px-3 py-2 text-xs">
                                     <span class="inline-flex px-2 py-0.5 rounded"
                                           :class="{
-                                              'bg-emerald-100 text-emerald-700': info.suggested_action === 'accept',
-                                              'bg-amber-100 text-amber-700': info.suggested_action === 'review' || info.suggested_action === 'confirm',
-                                              'bg-rose-100 text-rose-700': info.suggested_action === 'manual_map',
-                                              'bg-slate-100 text-slate-600': !info.suggested_action
+                                              'bg-safe/15 text-safe': info.suggested_action === 'accept',
+                                              'bg-hazard/15 text-hazard': info.suggested_action === 'review' || info.suggested_action === 'confirm',
+                                              'bg-signal/15 text-signal': info.suggested_action === 'manual_map',
+                                              'bg-steel-100 text-steel-600': !info.suggested_action
                                           }"
                                           x-text="info.suggested_action || 'n/a'"></span>
                                 </td>
-                                <td class="px-3 py-2 text-xs text-slate-600 max-w-[220px]">
+                                <td class="px-3 py-2 text-xs text-steel-600 max-w-[220px]">
                                     <div x-text="(info.sample_values || []).join(', ')"></div>
                                 </td>
-                                <td class="px-3 py-2 text-xs text-slate-600 max-w-[320px]">
+                                <td class="px-3 py-2 text-xs text-steel-600 max-w-[320px]">
                                     <div x-text="info.reasoning || ''"></div>
                                 </td>
                             </tr>
@@ -279,105 +280,105 @@
             </div>
 
             <div class="mt-4" x-show="columnMappingResult?.warnings?.length > 0">
-                <p class="text-sm font-medium text-slate-700 mb-2">Mapping Warnings</p>
+                <p class="text-sm font-medium text-steel-700 mb-2">Mapping Warnings</p>
                 <div class="space-y-1">
                     <template x-for="warn in (columnMappingResult?.warnings || [])" :key="warn">
-                        <div class="text-xs px-2 py-1 rounded bg-amber-50 border border-amber-200 text-amber-700" x-text="warn"></div>
+                        <div class="text-xs px-2 py-1 rounded bg-hazard/10 border border-hazard/40 text-hazard" x-text="warn"></div>
                     </template>
                 </div>
             </div>
         </div>
 
         <!-- Analyze CTA -->
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6 text-center">
+        <div class="bg-white rounded shadow-sm border border-steel-200 p-6 mb-6 text-center">
             <button id="analyzeBtn"
                     @click="analyzeInventory()"
                     :disabled="!canAnalyze || analyzeLoading"
-                    class="inline-flex items-center justify-center gap-2 px-8 py-3 rounded-xl font-semibold text-white transition"
-                    :class="(!canAnalyze || analyzeLoading) ? 'bg-slate-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'">
+                    class="inline-flex items-center justify-center gap-2 px-8 py-3 rounded font-semibold text-white transition"
+                    :class="(!canAnalyze || analyzeLoading) ? 'bg-steel-300 cursor-not-allowed' : 'bg-steel-500 hover:bg-steel-600'">
                 <svg x-show="analyzeLoading" class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
-                <span x-text="analyzeLoading ? 'Analyzing...' : '🔬 Analyze Inventory for Compatibility Risks'"></span>
+                <span x-text="analyzeLoading ? 'Analyzing...' : 'Analyze Inventory for Compatibility Risks'"></span>
             </button>
-            <p class="mt-3 text-sm text-slate-500" x-text="analyzeDisabledReason"></p>
+            <p class="mt-3 text-sm text-steel-400" x-text="analyzeDisabledReason"></p>
         </div>
 
         <!-- Import Another -->
         <div class="mt-6 text-center">
-            <button @click="reset()" class="px-6 py-2.5 bg-slate-100 text-slate-700 font-semibold rounded-lg hover:bg-slate-200 transition">
+            <button @click="reset()" class="px-6 py-2.5 bg-steel-100 text-steel-700 font-semibold rounded hover:bg-steel-200 transition">
                 Import Another File
             </button>
         </div>
 
         <!-- Add/Edit Modal -->
         <div x-show="showEditModal" x-transition class="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div class="absolute inset-0 bg-slate-900/40" @click="closeEditModal()"></div>
-            <div class="relative w-full max-w-2xl bg-white rounded-2xl shadow-xl border border-slate-200 p-6">
+            <div class="absolute inset-0 bg-steel-900/40" @click="closeEditModal()"></div>
+            <div class="relative w-full max-w-2xl bg-white rounded shadow-xl border border-steel-200 p-6">
                 <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-semibold text-slate-800" x-text="editMode === 'add' ? 'Add Chemical' : 'Edit Row'"></h3>
-                    <button @click="closeEditModal()" class="text-slate-400 hover:text-slate-700">✕</button>
+                    <h3 class="text-lg font-semibold text-steel-800" x-text="editMode === 'add' ? 'Add Chemical' : 'Edit Row'"></h3>
+                    <button @click="closeEditModal()" class="text-steel-300 hover:text-steel-700">&times;</button>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div class="md:col-span-2">
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Search Chemical</label>
+                        <label class="block text-sm font-medium text-steel-700 mb-1">Search Chemical</label>
                         <input type="text" x-model="chemicalSearchQuery" @input.debounce.250ms="searchChemicals()"
-                               class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:border-blue-400 focus:ring-1 focus:ring-blue-400 outline-none"
+                               class="w-full px-3 py-2 border border-steel-200 rounded focus:border-steel-500 focus:ring-1 focus:ring-steel-500 outline-none"
                                placeholder="Type chemical name or CAS...">
-                        <div x-show="chemicalSearchResults.length > 0" class="mt-1 border border-slate-200 rounded-lg max-h-40 overflow-y-auto">
+                        <div x-show="chemicalSearchResults.length > 0" class="mt-1 border border-steel-200 rounded max-h-40 overflow-y-auto">
                             <template x-for="res in chemicalSearchResults" :key="res.chemical_id">
-                                <button @click="selectChemical(res)" class="w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-slate-100 last:border-b-0">
-                                    <div class="font-medium text-sm text-slate-800" x-text="res.chemical_name"></div>
-                                    <div class="text-xs text-slate-500" x-text="res.formula || ''"></div>
+                                <button @click="selectChemical(res)" class="w-full text-left px-3 py-2 hover:bg-steel-100 border-b border-steel-100 last:border-b-0">
+                                    <div class="font-medium text-sm text-steel-800" x-text="res.chemical_name"></div>
+                                    <div class="text-xs text-steel-400" x-text="res.formula || ''"></div>
                                 </button>
                             </template>
                         </div>
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Chemical Name</label>
-                        <input type="text" x-model="editForm.name" class="w-full px-3 py-2 border border-slate-300 rounded-lg">
+                        <label class="block text-sm font-medium text-steel-700 mb-1">Chemical Name</label>
+                        <input type="text" x-model="editForm.name" class="w-full px-3 py-2 border border-steel-200 rounded">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">CAS</label>
-                        <input type="text" x-model="editForm.cas" class="w-full px-3 py-2 border border-slate-300 rounded-lg">
+                        <label class="block text-sm font-medium text-steel-700 mb-1">CAS</label>
+                        <input type="text" x-model="editForm.cas" class="w-full px-3 py-2 border border-steel-200 rounded">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Quantity</label>
-                        <input type="text" x-model="editForm.quantity" class="w-full px-3 py-2 border border-slate-300 rounded-lg" placeholder="e.g. 10">
+                        <label class="block text-sm font-medium text-steel-700 mb-1">Quantity</label>
+                        <input type="text" x-model="editForm.quantity" class="w-full px-3 py-2 border border-steel-200 rounded" placeholder="e.g. 10">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Unit</label>
-                        <input type="text" x-model="editForm.unit" class="w-full px-3 py-2 border border-slate-300 rounded-lg" placeholder="e.g. L">
+                        <label class="block text-sm font-medium text-steel-700 mb-1">Unit</label>
+                        <input type="text" x-model="editForm.unit" class="w-full px-3 py-2 border border-steel-200 rounded" placeholder="e.g. L">
                     </div>
                     <div class="md:col-span-2">
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Location</label>
-                        <input type="text" x-model="editForm.location" class="w-full px-3 py-2 border border-slate-300 rounded-lg" placeholder="e.g. Acid Storage A-12">
+                        <label class="block text-sm font-medium text-steel-700 mb-1">Location</label>
+                        <input type="text" x-model="editForm.location" class="w-full px-3 py-2 border border-steel-200 rounded" placeholder="e.g. Acid Storage A-12">
                     </div>
                     <div class="md:col-span-2">
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Notes</label>
-                        <textarea x-model="editForm.notes" rows="2" class="w-full px-3 py-2 border border-slate-300 rounded-lg"></textarea>
+                        <label class="block text-sm font-medium text-steel-700 mb-1">Notes</label>
+                        <textarea x-model="editForm.notes" rows="2" class="w-full px-3 py-2 border border-steel-200 rounded"></textarea>
                     </div>
                 </div>
 
                 <div class="flex items-center justify-end gap-2 mt-6">
-                    <button @click="closeEditModal()" class="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50">Cancel</button>
-                    <button @click="saveEditModal()" class="px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700">Save</button>
+                    <button @click="closeEditModal()" class="px-4 py-2 rounded border border-steel-200 text-steel-700 hover:bg-steel-100">Cancel</button>
+                    <button @click="saveEditModal()" class="px-4 py-2 rounded bg-steel-500 text-white font-semibold hover:bg-steel-600">Save</button>
                 </div>
             </div>
         </div>
 
         <!-- Delete Confirmation Modal -->
         <div x-show="showDeleteModal" x-transition class="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div class="absolute inset-0 bg-slate-900/40" @click="closeDeleteModal()"></div>
-            <div class="relative w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 p-6">
-                <h3 class="text-lg font-semibold text-slate-800 mb-2">Confirm Deletion</h3>
-                <p class="text-sm text-slate-600 mb-5">
+            <div class="absolute inset-0 bg-steel-900/40" @click="closeDeleteModal()"></div>
+            <div class="relative w-full max-w-md bg-white rounded shadow-xl border border-steel-200 p-6">
+                <h3 class="text-lg font-semibold text-steel-800 mb-2">Confirm Deletion</h3>
+                <p class="text-sm text-steel-600 mb-5">
                     Are you sure you want to delete
                     <span class="font-semibold" x-text="deleteTarget?.name || 'this row'"></span>?
                 </p>
                 <div class="flex items-center justify-end gap-2">
-                    <button @click="closeDeleteModal()" class="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50">Cancel</button>
-                    <button @click="confirmDelete()" class="px-4 py-2 rounded-lg bg-rose-600 text-white font-semibold hover:bg-rose-700">Delete</button>
+                    <button @click="closeDeleteModal()" class="px-4 py-2 rounded border border-steel-200 text-steel-700 hover:bg-steel-100">Cancel</button>
+                    <button @click="confirmDelete()" class="px-4 py-2 rounded bg-signal text-white font-semibold hover:bg-signal">Delete</button>
                 </div>
             </div>
         </div>

@@ -1,19 +1,19 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon %}
 
 {% block title %}Chemical Mixer - SAFEWARE Safety Platform{% endblock %}
+{% block breadcrumb %}Matrix Analysis{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" x-data="mixerApp()">
-    
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2" x-data="mixerApp()">
+
     <!-- Safety Banner -->
-    <div class="mb-6 bg-gradient-to-r from-amber-50 to-orange-50 border-l-4 border-amber-500 p-4 rounded-lg">
-        <div class="flex items-start">
-            <div class="flex-shrink-0">
-                <span class="text-2xl">⚠️</span>
-            </div>
-            <div class="ml-3">
-                <h3 class="text-sm font-semibold text-amber-800">Safety-Critical System</h3>
-                <p class="text-sm text-amber-700 mt-1">
+    <div class="mb-6 bg-hazard/10 border-l-[3px] border-hazard p-4 rounded">
+        <div class="flex items-start gap-3">
+            <div class="flex-shrink-0 text-hazard">{{ icon('triangle-alert', 'w-6 h-6') }}</div>
+            <div>
+                <h3 class="text-sm font-semibold text-steel-900">Safety-Critical System</h3>
+                <p class="text-sm text-steel-600 mt-1">
                     This tool provides predictions based on SAFEWARE methodology. Always consult Safety Data Sheets (SDS) and expert opinion for critical decisions.
                 </p>
             </div>
@@ -21,89 +21,84 @@
     </div>
 
     <!-- Search Section -->
-    <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
-        <h2 class="text-lg font-semibold text-slate-900 mb-4">🔍 Chemical Search</h2>
-        
+    <div class="content-card mb-6">
+        <h2 class="text-base font-semibold text-steel-900 mb-4 flex items-center gap-2">{{ icon('search', 'w-5 h-5 text-steel-400') }} Chemical Search</h2>
+
         <div class="relative" @click.outside="dropdownOpen = false">
             <div class="relative">
-                <input 
-                    type="text" 
+                <input
+                    type="text"
                     x-model="searchQuery"
                     @input.debounce.300ms="searchChemicals(); dropdownOpen = true"
                     @focus="searchFocused = true; dropdownOpen = true"
                     @blur="searchFocused = false"
                     @keydown="onKeyDown($event)"
                     placeholder="Search by name, CAS, UN number, formula, or synonym..."
-                    class="w-full pl-5 pr-12 py-4 text-lg border-2 border-slate-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition outline-none"
-                    :class="{'shadow-lg border-blue-500 ring-4 ring-blue-100': searchFocused}"
+                    class="field w-full !py-4 !text-lg !pl-5 !pr-12"
                     role="combobox"
                     aria-autocomplete="list"
                     aria-haspopup="listbox"
+                    aria-label="Search chemicals"
                     :aria-expanded="searchResults.length > 0 && dropdownOpen"
                     aria-controls="search-dropdown"
                     :aria-activedescendant="activeIndex >= 0 ? 'sr-item-' + activeIndex : ''"
                 >
                 <!-- Loading spinner -->
                 <div x-show="searchLoading" class="absolute right-4 top-1/2 -translate-y-1/2">
-                    <svg class="animate-spin h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                    </svg>
+                    <span class="spinner"></span>
                 </div>
             </div>
-            
+
             <!-- Search Results Dropdown -->
-            <div 
-                x-show="searchResults.length > 0 && dropdownOpen" 
+            <div
+                x-show="searchResults.length > 0 && dropdownOpen"
                 x-transition
                 id="search-dropdown"
                 role="listbox"
-                class="absolute z-30 w-full mt-2 bg-white rounded-xl shadow-2xl border border-slate-200 max-h-96 overflow-y-auto"
+                class="absolute z-30 w-full mt-2 bg-white rounded shadow-elevated border border-steel-200 max-h-96 overflow-y-auto"
                 @click.outside="dropdownOpen = false"
             >
-                <div class="px-4 py-2.5 bg-slate-50 border-b border-slate-200 sticky top-0 z-10 flex items-center justify-between">
-                    <p class="text-xs font-medium text-slate-500">
-                        <span class="text-blue-600 font-semibold" x-text="searchResults.length"></span> results
+                <div class="px-4 py-2.5 bg-workspace border-b border-steel-200 sticky top-0 z-10 flex items-center justify-between">
+                    <p class="text-xs font-medium text-steel-400">
+                        <span class="text-steel-600 font-semibold" x-text="searchResults.length"></span> results
                     </p>
-                    <p class="text-xs text-slate-400">
-                        <kbd class="px-1.5 py-0.5 bg-slate-200 rounded text-[10px] font-mono">&#x2191;&#x2193;</kbd> navigate
-                        <kbd class="px-1.5 py-0.5 bg-slate-200 rounded text-[10px] font-mono ml-1">Enter</kbd> select
+                    <p class="text-xs text-steel-400">
+                        <kbd class="px-1.5 py-0.5 bg-steel-100 rounded text-[10px] data-mono">&#x2191;&#x2193;</kbd> navigate
+                        <kbd class="px-1.5 py-0.5 bg-steel-100 rounded text-[10px] data-mono ml-1">Enter</kbd> select
                     </p>
                 </div>
-                
+
                 <template x-for="(chemical, idx) in searchResults" :key="chemical.id">
-                    <div 
+                    <div
                         :id="'sr-item-' + idx"
                         role="option"
                         :aria-selected="idx === activeIndex"
-                        class="sr-row border-b border-slate-100 transition-colors cursor-pointer"
-                        :class="idx === activeIndex ? 'sr-row-active bg-blue-50 border-l-[3px] border-l-blue-500' : 'border-l-[3px] border-l-transparent hover:bg-slate-50'"
+                        class="sr-row border-b border-steel-100 transition-colors cursor-pointer"
+                        :class="idx === activeIndex ? 'sr-row-active border-l-[3px] border-l-steel-500' : 'border-l-[3px] border-l-transparent hover:bg-workspace'"
                         @click="addChemical(chemical)"
                         @mouseenter="activeIndex = idx"
                     >
                         <div class="flex items-center gap-3 px-4 py-3">
-                            <!-- Left: Name + subtext -->
                             <div class="flex-1 min-w-0">
                                 <div class="flex items-center gap-2">
-                                    <p class="font-semibold text-slate-800 truncate" x-html="highlight(chemical.name, searchQuery)"></p>
+                                    <p class="font-semibold text-steel-800 truncate" x-html="highlight(chemical.name, searchQuery)"></p>
                                     <span x-show="chemical.formula" class="sr-formula-pill" x-text="chemical.formula"></span>
                                 </div>
-                                <p class="text-xs text-slate-500 mt-0.5 truncate" x-html="getSubtext(chemical)"></p>
+                                <p class="text-xs text-steel-400 mt-0.5 truncate" x-html="getSubtext(chemical)"></p>
                             </div>
 
-                            <!-- Right: NFPA mini badges -->
+                            <!-- NFPA mini badges (standard NFPA colors — regulated) -->
                             <div class="flex items-center gap-1 flex-shrink-0" x-show="chemical.nfpa && (chemical.nfpa.h !== null || chemical.nfpa.f !== null || chemical.nfpa.r !== null)">
                                 <span class="nfpa-mini nfpa-mini-h" x-text="nfpaVal(chemical.nfpa.h)" :title="'Health: ' + nfpaVal(chemical.nfpa.h)"></span>
                                 <span class="nfpa-mini nfpa-mini-f" x-text="nfpaVal(chemical.nfpa.f)" :title="'Fire: ' + nfpaVal(chemical.nfpa.f)"></span>
                                 <span class="nfpa-mini nfpa-mini-r" x-text="nfpaVal(chemical.nfpa.r)" :title="'Reactivity: ' + nfpaVal(chemical.nfpa.r)"></span>
                             </div>
 
-                            <!-- Details link -->
-                            <a 
+                            <a
                                 :href="`/chemical/${chemical.id}`"
                                 target="_blank"
                                 rel="noopener"
-                                class="px-2.5 py-1 text-[11px] font-semibold border border-blue-200 text-blue-600 rounded-full hover:bg-blue-50 whitespace-nowrap flex-shrink-0"
+                                class="px-2.5 py-1 text-[11px] font-semibold border border-steel-200 text-steel-600 rounded hover:bg-workspace whitespace-nowrap flex-shrink-0"
                                 @click.stop
                             >
                                 Details
@@ -114,139 +109,100 @@
             </div>
 
             <!-- No results message -->
-            <div 
+            <div
                 x-show="searchQuery.length >= 2 && !searchLoading && searchResults.length === 0 && searchFocused"
                 x-transition
-                class="absolute z-30 w-full mt-2 bg-white rounded-xl shadow-lg border border-slate-200 px-4 py-6 text-center"
+                class="absolute z-30 w-full mt-2 bg-white rounded shadow-elevated border border-steel-200 px-4 py-6 text-center"
             >
-                <p class="text-sm text-slate-500">No chemicals found for "<span class="font-semibold" x-text="searchQuery"></span>"</p>
-                <p class="text-xs text-slate-400 mt-1">Try a different name, CAS number, or formula</p>
+                <p class="text-sm text-steel-500">No chemicals found for "<span class="font-semibold" x-text="searchQuery"></span>"</p>
+                <p class="text-xs text-steel-400 mt-1">Try a different name, CAS number, or formula</p>
             </div>
         </div>
     </div>
 
     <!-- The Mixing Bench -->
-    <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+    <div class="content-card mb-6">
         <div class="flex justify-between items-center mb-4">
-            <h2 class="text-lg font-semibold text-slate-900">🧪 Mixing Bench</h2>
-            <button 
-                x-show="selectedChemicals.length > 0"
-                @click="clearAll()"
-                class="text-sm font-medium text-rose-600 hover:text-rose-700 transition"
-            >
+            <h2 class="text-base font-semibold text-steel-900 flex items-center gap-2">{{ icon('flask-conical', 'w-5 h-5 text-steel-400') }} Mixing Bench</h2>
+            <button x-show="selectedChemicals.length > 0" @click="clearAll()" class="text-sm font-medium text-signal hover:opacity-80 transition">
                 Clear All
             </button>
         </div>
-        
+
         <!-- Empty State -->
-        <div 
-            x-show="selectedChemicals.length === 0"
-            class="py-12 text-center border-2 border-dashed border-slate-200 rounded-lg"
-        >
-            <span class="text-4xl mb-2 block">🔬</span>
-            <p class="text-slate-500">No chemicals selected</p>
-            <p class="text-sm text-slate-400 mt-1">Search and add at least 2 chemicals to analyze compatibility</p>
+        <div x-show="selectedChemicals.length === 0" class="empty-state border border-dashed border-steel-200 rounded">
+            <div class="empty-icon">{{ icon('beaker', 'w-6 h-6') }}</div>
+            <h3>No chemicals selected</h3>
+            <p>Search and add at least 2 chemicals to analyze compatibility.</p>
         </div>
-        
+
         <!-- Chemical Chips -->
-        <div 
-            x-show="selectedChemicals.length > 0"
-            class="flex flex-wrap gap-3"
-        >
+        <div x-show="selectedChemicals.length > 0" class="flex flex-wrap gap-3">
             <template x-for="(chemical, index) in selectedChemicals" :key="chemical.id">
-                <div 
-                    x-transition:enter="transition ease-out duration-200"
-                    x-transition:enter-start="opacity-0 transform scale-90"
-                    x-transition:enter-end="opacity-100 transform scale-100"
-                    x-transition:leave="transition ease-in duration-150"
-                    x-transition:leave-start="opacity-100 transform scale-100"
-                    x-transition:leave-end="opacity-0 transform scale-90"
-                    class="group flex items-center gap-2 px-4 py-2.5 bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg hover:shadow-md transition"
+                <div
+                    x-transition:enter="transition ease-out duration-150"
+                    x-transition:enter-start="opacity-0"
+                    x-transition:enter-end="opacity-100"
+                    class="group flex items-center gap-2 px-4 py-2.5 bg-workspace border border-steel-200 rounded hover:border-steel-300 transition"
                 >
-                    <span class="font-medium text-slate-800" x-text="chemical.name"></span>
-                    <button 
-                        @click="removeChemical(chemical.id)"
-                        class="ml-2 text-slate-400 hover:text-rose-600 transition group-hover:scale-110"
-                    >
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                        </svg>
+                    <span class="font-medium text-steel-800" x-text="chemical.name"></span>
+                    <button @click="removeChemical(chemical.id)" class="ml-2 text-steel-300 hover:text-signal transition" aria-label="Remove chemical">
+                        {{ icon('x', 'w-4 h-4') }}
                     </button>
                 </div>
             </template>
         </div>
-        
+
         <!-- Analyze Button -->
-        <div 
-            x-show="selectedChemicals.length >= 2"
-            x-transition
-            class="mt-6 flex justify-center"
-        >
-            <button 
-                @click="analyzeCompatibility()"
-                :disabled="analyzing"
-                class="group flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-                <template x-if="!analyzing">
-                    <span>🔬 Analyze Compatibility</span>
-                </template>
-                <template x-if="analyzing">
-                    <span>⏳ Analyzing...</span>
-                </template>
+        <div x-show="selectedChemicals.length >= 2" x-transition class="mt-6 flex justify-center">
+            <button @click="analyzeCompatibility()" :disabled="analyzing" class="btn btn-primary !px-8 !py-3.5 !text-sm">
+                <template x-if="!analyzing"><span class="inline-flex items-center gap-2">{{ icon('grid-3x3', 'w-4 h-4') }} Analyze Compatibility</span></template>
+                <template x-if="analyzing"><span class="inline-flex items-center gap-2"><span class="spinner"></span> Analyzing...</span></template>
             </button>
         </div>
     </div>
 
     <!-- Results Section -->
     <div x-show="analysisResult" x-transition class="space-y-6">
-        
+
         <!-- Overall Result Card -->
-        <div class="bg-white rounded-xl shadow-sm p-6">
-            <h2 class="text-lg font-semibold text-slate-900 mb-4">📊 Analysis Result</h2>
-            
+        <div class="content-card">
+            <h2 class="text-base font-semibold text-steel-900 mb-4 flex items-center gap-2">{{ icon('clipboard-list', 'w-5 h-5 text-steel-400') }} Analysis Result</h2>
+
             <div class="flex items-center justify-center py-8">
-                <div 
-                    class="inline-flex flex-col items-center gap-3 px-12 py-6 rounded-2xl shadow-lg"
+                <div
+                    class="inline-flex flex-col items-center gap-3 px-12 py-6 rounded border-2"
                     :class="{
-                        'bg-emerald-100 border-2 border-emerald-200': analysisResult?.overall?.compatibility === 'C',
-                        'bg-amber-100 border-2 border-amber-200': analysisResult?.overall?.compatibility === 'I-C',
-                        'bg-rose-100 border-2 border-rose-200': analysisResult?.overall?.compatibility === 'I',
-                        'bg-orange-100 border-2 border-orange-200': analysisResult?.overall?.compatibility === 'N'
+                        'bg-safe/10 border-safe/30 text-safe': analysisResult?.overall?.compatibility === 'C',
+                        'bg-hazard/10 border-hazard/40 text-hazard': analysisResult?.overall?.compatibility === 'I-C',
+                        'bg-signal/10 border-signal/30 text-signal': analysisResult?.overall?.compatibility === 'I',
+                        'bg-steel-100 border-steel-200 text-steel-400': analysisResult?.overall?.compatibility === 'N'
                     }"
                 >
-                    <div class="text-5xl">
-                        <template x-if="analysisResult?.overall?.compatibility === 'C'">✅</template>
-                        <template x-if="analysisResult?.overall?.compatibility === 'I-C'">⚠️</template>
-                        <template x-if="analysisResult?.overall?.compatibility === 'I'">⛔️</template>
-                        <template x-if="analysisResult?.overall?.compatibility === 'N'">❓</template>
+                    <div class="h-12 flex items-center">
+                        <template x-if="analysisResult?.overall?.compatibility === 'C'">{{ icon('shield-check', 'w-11 h-11') }}</template>
+                        <template x-if="analysisResult?.overall?.compatibility === 'I-C'">{{ icon('triangle-alert', 'w-11 h-11') }}</template>
+                        <template x-if="analysisResult?.overall?.compatibility === 'I'">{{ icon('octagon-x', 'w-11 h-11') }}</template>
+                        <template x-if="analysisResult?.overall?.compatibility === 'N'">{{ icon('circle-help', 'w-11 h-11') }}</template>
                     </div>
-                    <p 
-                        class="text-2xl font-bold"
-                        :class="{
-                            'text-emerald-700': analysisResult?.overall?.compatibility === 'C',
-                            'text-amber-700': analysisResult?.overall?.compatibility === 'I-C',
-                            'text-rose-700': analysisResult?.overall?.compatibility === 'I',
-                            'text-orange-700': analysisResult?.overall?.compatibility === 'N'
-                        }"
-                        x-text="analysisResult?.overall?.label"
-                    ></p>
-                    <p class="text-sm text-slate-600 text-center max-w-md" x-text="analysisResult?.overall?.action"></p>
+                    <p class="text-2xl font-bold" x-text="analysisResult?.overall?.label"></p>
+                    <p class="text-sm text-steel-600 text-center max-w-md" x-text="analysisResult?.overall?.action"></p>
                 </div>
             </div>
         </div>
 
         <!-- Critical Pairs Alert -->
-        <div x-show="analysisResult?.critical_pairs?.length > 0" x-transition class="bg-white rounded-xl shadow-sm p-6">
-            <h3 class="text-lg font-semibold text-rose-700 mb-4 flex items-center gap-2">
-                <span>🚨</span>
+        <div x-show="analysisResult?.critical_pairs?.length > 0" x-transition class="content-card">
+            <h3 class="text-base font-semibold text-signal mb-4 flex items-center gap-2">
+                {{ icon('octagon-x', 'w-5 h-5') }}
                 <span>Critical Incompatible Pairs</span>
             </h3>
-            
+
             <div class="space-y-3">
                 <template x-for="pair in analysisResult?.critical_pairs" :key="pair">
-                    <div class="p-4 bg-rose-50 border border-rose-200 rounded-lg">
-                        <p class="font-semibold text-rose-800" x-text="pair.chemicals.join(' + ')"></p>
-                        <div class="mt-2 text-sm text-rose-700">
+                    <div class="p-4 bg-signal/5 border border-signal/20 rounded">
+                        <p class="font-semibold text-signal" x-text="pair.chemicals.join(' + ')"></p>
+                        <div class="mt-2 text-sm text-steel-700">
                             <p x-show="pair.hazards.length > 0">
                                 <strong>Hazards:</strong> <span x-text="pair.hazards.join(', ')"></span>
                             </p>
@@ -260,10 +216,9 @@
         </div>
 
         <!-- Compatibility Matrix -->
-        <div class="bg-white rounded-xl shadow-sm p-6">
-            <h3 class="text-lg font-semibold text-slate-900 mb-6">🎯 Compatibility Matrix</h3>
-            
-            <!-- Matrix Grid -->
+        <div class="content-card">
+            <h3 class="text-base font-semibold text-steel-900 mb-6 flex items-center gap-2">{{ icon('grid-3x3', 'w-5 h-5 text-steel-400') }} Compatibility Matrix</h3>
+
             <div class="overflow-x-auto">
                 <div class="inline-block min-w-full align-middle">
                     <div class="matrix-container">
@@ -284,12 +239,11 @@
                                             <td class="matrix-cell"
                                                 x-show="i >= j"
                                                 :class="{
-                                                    'bg-slate-100 text-slate-700 font-semibold': i === j,
-                                                    'bg-emerald-100 text-emerald-700 border-emerald-200 cursor-pointer': i > j && analysisResult?.matrix[i][j]?.compatibility === 'C',
-                                                    'bg-amber-100 text-amber-700 border-amber-200 cursor-pointer': i > j && analysisResult?.matrix[i][j]?.compatibility === 'I-C',
-                                                    'bg-rose-100 text-rose-700 border-rose-200 cursor-pointer': i > j && analysisResult?.matrix[i][j]?.compatibility === 'I',
-                                                    'bg-orange-100 text-orange-700 border-orange-200 cursor-pointer': i > j && analysisResult?.matrix[i][j]?.compatibility === 'N',
-                                                    'border-b border-r': true
+                                                    'cell-self': i === j,
+                                                    'cell-c cursor-pointer': i > j && analysisResult?.matrix[i][j]?.compatibility === 'C',
+                                                    'cell-ic cursor-pointer': i > j && analysisResult?.matrix[i][j]?.compatibility === 'I-C',
+                                                    'cell-i cursor-pointer': i > j && analysisResult?.matrix[i][j]?.compatibility === 'I',
+                                                    'cell-n cursor-pointer': i > j && analysisResult?.matrix[i][j]?.compatibility === 'N'
                                                 }"
                                                 @click="i > j ? openModal(analysisResult?.matrix[i][j], i, j) : null"
                                             >
@@ -300,7 +254,7 @@
                                                 </template>
                                                 <template x-if="i > j">
                                                     <div class="flex items-center justify-center h-full">
-                                                        <span class="text-sm font-bold" x-text="analysisResult?.matrix[i][j]?.compatibility"></span>
+                                                        <span class="text-sm font-bold data-mono" x-text="analysisResult?.matrix[i][j]?.compatibility"></span>
                                                     </div>
                                                 </template>
                                                 <div class="tooltip" x-show="i > j" x-text="`${chemRow.name} + ${chemCol.name}`"></div>
@@ -315,104 +269,78 @@
             </div>
 
             <!-- Legend -->
-            <div class="mt-6 flex flex-wrap gap-4 justify-center">
-                <div class="flex items-center gap-2 px-4 py-2 bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg">
-                    <span>✅</span>
-                    <span class="text-sm font-medium">Compatible (C)</span>
-                </div>
-                <div class="flex items-center gap-2 px-4 py-2 bg-amber-100 text-amber-700 border border-amber-200 rounded-lg">
-                    <span>⚠️</span>
-                    <span class="text-sm font-medium">Caution (I-C)</span>
-                </div>
-                <div class="flex items-center gap-2 px-4 py-2 bg-rose-100 text-rose-700 border border-rose-200 rounded-lg">
-                    <span>⛔️</span>
-                    <span class="text-sm font-medium">Incompatible (I)</span>
-                </div>
-                <div class="flex items-center gap-2 px-4 py-2 bg-orange-100 text-orange-700 border border-orange-200 rounded-lg">
-                    <span>❓</span>
-                    <span class="text-sm font-medium">No Data (N)</span>
-                </div>
+            <div class="mt-6 flex flex-wrap gap-3 justify-center">
+                <span class="badge badge-safe">Compatible (C)</span>
+                <span class="badge badge-caution">Caution (I-C)</span>
+                <span class="badge badge-incompatible">Incompatible (I)</span>
+                <span class="badge badge-nodata">No Data (N)</span>
             </div>
         </div>
     </div>
 
     <!-- Modal for Cell Details -->
-    <div 
-        x-show="modalOpen" 
-        x-transition:enter="transition ease-out duration-200"
+    <div
+        x-show="modalOpen"
+        x-transition:enter="transition ease-out duration-150"
         x-transition:enter-start="opacity-0"
         x-transition:enter-end="opacity-100"
-        x-transition:leave="transition ease-in duration-150"
-        x-transition:leave-start="opacity-100"
-        x-transition:leave-end="opacity-0"
-        class="fixed inset-0 z-50 overflow-y-auto modal-backdrop"
+        class="fixed inset-0 z-50 overflow-y-auto"
         @click="modalOpen = false"
-        style="background-color: rgba(0, 0, 0, 0.5);"
+        style="background-color: rgba(27, 31, 36, 0.5);"
     >
         <div class="flex items-center justify-center min-h-screen px-4">
-            <div 
-                @click.stop
-                x-transition:enter="transition ease-out duration-200"
-                x-transition:enter-start="opacity-0 transform scale-95"
-                x-transition:enter-end="opacity-100 transform scale-100"
-                x-transition:leave="transition ease-in duration-150"
-                x-transition:leave-start="opacity-100 transform scale-100"
-                x-transition:leave-end="opacity-0 transform scale-95"
-                class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-8"
-            >
+            <div @click.stop class="bg-white rounded shadow-elevated max-w-2xl w-full p-8 border border-steel-200">
                 <div class="flex justify-between items-start mb-6">
-                    <h3 class="text-xl font-bold text-slate-900">Interaction Details</h3>
-                    <button @click="modalOpen = false" class="text-slate-400 hover:text-slate-600 transition">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                        </svg>
+                    <h3 class="text-xl font-bold text-steel-900">Interaction Details</h3>
+                    <button @click="modalOpen = false" class="p-1.5 rounded hover:bg-steel-100 text-steel-400 transition">
+                        {{ icon('x', 'w-5 h-5') }}
                     </button>
                 </div>
-                
+
                 <div x-show="modalCell">
                     <div class="mb-6">
-                        <p class="text-lg font-semibold text-slate-800" x-text="modalChemicals"></p>
+                        <p class="text-lg font-semibold text-steel-800" x-text="modalChemicals"></p>
                     </div>
-                    
-                    <div 
-                        class="inline-flex items-center gap-2 px-6 py-3 rounded-lg mb-6"
+
+                    <div
+                        class="inline-flex items-center gap-2 px-6 py-3 rounded mb-6 border"
                         :class="{
-                            'bg-emerald-100 text-emerald-700 border border-emerald-200': modalCell?.compatibility === 'C',
-                            'bg-amber-100 text-amber-700 border border-amber-200': modalCell?.compatibility === 'I-C',
-                            'bg-rose-100 text-rose-700 border border-rose-200': modalCell?.compatibility === 'I',
-                            'bg-orange-100 text-orange-700 border border-orange-200': modalCell?.compatibility === 'N'
+                            'bg-safe/10 text-safe border-safe/30': modalCell?.compatibility === 'C',
+                            'bg-hazard/10 text-hazard border-hazard/40': modalCell?.compatibility === 'I-C',
+                            'bg-signal/10 text-signal border-signal/30': modalCell?.compatibility === 'I',
+                            'bg-steel-100 text-steel-400 border-steel-200': modalCell?.compatibility === 'N'
                         }"
                     >
-                        <span class="text-2xl">
-                            <template x-if="modalCell?.compatibility === 'C'">✅</template>
-                            <template x-if="modalCell?.compatibility === 'I-C'">⚠️</template>
-                            <template x-if="modalCell?.compatibility === 'I'">⛔️</template>
-                            <template x-if="modalCell?.compatibility === 'N'">❓</template>
+                        <span>
+                            <template x-if="modalCell?.compatibility === 'C'">{{ icon('shield-check', 'w-6 h-6') }}</template>
+                            <template x-if="modalCell?.compatibility === 'I-C'">{{ icon('triangle-alert', 'w-6 h-6') }}</template>
+                            <template x-if="modalCell?.compatibility === 'I'">{{ icon('octagon-x', 'w-6 h-6') }}</template>
+                            <template x-if="modalCell?.compatibility === 'N'">{{ icon('circle-help', 'w-6 h-6') }}</template>
                         </span>
-                        <span class="font-bold text-xl" x-text="modalCell?.compatibility"></span>
+                        <span class="font-bold text-xl data-mono" x-text="modalCell?.compatibility"></span>
                     </div>
-                    
+
                     <div class="space-y-4">
                         <div x-show="modalCell?.hazards?.length > 0">
-                            <h4 class="font-semibold text-slate-800 mb-2">⚠️ Hazards:</h4>
+                            <h4 class="font-semibold text-steel-800 mb-2 flex items-center gap-1.5">{{ icon('triangle-alert', 'w-4 h-4 text-hazard') }} Hazards</h4>
                             <div class="flex flex-wrap gap-2">
                                 <template x-for="hazard in modalCell?.hazards" :key="hazard">
-                                    <span class="px-3 py-1 bg-rose-100 text-rose-700 text-sm font-medium rounded-full" x-text="hazard"></span>
+                                    <span class="px-3 py-1 bg-signal/10 text-signal text-sm font-medium rounded" x-text="hazard"></span>
                                 </template>
                             </div>
                         </div>
-                        
+
                         <div x-show="modalCell?.gases?.length > 0">
-                            <h4 class="font-semibold text-slate-800 mb-2">💨 Gas Products:</h4>
+                            <h4 class="font-semibold text-steel-800 mb-2 flex items-center gap-1.5">{{ icon('droplet', 'w-4 h-4 text-steel-400') }} Gas Products</h4>
                             <div class="flex flex-wrap gap-2">
                                 <template x-for="gas in modalCell?.gases" :key="gas">
-                                    <span class="px-3 py-1 bg-blue-100 text-blue-700 text-sm font-medium rounded-full" x-text="gas"></span>
+                                    <span class="px-3 py-1 bg-steel-100 text-steel-700 text-sm font-medium rounded" x-text="gas"></span>
                                 </template>
                             </div>
                         </div>
-                        
+
                         <div x-show="!modalCell?.hazards?.length && !modalCell?.gases?.length">
-                            <p class="text-slate-500 italic">No specific hazards or gas products identified for this combination.</p>
+                            <p class="text-steel-400 italic">No specific hazards or gas products identified for this combination.</p>
                         </div>
                     </div>
                 </div>
@@ -422,122 +350,70 @@
 
     <!-- Database Stats -->
     <div class="mt-8 text-center">
-        <p class="text-sm text-slate-500" x-text="dbStats"></p>
+        <p class="text-sm text-steel-400 data-mono" x-text="dbStats"></p>
     </div>
 </div>
 
 <style>
-    .matrix-container {
-        overflow-x: auto;
-    }
-    
-    .matrix-table {
-        border-collapse: separate;
-        border-spacing: 2px;
-    }
-    
-    .matrix-header-corner {
-        position: sticky;
-        left: 0;
-        top: 0;
-        z-index: 30;
-        background: white;
-        width: 120px;
-        height: 40px;
-    }
-    
-    .matrix-header {
-        position: sticky;
-        top: 0;
-        z-index: 20;
-        background: linear-gradient(to bottom, #f8fafc, #f1f5f9);
-        padding: 12px 8px;
-        font-size: 0.75rem;
-        font-weight: 600;
-        text-align: center;
-        color: #475569;
-        border: 1px solid #e2e8f0;
-        min-width: 80px;
-        max-width: 100px;
-    }
-    
-    .matrix-row-header {
-        position: sticky;
-        left: 0;
-        z-index: 20;
-        background: linear-gradient(to right, #f8fafc, #f1f5f9);
-        padding: 12px 8px;
-        font-size: 0.75rem;
-        font-weight: 600;
-        color: #475569;
-        border: 1px solid #e2e8f0;
-        width: 120px;
-        max-width: 120px;
-        text-align: right;
-    }
-    
-    .matrix-cell {
-        min-width: 80px;
-        height: 80px;
-        border: 2px solid;
-        position: relative;
-    }
+    .matrix-container { overflow-x: auto; }
+    .matrix-table { border-collapse: separate; border-spacing: 2px; }
 
-    /* ── Industrial Search: NFPA Mini Badges ── */
+    .matrix-header-corner {
+        position: sticky; left: 0; top: 0; z-index: 30;
+        background: var(--surface); width: 120px; height: 40px;
+    }
+    .matrix-header {
+        position: sticky; top: 0; z-index: 20;
+        background: var(--workspace);
+        padding: 12px 8px; font-size: 0.75rem; font-weight: 600;
+        text-align: center; color: var(--steel-700);
+        border: 1px solid var(--steel-200);
+        min-width: 80px; max-width: 100px;
+    }
+    .matrix-row-header {
+        position: sticky; left: 0; z-index: 20;
+        background: var(--workspace);
+        padding: 12px 8px; font-size: 0.75rem; font-weight: 600;
+        color: var(--steel-700); border: 1px solid var(--steel-200);
+        width: 120px; max-width: 120px; text-align: right;
+    }
+    .matrix-cell {
+        min-width: 80px; height: 80px;
+        border: 1px solid var(--steel-200); position: relative;
+    }
+    /* Safety-status cell fills */
+    .cell-self { background: var(--steel-100); color: var(--steel-700); font-weight: 600; }
+    .cell-c  { background: var(--safe-bg);   color: var(--safe-green); border-color: rgba(46,125,91,.3); }
+    .cell-ic { background: var(--hazard-bg); color: #9a6a16;           border-color: rgba(232,163,61,.4); }
+    .cell-i  { background: var(--signal-bg); color: var(--signal-red); border-color: rgba(192,57,43,.3); }
+    .cell-n  { background: var(--info-bg);   color: var(--steel-400);  border-color: var(--steel-200); }
+
+    /* NFPA Mini Badges — NFPA 704 standard colors (regulated, do not restyle) */
     .nfpa-mini {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 22px;
-        height: 22px;
-        border-radius: 4px;
-        font-size: 11px;
-        font-weight: 700;
-        color: #fff;
-        line-height: 1;
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 22px; height: 22px; border-radius: 2px;
+        font-size: 11px; font-weight: 700; color: #fff; line-height: 1;
     }
     .nfpa-mini-h { background: #2563eb; }
     .nfpa-mini-f { background: #ef4444; }
     .nfpa-mini-r { background: #eab308; color: #1e293b; }
 
-    /* ── Search Hit Highlighting ── */
-    .search-hl {
-        font-weight: 700;
-        background: #fef08a;
-        color: #1e293b;
-        padding: 0 1px;
-        border-radius: 2px;
-    }
+    /* Search hit highlight */
+    .search-hl { font-weight: 700; background: var(--hazard-bg); color: var(--steel-900); padding: 0 1px; border-radius: 2px; }
+    .search-match-label { font-weight: 600; color: var(--steel-400); margin-right: 2px; }
 
-    /* ── Contextual Match Labels ── */
-    .search-match-label {
-        font-weight: 600;
-        color: #64748b;
-        margin-right: 2px;
-    }
-
-    /* ── Formula Pill ── */
+    /* Formula pill */
     .sr-formula-pill {
         display: inline-block;
-        font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
-        font-size: 11px;
-        font-weight: 500;
-        color: #6366f1;
-        background: #eef2ff;
-        border: 1px solid #c7d2fe;
-        padding: 1px 6px;
-        border-radius: 4px;
-        white-space: nowrap;
-        flex-shrink: 0;
+        font-family: 'JetBrains Mono', ui-monospace, 'Consolas', monospace;
+        font-size: 11px; font-weight: 500;
+        color: var(--steel-600); background: var(--steel-100);
+        border: 1px solid var(--steel-200);
+        padding: 1px 6px; border-radius: 2px; white-space: nowrap; flex-shrink: 0;
     }
 
-    /* ── Search Row ── */
-    .sr-row {
-        transition: background-color 0.1s ease, border-color 0.1s ease;
-    }
-    .sr-row-active {
-        background: #eff6ff !important;
-    }
+    .sr-row { transition: background-color 0.1s ease, border-color 0.1s ease; }
+    .sr-row-active { background: var(--workspace) !important; }
 </style>
 
 <script>
@@ -557,11 +433,11 @@
             modalChemicals: '',
             dbStats: 'Loading...',
             _abortController: null,
-            
+
             async init() {
                 await this.loadStats();
             },
-            
+
             async loadStats() {
                 try {
                     const res = await fetch('/api/reactivity/stats');
@@ -574,7 +450,6 @@
                 }
             },
 
-            // ── Highlight helper: wraps query match in <strong> ──
             highlight(text, query) {
                 if (!text || !query) return this.escapeHtml(text || '');
                 const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -588,7 +463,6 @@
                 return div.innerHTML;
             },
 
-            // ── Build subtext line based on match_type ──
             getSubtext(item) {
                 const q = this.searchQuery;
                 switch(item.match_type) {
@@ -610,12 +484,10 @@
                 }
             },
 
-            // ── NFPA badge value helper ──
             nfpaVal(v) {
                 return v !== null && v !== undefined ? v : '?';
             },
 
-            // ── Keyboard navigation ──
             onKeyDown(e) {
                 if (e.key === 'Escape') {
                     this.searchFocused = false;
@@ -664,10 +536,9 @@
                     return;
                 }
 
-                // Cancel previous in-flight request
                 if (this._abortController) this._abortController.abort();
                 this._abortController = new AbortController();
-                
+
                 this.searchLoading = true;
                 try {
                     const res = await fetch(
@@ -686,12 +557,11 @@
                     this.searchLoading = false;
                 }
             },
-            
+
             addChemical(chemical) {
                 if (this.selectedChemicals.find(c => c.id === chemical.id)) {
                     return;
                 }
-                
                 this.selectedChemicals.push(chemical);
                 this.searchQuery = '';
                 this.searchResults = [];
@@ -699,27 +569,27 @@
                 this.dropdownOpen = false;
                 this.activeIndex = -1;
             },
-            
+
             removeChemical(id) {
                 this.selectedChemicals = this.selectedChemicals.filter(c => c.id !== id);
                 if (this.selectedChemicals.length < 2) {
                     this.analysisResult = null;
                 }
             },
-            
+
             clearAll() {
                 this.selectedChemicals = [];
                 this.analysisResult = null;
             },
-            
+
             async analyzeCompatibility() {
                 if (this.selectedChemicals.length < 2) {
                     alert('Please select at least 2 chemicals');
                     return;
                 }
-                
+
                 this.analyzing = true;
-                
+
                 try {
                     const res = await fetch('/api/analyze', {
                         method: 'POST',
@@ -729,9 +599,9 @@
                             options: { include_water_check: true }
                         })
                     });
-                    
+
                     const data = await res.json();
-                    
+
                     if (data.success) {
                         this.analysisResult = data.data;
                         setTimeout(() => {
@@ -750,7 +620,7 @@
                     this.analyzing = false;
                 }
             },
-            
+
             openModal(cell, i, j) {
                 if (!cell) return;
                 this.modalCell = cell;

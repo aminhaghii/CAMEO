@@ -149,4 +149,4 @@ python -m pytest tests/test_warehouse.py::TestWarehouse -k auto_arrange -v
 - **Layout Integrity**: Verifies layout isolation controls, auto-arrange section groupings, and admin override validation logic.
 
 ---
-*Last Updated: June 15, 2026*
+*Last Updated: June 22, 2026*

@@ -186,6 +186,20 @@ confined spaces.'},
                             {{ chemical.dot_labels }}
                         </span>
                         {% endif %}
+                        {% if chemical.nfpa_flam is not none and chemical.nfpa_flam >= 3 %}
+                        <span
+                            class="inline-flex items-center gap-1 px-3 py-1 bg-hazard/10 text-hazard text-sm font-medium rounded-full border border-hazard/30">
+                            {{ icon('flame', 'w-4 h-4') }}
+                            Highly Flammable
+                        </span>
+                        {% endif %}
+                        {% if chemical.nfpa_react is not none and chemical.nfpa_react >= 2 %}
+                        <span
+                            class="inline-flex items-center gap-1 px-3 py-1 bg-signal/10 text-signal text-sm font-medium rounded-full border border-signal/30">
+                            {{ icon('triangle-alert', 'w-4 h-4') }}
+                            Reactive / Unstable
+                        </span>
+                        {% endif %}
                     </div>
                 </div>
 
@@ -605,6 +619,40 @@ confined spaces.'},
                                 else 'N/A' }}</td>
                         </tr>
                         {% endif %}
+                        {% if chemical.vd_value is not none %}
+                        <tr class="hover:bg-steel-50">
+                            <td class="px-6 py-4 text-sm font-medium text-steel-900">Vapor Density (Relative to Air)</td>
+                            <td class="px-6 py-4 text-sm text-steel-700">
+                                {{ chemical.vd_value }}{% if chemical.vd_value_tempDegF %} @ {{
+                                chemical.vd_value_tempDegF }}°F{% endif %}
+                                {% if chemical.vd_value > 1.0 %} <span class="ml-2 text-xs text-steel-600 font-medium">
+                                    (Heavier than air; will sink)</span>
+                                    {% elif chemical.vd_value < 1.0 %}
+                                    <span class="ml-2 text-xs text-steel-600 font-medium">(Lighter than air; will
+                                        rise)</span>
+                                    {% endif %}
+                            </td>
+                            <td class="px-6 py-4 text-sm text-steel-500">{{ chemical.vd_source if chemical.vd_source
+                                else 'N/A' }}</td>
+                        </tr>
+                        {% endif %}
+                        {% if chemical.solblty_value %}
+                        <tr class="hover:bg-steel-50">
+                            <td class="px-6 py-4 text-sm font-medium text-steel-900">Water Solubility</td>
+                            <td class="px-6 py-4 text-sm text-steel-700">{{ chemical.solblty_value }}{% if
+                                chemical.solblty_unit %} {{ chemical.solblty_unit }}{% endif %}</td>
+                            <td class="px-6 py-4 text-sm text-steel-500">{{ chemical.solblty_source if
+                                chemical.solblty_source else 'N/A' }}</td>
+                        </tr>
+                        {% endif %}
+                        {% if chemical.ion_value is not none %}
+                        <tr class="hover:bg-steel-50">
+                            <td class="px-6 py-4 text-sm font-medium text-steel-900">Ionization Energy / Potential</td>
+                            <td class="px-6 py-4 text-sm text-steel-700">{{ chemical.ion_value }} eV</td>
+                            <td class="px-6 py-4 text-sm text-steel-500">{{ chemical.ion_source if chemical.ion_source
+                                else 'N/A' }}</td>
+                        </tr>
+                        {% endif %}
                     </tbody>
                 </table>
             </div>
@@ -640,6 +688,12 @@ confined spaces.'},
 
         <!-- Reactivity Tab -->
         <div x-show="activeTab === 'reactivity'" class="space-y-6">
+            {% if chemical.chemical_profile %}
+            <div class="bg-white rounded-sm shadow-sm border border-steel-200 p-6">
+                <h3 class="text-lg font-semibold text-steel-900 mb-3">Reactivity Profile</h3>
+                <p class="text-steel-700 leading-relaxed whitespace-pre-wrap">{{ chemical.chemical_profile }}</p>
+            </div>
+            {% endif %}
             {% if chemical.reactive_groups %}
             <div class="bg-white rounded-sm shadow-sm border border-steel-200 p-6">
                 <h3 class="text-lg font-semibold text-steel-900 mb-4">Belongs to the Following Reactive Group(s)</h3>

@@ -1277,6 +1277,7 @@ def analyze_chemicals():
 
 
 @app.route('/api/reactivity/stats', methods=['GET'])
+@login_required
 def get_reactivity_stats():
     """Get reactivity database statistics"""
     try:
@@ -1288,6 +1289,7 @@ def get_reactivity_stats():
 
 
 @app.route('/api/reactive-groups', methods=['GET'])
+@login_required
 def get_reactive_groups():
     """Get list of all reactive groups"""
     try:
@@ -1305,4 +1307,5 @@ def get_reactive_groups():
 
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    debug_enabled = os.environ.get('FLASK_DEBUG', '').lower() in ('1', 'true', 'yes', 'on')
+    app.run(debug=debug_enabled, port=5000)

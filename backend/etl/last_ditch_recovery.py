@@ -107,13 +107,13 @@ def attempt_last_ditch_recovery(
             if un_match:
                 un_candidate = un_match.group(2)  # Extract just the digits
                 
-                # Try to find in database (note: chemical_un table may not exist)
+                # Try to find in database via chemical_unna (correct table name)
                 try:
                     cursor.execute("""
                         SELECT c.id, c.name
                         FROM chemicals c
-                        JOIN chemical_un cu ON c.id = cu.chem_id
-                        WHERE cu.un_code = ?
+                        JOIN chemical_unna cu ON c.id = cu.chem_id
+                        WHERE cu.unna_id = ?
                         LIMIT 1
                     """, (int(un_candidate),))
                     
@@ -137,7 +137,6 @@ def attempt_last_ditch_recovery(
                             'recovery_note': f"Recovered via deep row scan: UN{un_candidate} found in column '{col_name}'"
                         }
                 except sqlite3.OperationalError:
-                    # chemical_un table doesn't exist, skip UN lookup
                     pass
         
         # ═══════════════════════════════════════════════════════

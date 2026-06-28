@@ -79,7 +79,7 @@ COMPATIBILITY_MAP: Dict[Compatibility, CompatibilityInfo] = {
 }
 
 # Special group IDs
-WATER_GROUP_ID = 104  # Water and Aqueous Solutions in existing DB
+WATER_GROUP_ID = 100  # Water and Aqueous Solutions (verified against chemicals.db)
 AIR_GROUP_ID = 101
 
 # Map existing DB compatibility values to our enum

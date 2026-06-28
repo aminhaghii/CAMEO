@@ -56,7 +56,7 @@ def main():
             'name': 'WATER',
             'synonyms': 'H2O|DIHYDROGEN OXIDE|AQUA',
             'formulas': 'H2O',
-            'groups': [104]  # Water and Aqueous Solutions
+            'groups': [100]  # Water and Aqueous Solutions
         },
         {
             'name': 'SODIUM',

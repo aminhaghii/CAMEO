@@ -99,7 +99,106 @@
             {{ icon('plus', 'w-4 h-4') }} Add Chemical
         </button>
 
+        <button @click="loadReviewQueue()" class="btn btn-secondary ml-2"
+                x-show="!showReviewQueue">
+            {{ icon('list-checks', 'w-4 h-4') }} Review Queue
+            <span class="ml-1 px-1.5 py-0.5 rounded text-xs font-bold"
+                  x-show="reviewQueueCount > 0"
+                  x-text="reviewQueueCount"></span>
+        </button>
+
         <p class="text-sm text-steel-400 ml-auto"><span class="font-semibold text-steel-700 data-mono" x-text="filteredRows.length"></span> rows</p>
+    </div>
+
+    <!-- Review Queue Panel -->
+    <div class="content-card" x-show="showReviewQueue" x-cloak>
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-bold text-steel-800">Review Queue</h3>
+            <button @click="showReviewQueue = false" class="text-steel-400 hover:text-steel-600">
+                {{ icon('x', 'w-5 h-5') }}
+            </button>
+        </div>
+
+        <!-- Priority summary -->
+        <div class="grid grid-cols-4 gap-3 mb-4" x-show="reviewQueue.by_priority">
+            <div class="rounded border p-2 text-center" :class="reviewQueue.by_priority?.critical ? 'bg-red-50 border-red-200' : 'bg-steel-50 border-steel-200'">
+                <p class="text-xs text-steel-500 uppercase">Critical</p>
+                <p class="text-xl font-bold" x-text="reviewQueue.by_priority?.critical || 0"></p>
+            </div>
+            <div class="rounded border p-2 text-center" :class="reviewQueue.by_priority?.high ? 'bg-orange-50 border-orange-200' : 'bg-steel-50 border-steel-200'">
+                <p class="text-xs text-steel-500 uppercase">High</p>
+                <p class="text-xl font-bold" x-text="reviewQueue.by_priority?.high || 0"></p>
+            </div>
+            <div class="rounded border p-2 text-center" :class="reviewQueue.by_priority?.medium ? 'bg-yellow-50 border-yellow-200' : 'bg-steel-50 border-steel-200'">
+                <p class="text-xs text-steel-500 uppercase">Medium</p>
+                <p class="text-xl font-bold" x-text="reviewQueue.by_priority?.medium || 0"></p>
+            </div>
+            <div class="rounded border p-2 text-center" :class="reviewQueue.by_priority?.low ? 'bg-blue-50 border-blue-200' : 'bg-steel-50 border-steel-200'">
+                <p class="text-xs text-steel-500 uppercase">Low</p>
+                <p class="text-xl font-bold" x-text="reviewQueue.by_priority?.low || 0"></p>
+            </div>
+        </div>
+
+        <!-- Queue items -->
+        <div class="space-y-3 max-h-96 overflow-y-auto" x-show="reviewQueue.queue && reviewQueue.queue.length > 0">
+            <template x-for="item in reviewQueue.queue" :key="item.queue_id">
+                <div class="border rounded p-3" :class="{
+                    'border-red-300 bg-red-50': item.priority === 'critical',
+                    'border-orange-300 bg-orange-50': item.priority === 'high',
+                    'border-yellow-300 bg-yellow-50': item.priority === 'medium',
+                    'border-blue-300 bg-blue-50': item.priority === 'low'
+                }">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <p class="font-semibold text-steel-800">
+                                <span class="inline-block px-2 py-0.5 rounded text-xs font-bold uppercase mr-2"
+                                      :class="{
+                                          'bg-red-600 text-white': item.priority === 'critical',
+                                          'bg-orange-500 text-white': item.priority === 'high',
+                                          'bg-yellow-500 text-white': item.priority === 'medium',
+                                          'bg-blue-500 text-white': item.priority === 'low'
+                                      }"
+                                      x-text="item.priority"></span>
+                                Row <span x-text="item.row_index"></span>
+                            </p>
+                            <p class="text-sm text-steel-600 mt-1">
+                                Input: <span class="font-medium" x-text="item.input_data?.name || '(no name)'"></span>
+                                <span x-show="item.input_data?.cas"> | CAS: <span x-text="item.input_data?.cas"></span></span>
+                            </p>
+                            <p class="text-xs text-steel-500 mt-1" x-show="item.issues && item.issues.length > 0">
+                                <span x-text="item.issues.join('; ')"></span>
+                            </p>
+                        </div>
+                        <p class="text-xs text-steel-400">Confidence: <span x-text="(item.confidence * 100).toFixed(0) + '%'"></span></p>
+                    </div>
+
+                    <!-- Matcher suggestions -->
+                    <div class="mt-2" x-show="item.candidates && item.candidates.length > 0">
+                        <p class="text-xs font-semibold text-steel-500 uppercase mb-1">Suggested Matches:</p>
+                        <div class="flex flex-wrap gap-1">
+                            <template x-for="cand in item.candidates" :key="cand.chemical_id">
+                                <button @click="resolveReviewCandidate(item, cand)"
+                                        class="px-2 py-1 text-xs rounded border border-steel-300 bg-white hover:bg-workspace hover:border-steel-400">
+                                    <span x-text="cand.chemical_name"></span>
+                                    <span class="text-steel-400 ml-1" x-text="'(' + (cand.score || 0).toFixed(0) + '%)'"></span>
+                                </button>
+                            </template>
+                        </div>
+                    </div>
+
+                    <div class="mt-2 flex gap-2">
+                        <button @click="confirmMatch({staging_id: item.staging_id, name: item.input_data?.name || '', row_version: ''})"
+                                class="text-xs btn btn-secondary">
+                            {{ icon('search', 'w-3 h-3') }} Search Manually
+                        </button>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <div x-show="!reviewQueue.queue || reviewQueue.queue.length === 0" class="text-center py-8 text-steel-400">
+            No items in review queue.
+        </div>
     </div>
 
     <!-- Data Grid -->
@@ -317,6 +416,11 @@
             chemicalSearchQuery: '',
             chemicalSearchResults: [],
 
+            // Review Queue state
+            showReviewQueue: false,
+            reviewQueue: { queue: [], total: 0, by_priority: {} },
+            reviewQueueCount: 0,
+
             get filteredRows() {
                 let rows = this.allRows;
                 if (this.activeFilter !== 'ALL') {
@@ -378,8 +482,61 @@
                             review: this.allRows.filter(r => r.match_status === 'REVIEW_REQUIRED').length,
                             rejected: this.allRows.filter(r => r.match_status === 'UNIDENTIFIED').length,
                         };
+                        // Fetch review queue count for the badge
+                        this.fetchReviewQueueCount();
                     }
                 } catch (e) { console.error(e); }
+            },
+
+            async fetchReviewQueueCount() {
+                if (!this.selectedBatch) { this.reviewQueueCount = 0; return; }
+                try {
+                    const res = await fetch(`/api/inventory/review_queue/${this.selectedBatch}`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        this.reviewQueueCount = data.total || 0;
+                    }
+                } catch (e) { console.error(e); }
+            },
+
+            async loadReviewQueue() {
+                if (!this.selectedBatch) return;
+                try {
+                    const res = await fetch(`/api/inventory/review_queue/${this.selectedBatch}`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        this.reviewQueue = data;
+                        this.reviewQueueCount = data.total || 0;
+                        this.showReviewQueue = true;
+                    }
+                } catch (e) {
+                    console.error(e);
+                    alert('Failed to load review queue.');
+                }
+            },
+
+            async resolveReviewCandidate(item, candidate) {
+                try {
+                    const res = await fetch('/api/inventory/resolve_review', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            queue_id: item.queue_id,
+                            chemical_id: candidate.chemical_id,
+                            chemical_name: candidate.chemical_name
+                        })
+                    });
+                    if (res.ok) {
+                        await this.loadRows();
+                        await this.loadReviewQueue();
+                    } else {
+                        const data = await res.json();
+                        alert(data.error || 'Failed to resolve review item.');
+                    }
+                } catch (e) {
+                    console.error(e);
+                    alert('Error resolving review item.');
+                }
             },
 
             statusChipClass(s) {
@@ -531,6 +688,9 @@
                         });
                         const data = await res.json();
                         if (res.ok && !data.error) {
+                            if (data.warning) {
+                                alert(data.warning);
+                            }
                             await this.loadRows();
                             this.showEditModal = false;
                         } else {
@@ -587,28 +747,23 @@
             },
 
             async confirmMatch(row) {
-                const chemicalId = prompt(`Confirm chemical for "${row.name}"?\nEnter CAMEO chemical ID (or leave blank to skip):`);
-                if (!chemicalId) return;
-                try {
-                    const res = await fetch('/api/inventory/confirm', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({
-                            staging_id: row.staging_id,
-                            chemical_id: parseInt(chemicalId),
-                            chemical_name: row.name
-                        })
-                    });
-                    if (res.ok) {
-                        await this.loadRows();
-                        alert('Match confirmed successfully.');
-                    } else {
-                        const data = await res.json();
-                        alert(data.error || 'Failed to confirm match.');
-                    }
-                } catch (e) {
-                    console.error(e);
-                }
+                // Open the edit modal pre-filled with the row's data so the user
+                // can search for the correct chemical and confirm the match.
+                this.editMode = 'edit';
+                this.editForm = {
+                    staging_id: row.staging_id,
+                    row_version: row.row_version,
+                    chemical_id: row.chemical_id || null,
+                    name: row.name || '',
+                    cas: row.cas || '',
+                    quantity: row.quantity || '',
+                    unit: row.unit || '',
+                    location: row.location || '',
+                    notes: row.notes || ''
+                };
+                this.chemicalSearchQuery = row.name || '';
+                this.chemicalSearchResults = [];
+                this.showEditModal = true;
             },
 
             updateStatusCounts() {

@@ -824,7 +824,7 @@ def _is_water_reactive(chemical_id, chemicals_db_path):
 
 
 def _has_water_group(placement):
-    """Check if a chemical belongs to the Water reactive group (104)."""
+    """Check if a chemical belongs to the Water and Aqueous Solutions group (100)."""
     groups = _groups_for_placement(placement)
     return WATER_GROUP_ID in groups
 

@@ -338,8 +338,11 @@ class HybridMatcher:
             for f in formulas.split('|'):
                 f = f.strip()
                 if f:
-                    fnorm = _normalize_formula(f)
-                    self._formula_map.setdefault(fnorm, []).append(entry)
+                    # Strip parenthetical annotations so "NH4NO3 (ammonium nitrate)" → "NH4NO3"
+                    f_base = re.sub(r'\s*\([^)]*\)\s*', '', f).strip()
+                    if f_base:
+                        fnorm = _normalize_formula(f_base)
+                        self._formula_map.setdefault(fnorm, []).append(entry)
 
         conn.close()
         self._loaded = True
@@ -755,8 +758,8 @@ class HybridMatcher:
                 f"CAS points to [{', '.join(cas_names_str)}] "
                 f"but name matches [{', '.join(name_names_str)}]"
             )
-            # Penalize but keep at REVIEW level
-            confidence = min(confidence, 0.80)
+            # Force REVIEW_REQUIRED (below THRESHOLD_MATCHED=0.80)
+            confidence = min(confidence, 0.79)
 
         # Formula vs name conflict (strong signals only)
         strong_formula_cids = set()
@@ -768,9 +771,9 @@ class HybridMatcher:
                 f"Formula and name point to different chemicals"
             )
 
-        # If real conflicts exist, cap at REVIEW_REQUIRED
+        # If real conflicts exist, force REVIEW_REQUIRED (below THRESHOLD_MATCHED=0.80)
         if conflicts:
-            confidence = min(confidence, 0.84)
+            confidence = min(confidence, 0.79)
 
         # ═══════════════════════════════════════════════
         #  PHASE 5: Build suggestions
@@ -1010,7 +1013,23 @@ class HybridMatcher:
                                 f"Fuzzy name: '{fq}' ≈ '{entry['name']}' ({score:.0f}%)"
                             ))
                             already_found.add(entry['id'])
-        
+
+        # Fuzzy synonym match (wired — previously built but never queried)
+        if self._fuzzy_syns:
+            for fq in fuzzy_queries:
+                results = rfprocess.extract(fq, self._fuzzy_syns, scorer=fuzz.WRatio, limit=5)
+                for match_low, score, _idx in results:
+                    if score >= 70:
+                        entry = self._fuzzy_syn_to_entry.get(match_low)
+                        if entry and entry['id'] not in already_found:
+                            sigs.append(Signal(
+                                entry['id'], entry['name'], 'synonym_fuzzy',
+                                score / 100.0,
+                                SIGNAL_WEIGHTS['synonym_fuzzy'],
+                                f"Fuzzy synonym: '{fq}' ≈ synonym of '{entry['name']}' ({score:.0f}%)"
+                            ))
+                            already_found.add(entry['id'])
+
         return sigs
 
     def _signals_from_formula(self, formula: str) -> list[Signal]:

@@ -972,15 +972,15 @@
                 const chemicals = this.getMergedPlacements(sec);
                 if (!chemicals || chemicals.length === 0) return 'COMPATIBLE';
                 
-                // Check water-reactive vs water-containing (group 104) conflict
+                // Check water-reactive vs water-containing (group 100) conflict
                 const itemIsWR = item.water_reactive || false;
-                const itemHasWater = (item.reactive_groups || []).includes(104);
+                const itemHasWater = (item.reactive_groups || []).includes(100);
 
                 for (const existing of chemicals) {
                     if (existing.id === item.id) continue;
                     
                     const existingIsWR = existing.water_reactive || false;
-                    const existingHasWater = (existing.reactive_groups || []).includes(104);
+                    const existingHasWater = (existing.reactive_groups || []).includes(100);
                     
                     if ((itemIsWR && existingHasWater) || (existingIsWR && itemHasWater)) {
                         return 'INCOMPATIBLE';

@@ -54,11 +54,11 @@ with app.app_context(), app.test_request_context():
 
     print("\n=== Test 3: Water Reactivity Manual Placement Validation ===")
     # Section ID 5 currently has Sodium Peroxide (id=1516), which has reactive groups [10, 44] and is water-reactive.
-    # Group 104 is Water and Aqueous Solutions. Ammonium Hydroxide (id=2434) has reactive groups [61, 100].
-    # Let's test _is_section_conflict for Sodium Peroxide and Ammonium Hydroxide (neither is group 104 directly, but Sodium Peroxide is water-reactive).
+    # Group 100 is Water and Aqueous Solutions. Ammonium Hydroxide (id=2434) has reactive groups [61, 100].
+    # Let's test _is_section_conflict for Sodium Peroxide and Ammonium Hydroxide (neither is group 100 directly, but Sodium Peroxide is water-reactive).
     # Wait, let's create two mock placement objects.
     # placement_a is Sodium Peroxide (chemical_id=1516, water_reactive=True)
-    # placement_b is a water solution (chemical_id=2434, but let's give it group 104)
+    # placement_b is a water solution (chemical_id=2434, but let's give it group 100)
     p_a = {
         'chemical_id': 1516,
         'chemical_name': 'SODIUM PEROXIDE',
@@ -67,7 +67,7 @@ with app.app_context(), app.test_request_context():
     p_b = {
         'chemical_id': 2434,
         'chemical_name': 'WATER SOLUTION',
-        'reactive_groups': '[104]'
+        'reactive_groups': '[100]'
     }
     
     conflict = _is_section_conflict(engine, p_a, p_b)
@@ -101,7 +101,7 @@ with app.app_context(), app.test_request_context():
     cursor.execute(
         """INSERT INTO chemical_placements 
             (warehouse_id, section_id, chemical_id, chemical_name, reactive_groups, status)
-           VALUES (?, NULL, 2434, 'WATER SOLUTION', '[104]', 'placed')""",
+           VALUES (?, NULL, 2434, 'WATER SOLUTION', '[100]', 'placed')""",
         (test_wh_id,)
     )
     p_b_id = cursor.lastrowid

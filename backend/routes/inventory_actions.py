@@ -120,7 +120,12 @@ def _propagate_to_warehouse(cursor, batch_id, old_chemical_id, new_chemical_id, 
         if st_row and st_row['cleaned_data']:
             try:
                 cd = json.loads(st_row['cleaned_data'])
-                qty_str = cd.get('quantity', '1.0')
+                if 'quantity' not in cd or cd.get('quantity') in (None, ''):
+                    logger.warning(
+                        f"Staging row {staging_id} (batch {batch_id}) has no quantity; "
+                        f"defaulting to 1.0 for warehouse placement"
+                    )
+                qty_str = cd.get('quantity', '1.0') or '1.0'
                 unit_str = cd.get('unit', 'kg').lower()
                 CONTAINER_KG = {
                     'drum': 200, 'drums': 200, 'cylinder': 50, 'cylinders': 50,
@@ -143,7 +148,11 @@ def _propagate_to_warehouse(cursor, batch_id, old_chemical_id, new_chemical_id, 
                     qty *= 1000.0
                 elif unit_str in CONTAINER_KG:
                     qty *= CONTAINER_KG[unit_str]
-            except Exception:
+            except Exception as e:
+                logger.warning(
+                    f"Staging row {staging_id} (batch {batch_id}) has an unparsable "
+                    f"quantity/unit; storing NULL quantity_kg: {e}"
+                )
                 qty = None
 
         for wh_id in imported_warehouses:

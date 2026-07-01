@@ -967,8 +967,9 @@ def _run_matrix_placement(sections, placements, engine):
     Place chemicals by solving a conflict graph.
 
     A conflict edge means two chemicals must not share a section.
-    Only INCOMPATIBLE pairs create conflict edges.
-    CAUTION/NO_DATA pairs are allowed together (user override available via validation).
+    Conflict edges are created for AUTO_ARRANGE_CONFLICT_COMPATIBILITIES
+    (INCOMPATIBLE and NO_DATA — unknowns are isolated fail-safe). CAUTION
+    pairs are allowed together (user override available via validation).
     """
     adjacency, _ = _build_conflict_graph(placements, engine)
     exact_result = _run_exact_coloring(sections, placements, adjacency)

@@ -15,6 +15,7 @@ import threading
 import uuid
 from datetime import datetime
 
+from db_utils import get_safe_connection
 from etl.ingest import read_file
 from etl.schema import map_columns
 from etl.clean import validate_row
@@ -49,7 +50,7 @@ def _safe_cell_to_text(value) -> str:
 def init_inventory_tables(user_db_path: str):
     """Create inventory tables in user.db if they don't exist (Layer 5 included).
     Also migrates existing tables by adding new columns if missing."""
-    conn = sqlite3.connect(user_db_path)
+    conn = get_safe_connection(user_db_path)
     cursor = conn.cursor()
 
     cursor.execute("""
@@ -284,7 +285,7 @@ def _safe_add_column(cursor, table: str, column: str, col_type: str):
 def create_batch(user_db_path: str, filename: str) -> str:
     """Create a new batch record and return its UUID."""
     batch_id = str(uuid.uuid4())
-    conn = sqlite3.connect(user_db_path)
+    conn = get_safe_connection(user_db_path)
     cursor = conn.cursor()
     cursor.execute(
         "INSERT INTO inventory_batches (id, filename, status) VALUES (?, ?, 'pending')",
@@ -297,8 +298,7 @@ def create_batch(user_db_path: str, filename: str) -> str:
 
 def get_batch_status(user_db_path: str, batch_id: str) -> dict:
     """Get current status of a batch for polling."""
-    conn = sqlite3.connect(user_db_path)
-    conn.row_factory = sqlite3.Row
+    conn = get_safe_connection(user_db_path, readonly=True)
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM inventory_batches WHERE id = ?", (batch_id,))
     row = cursor.fetchone()
@@ -334,7 +334,7 @@ def confirm_row(user_db_path: str, staging_id: int, chemical_id: int, chemical_n
     Human-in-the-loop: confirm a REVIEW_REQUIRED or UNIDENTIFIED row
     by manually linking it to a chemical_id.
     """
-    conn = sqlite3.connect(user_db_path)
+    conn = get_safe_connection(user_db_path)
     cursor = conn.cursor()
     cursor.execute("""
         UPDATE inventory_staging
@@ -350,8 +350,7 @@ def confirm_row(user_db_path: str, staging_id: int, chemical_id: int, chemical_n
 
 def get_review_rows(user_db_path: str, batch_id: str) -> list[dict]:
     """Get all rows that need human review for a batch."""
-    conn = sqlite3.connect(user_db_path)
-    conn.row_factory = sqlite3.Row
+    conn = get_safe_connection(user_db_path, readonly=True)
     cursor = conn.cursor()
     cursor.execute("""
         SELECT id, row_index, raw_data, cleaned_data, match_status,
@@ -422,7 +421,7 @@ def _run_pipeline(user_db_path: str, chemicals_db_path: str,
 
     Never crashes — all errors are caught and stored in batch status.
     """
-    conn = sqlite3.connect(user_db_path)
+    conn = get_safe_connection(user_db_path)
     cursor = conn.cursor()
 
     try:

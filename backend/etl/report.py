@@ -8,6 +8,8 @@ import json
 import logging
 import sqlite3
 
+from db_utils import get_safe_connection
+
 logger = logging.getLogger(__name__)
 
 
@@ -29,8 +31,7 @@ def generate_summary(db_path: str, batch_id: str) -> dict:
             'needs_review': [ { row with suggestions }, ... ],
         }
     """
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
+    conn = get_safe_connection(db_path, readonly=True)
     cursor = conn.cursor()
 
     cursor.execute("""

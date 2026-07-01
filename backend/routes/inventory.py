@@ -100,7 +100,12 @@ def _propagate_to_warehouse(cursor, batch_id, old_chemical_id, new_chemical_id, 
         if st_row and st_row['cleaned_data']:
             try:
                 cleaned_data = json.loads(st_row['cleaned_data'])
-                qty_str = cleaned_data.get('quantity', '1.0')
+                if 'quantity' not in cleaned_data or cleaned_data.get('quantity') in (None, ''):
+                    logger.warning(
+                        f"Staging row {staging_id} (batch {batch_id}) has no quantity; "
+                        f"defaulting to 1.0 for warehouse placement"
+                    )
+                qty_str = cleaned_data.get('quantity', '1.0') or '1.0'
                 unit_str = cleaned_data.get('unit', 'kg').lower()
                 CONTAINER_KG = {
                     'drum': 200, 'drums': 200, 'cylinder': 50, 'cylinders': 50,
@@ -123,7 +128,11 @@ def _propagate_to_warehouse(cursor, batch_id, old_chemical_id, new_chemical_id, 
                     qty *= 1000.0
                 elif unit_str in CONTAINER_KG:
                     qty *= CONTAINER_KG[unit_str]
-            except Exception:
+            except Exception as e:
+                logger.warning(
+                    f"Staging row {staging_id} (batch {batch_id}) has an unparsable "
+                    f"quantity/unit; storing NULL quantity_kg: {e}"
+                )
                 qty = None
 
         for wh_id in imported_warehouses:
@@ -557,93 +566,99 @@ def confirm_match():
 
     user_db = _get_db_path()
     conn = get_safe_connection(user_db)
-    cursor = conn.cursor()
+    try:
+        cursor = conn.cursor()
 
-    # Fetch current cleaned_data and old chemical_id to update name/cas
-    cursor.execute("SELECT cleaned_data, chemical_id FROM inventory_staging WHERE id = ?", (staging_id,))
-    staging_row = cursor.fetchone()
-    cleaned = {}
-    old_chemical_id = None
-    if staging_row:
-        old_chemical_id = staging_row['chemical_id']
-        if staging_row['cleaned_data']:
-            try:
-                cleaned = json.loads(staging_row['cleaned_data'])
-            except (json.JSONDecodeError, TypeError):
-                pass
+        # Fetch current cleaned_data and old chemical_id to update name/cas
+        cursor.execute("SELECT cleaned_data, chemical_id FROM inventory_staging WHERE id = ?", (staging_id,))
+        staging_row = cursor.fetchone()
+        cleaned = {}
+        old_chemical_id = None
+        if staging_row:
+            old_chemical_id = staging_row['chemical_id']
+            if staging_row['cleaned_data']:
+                try:
+                    cleaned = json.loads(staging_row['cleaned_data'])
+                except (json.JSONDecodeError, TypeError):
+                    pass
 
-    # Update cleaned_data with confirmed chemical info
-    cleaned['name'] = chem['name']
-    # Also update CAS if available
-    conn_c = get_safe_connection(chemicals_db, readonly=True)
-    cur_c = conn_c.cursor()
-    cur_c.execute("SELECT cas_id FROM chemical_cas WHERE chem_id = ? ORDER BY sort LIMIT 1", (chemical_id,))
-    cas_row = cur_c.fetchone()
-    if cas_row:
-        cleaned['cas'] = cas_row['cas_id']
-        cleaned['cas_valid'] = True
-    conn_c.close()
+        # Update cleaned_data with confirmed chemical info
+        cleaned['name'] = chem['name']
+        # Also update CAS if available
+        conn_c = get_safe_connection(chemicals_db, readonly=True)
+        try:
+            cur_c = conn_c.cursor()
+            cur_c.execute("SELECT cas_id FROM chemical_cas WHERE chem_id = ? ORDER BY sort LIMIT 1", (chemical_id,))
+            cas_row = cur_c.fetchone()
+            if cas_row:
+                cleaned['cas'] = cas_row['cas_id']
+                cleaned['cas_valid'] = True
+        finally:
+            conn_c.close()
 
-    # Update staging row
-    cursor.execute("""
-        UPDATE inventory_staging
-        SET chemical_id = ?, match_status = 'MATCHED',
-            match_method = 'manual_confirm', confidence = 1.0,
-            cleaned_data = ?
-        WHERE id = ?
-    """, (chemical_id, json.dumps(cleaned), staging_id))
-    success = cursor.rowcount > 0
-
-    if not success:
-        conn.close()
-        return jsonify({'error': 'Row not found'}), 404
-
-    # Resolve any pending review_queue entry for this staging row
-    cursor.execute("SELECT id, batch_id, input_data FROM review_queue WHERE staging_id = ? AND status = 'pending'", (staging_id,))
-    rq = cursor.fetchone()
-    batch_id = None
-    input_data = '{}'
-    if rq:
-        batch_id = rq['batch_id']
-        input_data = rq['input_data'] or '{}'
+        # Update staging row
         cursor.execute("""
-            UPDATE review_queue
-            SET status = 'resolved', resolution = ?, resolution_timestamp = ?
+            UPDATE inventory_staging
+            SET chemical_id = ?, match_status = 'MATCHED',
+                match_method = 'manual_confirm', confidence = 1.0,
+                cleaned_data = ?
             WHERE id = ?
-        """, (json.dumps({'chemical_id': chemical_id, 'chemical_name': chem['name']}),
-              datetime.utcnow().isoformat(), rq['id']))
+        """, (chemical_id, json.dumps(cleaned), staging_id))
+        success = cursor.rowcount > 0
 
-    # If no batch_id from review_queue, get it from staging
-    if not batch_id:
-        cursor.execute("SELECT batch_id, raw_data FROM inventory_staging WHERE id = ?", (staging_id,))
-        staging_row2 = cursor.fetchone()
-        if staging_row2:
-            batch_id = staging_row2['batch_id']
-            input_data = staging_row2['raw_data'] or '{}'
+        if not success:
+            return jsonify({'error': 'Row not found'}), 404
 
-    # Store in learning_data for future improvement
-    cursor.execute("""
-        INSERT INTO learning_data
-            (input_pattern, context, correct_chemical_id, corrected_by)
-        VALUES (?, ?, ?, 'manual_confirm')
-    """, (input_data, json.dumps({'batch_id': batch_id}), chemical_id))
+        # Resolve any pending review_queue entry for this staging row
+        cursor.execute("SELECT id, batch_id, input_data FROM review_queue WHERE staging_id = ? AND status = 'pending'", (staging_id,))
+        rq = cursor.fetchone()
+        batch_id = None
+        input_data = '{}'
+        if rq:
+            batch_id = rq['batch_id']
+            input_data = rq['input_data'] or '{}'
+            cursor.execute("""
+                UPDATE review_queue
+                SET status = 'resolved', resolution = ?, resolution_timestamp = ?
+                WHERE id = ?
+            """, (json.dumps({'chemical_id': chemical_id, 'chemical_name': chem['name']}),
+                  datetime.utcnow().isoformat(), rq['id']))
 
-    # Audit trail
-    cursor.execute("""
-        INSERT INTO audit_trail
-            (batch_id, row_index, action, input_data, output_data,
-             confidence, method, timestamp, user_id)
-        VALUES (?, (SELECT row_index FROM inventory_staging WHERE id = ?),
-                'manual_confirm', ?, ?, 1.0, 'manual_confirm', ?, 'human')
-    """, (batch_id, staging_id, input_data,
-          json.dumps({'chemical_id': chemical_id, 'chemical_name': chem['name']}),
-          datetime.utcnow().isoformat()))
+        # If no batch_id from review_queue, get it from staging
+        if not batch_id:
+            cursor.execute("SELECT batch_id, raw_data FROM inventory_staging WHERE id = ?", (staging_id,))
+            staging_row2 = cursor.fetchone()
+            if staging_row2:
+                batch_id = staging_row2['batch_id']
+                input_data = staging_row2['raw_data'] or '{}'
 
-    # Propagate to warehouse if batch was already imported
-    _propagate_to_warehouse(cursor, batch_id, old_chemical_id, chemical_id, chem, staging_id)
-    conn.commit()
-    conn.close()
- 
+        # Store in learning_data for future improvement
+        cursor.execute("""
+            INSERT INTO learning_data
+                (input_pattern, context, correct_chemical_id, corrected_by)
+            VALUES (?, ?, ?, 'manual_confirm')
+        """, (input_data, json.dumps({'batch_id': batch_id}), chemical_id))
+
+        # Audit trail
+        cursor.execute("""
+            INSERT INTO audit_trail
+                (batch_id, row_index, action, input_data, output_data,
+                 confidence, method, timestamp, user_id)
+            VALUES (?, (SELECT row_index FROM inventory_staging WHERE id = ?),
+                    'manual_confirm', ?, ?, 1.0, 'manual_confirm', ?, 'human')
+        """, (batch_id, staging_id, input_data,
+              json.dumps({'chemical_id': chemical_id, 'chemical_name': chem['name']}),
+              datetime.utcnow().isoformat()))
+
+        # Propagate to warehouse if batch was already imported
+        _propagate_to_warehouse(cursor, batch_id, old_chemical_id, chemical_id, chem, staging_id)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
     _uid = g.user.get('id') if (hasattr(g, 'user') and g.user) else None
     log_event(
         db_path=user_db,

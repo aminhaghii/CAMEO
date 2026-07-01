@@ -10,6 +10,8 @@ import logging
 import sqlite3
 from typing import Optional, Dict, Any
 
+from db_utils import get_safe_connection
+
 logger = logging.getLogger(__name__)
 
 # Regex patterns for CAS and UN numbers
@@ -53,8 +55,7 @@ def attempt_last_ditch_recovery(
     """
     
     try:
-        conn = sqlite3.connect(chemicals_db_path)
-        conn.row_factory = sqlite3.Row
+        conn = get_safe_connection(chemicals_db_path, readonly=True)
         cursor = conn.cursor()
         
         # ═══════════════════════════════════════════════════════

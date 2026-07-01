@@ -11,6 +11,8 @@ from dataclasses import dataclass, field
 from typing import Optional, List
 from rapidfuzz import fuzz
 
+from db_utils import get_safe_connection
+
 
 class MatchFlag(Enum):
     """Warning flags for matches (not blockers)."""
@@ -50,8 +52,7 @@ class CascadeMatcher:
     
     def _get_conn(self) -> sqlite3.Connection:
         if not self._conn:
-            self._conn = sqlite3.connect(self.db_path)
-            self._conn.row_factory = sqlite3.Row
+            self._conn = get_safe_connection(self.db_path, readonly=True)
         return self._conn
     
     def match(self, cleaned: dict) -> MatchResult:

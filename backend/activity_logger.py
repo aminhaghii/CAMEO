@@ -29,6 +29,8 @@ import logging
 import sqlite3
 from datetime import datetime, timezone
 
+from db_utils import get_safe_connection
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -107,8 +109,7 @@ def log_event(
     if not db_path:
         return
     try:
-        conn = sqlite3.connect(db_path, timeout=10)
-        conn.row_factory = sqlite3.Row
+        conn = get_safe_connection(db_path)
         cursor = conn.cursor()
         _ensure_table(cursor)
         cursor.execute(
@@ -155,8 +156,7 @@ def migrate_audit_trail(db_path: str) -> int:
         return 0
     migrated = 0
     try:
-        conn = sqlite3.connect(db_path, timeout=15)
-        conn.row_factory = sqlite3.Row
+        conn = get_safe_connection(db_path)
         cursor = conn.cursor()
         _ensure_table(cursor)
 

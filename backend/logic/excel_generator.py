@@ -39,6 +39,8 @@ from openpyxl import Workbook
 from openpyxl.styles import (
     Font, PatternFill, Alignment, Border, Side, Protection,
 )
+
+from db_utils import get_safe_connection
 from openpyxl.utils import get_column_letter
 
 logger = logging.getLogger("excel_generator")
@@ -106,8 +108,7 @@ def query_eu_compliance(db_path: str, cas_numbers: list[str]) -> list[dict]:
         cas_number, ec_number, chemical_name, cameo_hazards,
         eu_hcodes, classification, svhc_status, restrictions
     """
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
+    conn = get_safe_connection(db_path, readonly=True)
     cur = conn.cursor()
 
     results = []

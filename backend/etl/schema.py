@@ -24,6 +24,8 @@ from typing import Any
 
 import pandas as pd
 
+from db_utils import get_safe_connection
+
 logger = logging.getLogger(__name__)
 
 # ═══════════════════════════════════════════════════════
@@ -284,7 +286,7 @@ def _load_cameo_indexes(db_path: str) -> tuple[set[str], set[str]]:
 
     conn = None
     try:
-        conn = sqlite3.connect(db_path)
+        conn = get_safe_connection(db_path, readonly=True)
         cursor = conn.cursor()
 
         cursor.execute("SELECT name, synonyms FROM chemicals")
@@ -339,7 +341,7 @@ def _load_cameo_name_cas_pairs(db_path: str) -> set[tuple[str, str]]:
 
     conn = None
     try:
-        conn = sqlite3.connect(db_path)
+        conn = get_safe_connection(db_path, readonly=True)
         cursor = conn.cursor()
         cursor.execute(
             """

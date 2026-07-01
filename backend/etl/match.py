@@ -38,6 +38,7 @@ from collections import defaultdict
 
 from rapidfuzz import fuzz, process as rfprocess
 
+from db_utils import get_safe_connection
 from etl.semantics import (
     semantic_score, classify_name, extract_base_tokens,
     has_safety_context, is_plausible_cas, is_likely_product_code,
@@ -263,9 +264,7 @@ class HybridMatcher:
         self._fuzzy_syn_to_entry: dict[str, dict] = {}
 
     def _get_conn(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        return conn
+        return get_safe_connection(self.db_path, readonly=True)
 
     # ═══════════════════════════════════════════════════════
     #  Cache loading

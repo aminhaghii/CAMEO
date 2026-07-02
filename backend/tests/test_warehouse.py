@@ -664,6 +664,57 @@ def test_save_layout_blocks_incompatible_payload(client, tenant_db_path):
     conn.close()
 
 
+def test_save_layout_blocks_incompatible_with_stale_cached_groups(client, tenant_db_path):
+    """Regression test for the P0-2 audit finding.
+
+    _is_section_conflict() uses the cached `reactive_groups` JSON on the
+    placement row, which can be empty/stale (malformed import, groups changed
+    in chemicals.db after the placement was created, etc). When that cache is
+    empty, the cached-groups check alone sees NO_DATA and does not hard-block.
+    The fix requires _validate_layout_update() to also honour the LIVE
+    engine.analyze() verdict (computed from mm_chemical_react, not the cache)
+    as a real INCOMPATIBLE hard block instead of silently discarding it.
+    """
+    client.post('/api/warehouse/sections/init', json={'count': 1})
+
+    conn = sqlite3.connect(tenant_db_path)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM warehouse_sections ORDER BY position_index LIMIT 1")
+    section_id = cursor.fetchone()[0]
+
+    # Acetone + Sulfuric Acid are a real, live INCOMPATIBLE pair (see
+    # test_save_layout_blocks_incompatible_payload), but here their cached
+    # reactive_groups are deliberately stored as [] to simulate a stale cache.
+    acetone, sulfuric, _ = _get_chemicals_for_test(app.config['CHEMICALS_DB_PATH'])
+
+    cursor.execute(
+        "INSERT INTO chemical_placements (warehouse_id, section_id, chemical_id, chemical_name, cas_number, quantity_kg, reactive_groups) "
+        "VALUES (1, NULL, ?, ?, ?, 10.0, '[]')",
+        (acetone['id'], acetone['name'], acetone['cas_id'])
+    )
+    p1_id = cursor.lastrowid
+    cursor.execute(
+        "INSERT INTO chemical_placements (warehouse_id, section_id, chemical_id, chemical_name, cas_number, quantity_kg, reactive_groups) "
+        "VALUES (1, NULL, ?, ?, ?, 15.0, '[]')",
+        (sulfuric['id'], sulfuric['name'], sulfuric['cas_id'])
+    )
+    p2_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+
+    res = client.post('/api/warehouse/layout/save', json={
+        'layout': {str(p1_id): section_id, str(p2_id): section_id}
+    })
+    assert res.status_code == 409
+    assert res.get_json()['code'] == 'INCOMPATIBLE'
+
+    conn = sqlite3.connect(tenant_db_path)
+    cursor = conn.cursor()
+    cursor.execute("SELECT section_id FROM chemical_placements WHERE id IN (?, ?) ORDER BY id", (p1_id, p2_id))
+    assert [row[0] for row in cursor.fetchall()] == [None, None]
+    conn.close()
+
+
 def test_save_layout_blocks_cross_warehouse_section(client, tenant_db_path):
     client.post('/api/warehouse/create', json={'name': 'Second Warehouse'})
 

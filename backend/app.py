@@ -12,7 +12,7 @@ from logic.reactivity_engine import ReactivityEngine
 from logic.constants import Compatibility, COMPATIBILITY_MAP
 from auth.models import init_auth_db, seed_default_company_and_admin, get_auth_db_connection
 from auth.security import hash_password, validate_session, generate_csrf_token
-from auth.decorators import login_required, csrf_protect, role_required
+from auth.decorators import login_required, csrf_protect, role_required, viewer_readonly
 from db_utils import get_safe_connection
 from activity_logger import log_event, migrate_audit_trail, _map_action_category, _map_action_title
 
@@ -659,6 +659,7 @@ def get_favorites():
 
 @app.route('/api/favorites', methods=['POST'])
 @login_required
+@viewer_readonly
 @csrf_protect
 def add_favorite():
     try:
@@ -681,6 +682,7 @@ def add_favorite():
 
 @app.route('/api/favorites/<int:chemical_id>', methods=['DELETE'])
 @login_required
+@viewer_readonly
 @csrf_protect
 def remove_favorite(chemical_id):
     try:

@@ -78,6 +78,22 @@ class ReactivityEngine:
         Always returns (smaller, larger)
         """
         return (min(g1, g2), max(g1, g2))
+
+    @staticmethod
+    def _resolve_compatibility(max_priority: int, saw_no_data: bool) -> Compatibility:
+        """
+        Map an aggregated worst-case priority to a Compatibility enum.
+
+        CAUTION and NO_DATA both have priority 2, so a plain "first entry with
+        matching priority" lookup would always collapse to CAUTION and never
+        surface NO_DATA. The fail-safe tie-break is: at priority 2, report
+        NO_DATA if any contributing rule was unknown, otherwise CAUTION.
+        """
+        if max_priority >= COMPATIBILITY_MAP[Compatibility.INCOMPATIBLE].priority:
+            return Compatibility.INCOMPATIBLE
+        if max_priority == COMPATIBILITY_MAP[Compatibility.CAUTION].priority:
+            return Compatibility.NO_DATA if saw_no_data else Compatibility.CAUTION
+        return Compatibility.COMPATIBLE
     
     def _get_chemical_groups(self, chemical_id: int, conn: Optional[sqlite3.Connection] = None) -> List[int]:
         """
@@ -123,30 +139,24 @@ class ReactivityEngine:
         This is FAIL-SAFE behavior.
         """
         normalized = self._normalize_pair(group1_id, group2_id)
-        
+
         # Check cache
         if normalized in self._rule_cache:
             return self._rule_cache[normalized]
-        
-        # Same group = compatible
-        if group1_id == group2_id:
-            result = {
-                'compatibility': Compatibility.COMPATIBLE,
-                'hazards': [],
-                'gas_products': [],
-                'notes': 'Same reactive group'
-            }
-            self._rule_cache[normalized] = result
-            return result
-        
-        # Query existing reactivity table
+
+        # Query existing reactivity table.
+        # NOTE: self-pairs (group1_id == group2_id) are NOT short-circuited to
+        # COMPATIBLE — the DB holds real self-reactivity rules (e.g. group 25
+        # self-pair is Incompatible, and 13 groups self-pair as Caution). We
+        # must honour those. A same-group pair only defaults to COMPATIBLE when
+        # the DB has no self-rule for it (see the row-is-None branch below).
         close_conn = False
         if conn is None:
             conn = self._get_connection()
             close_conn = True
-            
+
         cursor = conn.cursor()
-        
+
         # Try both orderings since DB may not enforce order
         cursor.execute(
             """
@@ -156,12 +166,25 @@ class ReactivityEngine:
             """,
             (normalized[0], normalized[1], normalized[1], normalized[0])
         )
-        
+
         row = cursor.fetchone()
         if close_conn:
             conn.close()
-        
+
         if row is None:
+            if group1_id == group2_id:
+                # Same reactive group with no explicit self-rule in the DB →
+                # treated as COMPATIBLE (a group is, by default, compatible with
+                # itself). This is the ONLY case where a same-group pair is
+                # assumed safe.
+                result = {
+                    'compatibility': Compatibility.COMPATIBLE,
+                    'hazards': [],
+                    'gas_products': [],
+                    'notes': 'Same reactive group, no self-reactivity rule'
+                }
+                self._rule_cache[normalized] = result
+                return result
             # ════════════════════════════════════════════════════════
             # 🔴 FAIL-SAFE: No data = Unknown, NOT Compatible!
             # ════════════════════════════════════════════════════════
@@ -267,7 +290,12 @@ class ReactivityEngine:
                 'explosive': 'EXPLOSIVE',
                 'polymeriz': 'POLYMERIZABLE'
             }
-            special_lower = special.lower()
+            # Normalise hyphens to spaces so DB values like "water-reactive"
+            # (487 chemicals) and "air-reactive" (161 chemicals) match the
+            # space-form keywords above. Without this, the diagonal
+            # self-hazard escalation never fired for any water/air-reactive
+            # chemical.
+            special_lower = special.lower().replace('-', ' ')
             for keyword, hazard_type in hazard_types.items():
                 if keyword in special_lower:
                     hazards.append({
@@ -306,9 +334,10 @@ class ReactivityEngine:
         )
         
         max_priority = 1  # Start with Compatible (priority 1)
+        saw_no_data = False  # Track NO_DATA to break priority-2 ties fail-safe
         all_hazards: Set[str] = set()
         all_gases: Set[str] = set()
-        
+
         # Edge Case: Chemical without groups
         if not groups_a or not groups_b:
             result.compatibility = Compatibility.NO_DATA
@@ -323,13 +352,15 @@ class ReactivityEngine:
         for g_a in groups_a:
             for g_b in groups_b:
                 rule = self._get_rule(g_a, g_b, conn=conn)
-                
+
                 rule_priority = COMPATIBILITY_MAP[rule['compatibility']].priority
-                
+
                 # Track worst case
                 if rule_priority > max_priority:
                     max_priority = rule_priority
-                
+                if rule['compatibility'] == Compatibility.NO_DATA:
+                    saw_no_data = True
+
                 # Collect all hazards
                 all_hazards.update(rule['hazards'])
                 all_gases.update(rule['gas_products'])
@@ -346,13 +377,17 @@ class ReactivityEngine:
         
         # ════════════════════════════════════════════════════════════
         # Determine final result (worst case)
+        #
+        # CAUTION and NO_DATA share priority 2. The fail-safe tie-break is
+        # NO_DATA: if any group-pair had no rule (unknown interaction), the
+        # pair is reported NO_DATA rather than CAUTION. This matters because
+        # auto-arrange isolates NO_DATA pairs but allows CAUTION pairs to
+        # co-locate — a pure-unknown pair must be treated as unknown, not
+        # silently downgraded to "known caution".
         # ════════════════════════════════════════════════════════════
-        
-        for compat, info in COMPATIBILITY_MAP.items():
-            if info.priority == max_priority:
-                result.compatibility = compat
-                break
-        
+
+        result.compatibility = self._resolve_compatibility(max_priority, saw_no_data)
+
         result.hazards = list(all_hazards)
         result.gas_products = list(all_gases)
         
@@ -511,7 +546,8 @@ class ReactivityEngine:
         # ════════════════════════════════════════════════════════════
         
         overall_max_priority = 1
-        
+        overall_saw_no_data = False
+
         for i in range(n):
             for j in range(n):
                 chem_a_id = chemical_ids[i]
@@ -566,6 +602,8 @@ class ReactivityEngine:
                     priority = COMPATIBILITY_MAP[pair_result.compatibility].priority
                     if priority > overall_max_priority:
                         overall_max_priority = priority
+                    if pair_result.compatibility == Compatibility.NO_DATA:
+                        overall_saw_no_data = True
                     
                     # Record critical pairs
                     if pair_result.compatibility == Compatibility.INCOMPATIBLE:
@@ -593,12 +631,14 @@ class ReactivityEngine:
                         break
         
         conn.close()
-        
-        # Determine overall compatibility
-        for compat, info in COMPATIBILITY_MAP.items():
-            if info.priority == overall_max_priority:
-                result.overall_compatibility = compat
-                break
+
+        # Determine overall compatibility (fail-safe NO_DATA tie-break, see
+        # _resolve_compatibility). Note: a self-hazard escalation raises the
+        # priority to CAUTION (2) via a real caution signal, not NO_DATA, so a
+        # lone special-hazard chemical still resolves to CAUTION here.
+        result.overall_compatibility = self._resolve_compatibility(
+            overall_max_priority, overall_saw_no_data
+        )
         
         # Save audit log
         if save_audit:

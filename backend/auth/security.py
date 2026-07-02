@@ -359,7 +359,8 @@ def validate_session(
 
     cursor.execute("""
         SELECT s.*, u.id as user_id, u.email, u.full_name, u.role, u.status,
-               u.company_id, c.name as company_name, c.tenant_db_path,
+               u.company_id, u.force_password_change,
+               c.name as company_name, c.tenant_db_path,
                c.license_status
         FROM sessions s
         JOIN users u ON s.user_id = u.id
@@ -430,6 +431,11 @@ def validate_session(
         'company_id': row['company_id'],
         'company_name': row['company_name'],
         'tenant_db_path': row['tenant_db_path'],
+        # Surfacing this flag re-arms the forced-password-change gate in
+        # app.tenant_router (it reads user.get('force_password_change')). Without
+        # it the flag was always None and the gate was dead code, letting seeded
+        # default-password accounts stay on their default credential forever.
+        'force_password_change': bool(row['force_password_change']),
     }
 
 

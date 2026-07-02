@@ -94,7 +94,12 @@ agent_memory/
 # --- Custom Untracked Assets ---
 PDF_Folder/
 resources/
-tests/
+# Anchored to repo root only — an unanchored "tests/" here would also match
+# backend/tests/ (the live pytest suite) at any depth, silently blackholing
+# every new file added there from git tracking. This bit 16 real test files,
+# including test_bug_fixes_verification.py (the safety bug-fix regression
+# suite documented in CLAUDE.md) — present on disk, never committed.
+/tests/
 
 # --- Local Documentation & Reports ---
 # Keep Markdown notes/reports out of GitHub commits.

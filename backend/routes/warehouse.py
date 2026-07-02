@@ -165,8 +165,20 @@ def _validate_layout_update(conn, updates: dict, actor_role: str):
                         'code': 'INCOMPATIBLE'
                     }
 
+        # Authoritative re-check using LIVE reactive groups from chemicals.db
+        # (engine.analyze pulls groups from mm_chemical_react, not the possibly
+        # stale/empty reactive_groups JSON cached on the placement row). The
+        # _is_section_conflict pass above can miss an INCOMPATIBLE pair whenever
+        # a placement's cached groups are empty or out of date, so this result
+        # is the real hard block — an INCOMPATIBLE verdict here must NEVER be
+        # allowed to fall through as a mere caution.
         chem_ids = [row['chemical_id'] for row in occupants]
         analysis = engine.analyze(chem_ids, include_water_check=True, save_audit=False)
+        if analysis.overall_compatibility == Compatibility.INCOMPATIBLE:
+            return False, 409, {
+                'error': f"Safety Block: Incompatible chemicals detected in section (live reactivity check)",
+                'code': 'INCOMPATIBLE'
+            }
         if analysis.overall_compatibility in (Compatibility.CAUTION, Compatibility.NO_DATA):
             caution_sections.append(section_id)
 

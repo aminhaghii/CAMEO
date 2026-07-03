@@ -584,7 +584,7 @@
 
             async analyzeCompatibility() {
                 if (this.selectedChemicals.length < 2) {
-                    alert('Please select at least 2 chemicals');
+                    showToast('Please select at least 2 chemicals', 'warning');
                     return;
                 }
 
@@ -611,11 +611,11 @@
                             }
                         }, 100);
                     } else {
-                        alert('Analysis failed: ' + (data.error?.message || 'Unknown error'));
+                        showToast('Analysis failed: ' + (data.error?.message || 'Unknown error'), 'error');
                     }
                 } catch (e) {
                     console.error('Analysis error:', e);
-                    alert('Analysis failed: ' + e.message);
+                    showToast('Analysis failed: ' + e.message, 'error');
                 } finally {
                     this.analyzing = false;
                 }

@@ -237,11 +237,11 @@
                     </select>
                     <div class="h-4 w-[1px] bg-steel-200 mx-1"></div>
                     {% if current_user and current_user.role in ['company_admin', 'super_admin'] %}
-                    <button @click="promptCreateWarehouse()" title="Create Warehouse" class="p-1 text-steel-400 hover:text-steel-600 transition hover:bg-steel-100 rounded">{{ icon('plus', 'w-4 h-4') }}</button>
-                    <button @click="promptRenameWarehouse()" title="Rename Warehouse" class="p-1 text-steel-400 hover:text-steel-600 transition hover:bg-steel-100 rounded">{{ icon('pencil', 'w-4 h-4') }}</button>
+                    <button @click="openCreateWarehouseModal()" title="Create Warehouse" class="p-1 text-steel-400 hover:text-steel-600 transition hover:bg-steel-100 rounded">{{ icon('plus', 'w-4 h-4') }}</button>
+                    <button @click="openRenameWarehouseModal()" title="Rename Warehouse" class="p-1 text-steel-400 hover:text-steel-600 transition hover:bg-steel-100 rounded">{{ icon('pencil', 'w-4 h-4') }}</button>
                     <div class="flex items-center gap-2">
                         <button @click="openEditModal()" title="Edit Warehouse" class="p-1 text-steel-400 hover:text-steel-600 transition hover:bg-steel-100 rounded">{{ icon('settings', 'w-4 h-4') }}</button>
-                        <button @click="promptDeleteWarehouse()" title="Delete Warehouse" class="p-1 text-steel-400 hover:text-signal transition hover:bg-steel-100 rounded">{{ icon('trash-2', 'w-4 h-4') }}</button>
+                        <button @click="openDeleteWarehouseModal()" title="Delete Warehouse" class="p-1 text-steel-400 hover:text-signal transition hover:bg-steel-100 rounded">{{ icon('trash-2', 'w-4 h-4') }}</button>
                     </div>
                     {% endif %}
                 </div>
@@ -472,8 +472,8 @@
                                                     </svg>
                                                 </button>
                                                 <template x-if="!suggestedLayout">
-                                                    <button @click="deletePlacement(item.id)"
-                                                        title="Remove from warehouse"
+                                                <button @click="openDeletePlacementModal(item.id)"
+                                                    title="Remove from warehouse"
                                                         class="p-1.5 rounded text-steel-400 hover:text-signal hover:bg-signal/10 transition border border-transparent hover:border-signal/20">
                                                         {{ icon('trash-2', 'w-3.5 h-3.5') }}
                                                     </button>
@@ -592,6 +592,70 @@
         </div>
     </div>
 
+    <!-- Warehouse Name Modal (Create / Rename) -->
+    <div x-show="warehouseNameModalOpen" x-transition class="fixed inset-0 z-50 flex items-center justify-center p-4" style="display:none;">
+        <div class="absolute inset-0 bg-steel-900/50" @click="warehouseNameModalOpen = false"></div>
+        <div class="relative w-full max-w-sm bg-white rounded shadow-elevated p-6 border border-steel-200" @click.stop>
+            <h3 class="text-base font-bold text-steel-900 mb-2" x-text="warehouseNameModalMode === 'create' ? 'Create Warehouse' : 'Rename Warehouse'"></h3>
+            <p class="text-xs text-steel-500 mb-4 leading-relaxed" x-text="warehouseNameModalMode === 'create' ? 'Enter a name for the new warehouse.' : 'Enter a new name for the warehouse.'"></p>
+            <div class="mb-4">
+                <label class="block text-xs font-semibold text-steel-400 mb-1">Warehouse Name</label>
+                <input type="text" x-model="warehouseNameInput" @keyup.enter="confirmWarehouseName()" class="field" placeholder="e.g. Main Storage Facility">
+                <p x-show="warehouseNameError" class="text-xs text-signal mt-1" x-text="warehouseNameError"></p>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button @click="warehouseNameModalOpen = false" class="btn btn-ghost">Cancel</button>
+                <button @click="confirmWarehouseName()" :disabled="warehouseNameSubmitting" class="btn btn-primary" x-text="warehouseNameSubmitting ? 'Saving...' : (warehouseNameModalMode === 'create' ? 'Create' : 'Rename')"></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Warehouse Confirmation Modal -->
+    <div x-show="deleteWarehouseModalOpen" x-transition class="fixed inset-0 z-50 flex items-center justify-center p-4" style="display:none;">
+        <div class="absolute inset-0 bg-steel-900/50" @click="deleteWarehouseModalOpen = false"></div>
+        <div class="relative w-full max-w-md bg-white rounded shadow-elevated p-6 border border-steel-200" @click.stop>
+            <div class="flex items-start gap-3 mb-4">
+                <div class="w-10 h-10 rounded bg-signal/10 text-signal flex items-center justify-center flex-shrink-0">
+                    {{ icon('trash-2', 'w-5 h-5') }}
+                </div>
+                <div>
+                    <h3 class="text-base font-bold text-steel-900">Delete Warehouse</h3>
+                    <p class="text-sm text-steel-600 mt-1">
+                        Are you sure you want to delete the warehouse
+                        "<span class="font-semibold" x-text="warehouses.find(w => w.id == selectedWarehouseId)?.name || ''"></span>"?
+                        This will delete all its sections and placements. This action cannot be undone.
+                    </p>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button @click="deleteWarehouseModalOpen = false" class="btn btn-ghost">Cancel</button>
+                <button @click="confirmDeleteWarehouse()" class="btn btn-danger">Delete Warehouse</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Placement Confirmation Modal -->
+    <div x-show="deletePlacementModalOpen" x-transition class="fixed inset-0 z-50 flex items-center justify-center p-4" style="display:none;">
+        <div class="absolute inset-0 bg-steel-900/50" @click="deletePlacementModalOpen = false"></div>
+        <div class="relative w-full max-w-md bg-white rounded shadow-elevated p-6 border border-steel-200" @click.stop>
+            <div class="flex items-start gap-3 mb-4">
+                <div class="w-10 h-10 rounded bg-signal/10 text-signal flex items-center justify-center flex-shrink-0">
+                    {{ icon('trash-2', 'w-5 h-5') }}
+                </div>
+                <div>
+                    <h3 class="text-base font-bold text-steel-900">Remove Chemical</h3>
+                    <p class="text-sm text-steel-600 mt-1">
+                        Are you sure you want to remove this chemical placement completely from the warehouse?
+                    </p>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button @click="deletePlacementModalOpen = false" class="btn btn-ghost">Cancel</button>
+                <button @click="confirmDeletePlacement()" class="btn btn-danger">Remove</button>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 <script>
@@ -628,6 +692,20 @@
             // In-flight lock: prevents double-submit on Auto-Arrange / Accept Layout
             isProcessing: false,
 
+            // Warehouse name modal (create / rename)
+            warehouseNameModalOpen: false,
+            warehouseNameModalMode: 'create',
+            warehouseNameInput: '',
+            warehouseNameError: '',
+            warehouseNameSubmitting: false,
+
+            // Delete warehouse confirmation modal
+            deleteWarehouseModalOpen: false,
+
+            // Delete placement confirmation modal
+            deletePlacementModalOpen: false,
+            deletePlacementTargetId: null,
+
             // Role injected from server — drives client-side drag validation
             userRole: '{{ current_user.role if current_user else "" }}',
 
@@ -662,9 +740,13 @@
                 }
                 await this.loadWarehouses();
                 await this.loadData();
-                // Esc closes modal
+                // Esc closes modals
                 document.addEventListener('keydown', (e) => {
-                    if (e.key === 'Escape' && this.panelOpen) this.closeModal();
+                    if (e.key !== 'Escape') return;
+                    if (this.panelOpen) this.closeModal();
+                    if (this.warehouseNameModalOpen) this.warehouseNameModalOpen = false;
+                    if (this.deleteWarehouseModalOpen) this.deleteWarehouseModalOpen = false;
+                    if (this.deletePlacementModalOpen) this.deletePlacementModalOpen = false;
                 });
             },
 
@@ -712,54 +794,74 @@
                 await this.loadData();
             },
 
-            async promptCreateWarehouse() {
-                const name = prompt("Enter new warehouse name:");
-                if (!name || !name.trim()) return;
+            openCreateWarehouseModal() {
+                this.warehouseNameModalMode = 'create';
+                this.warehouseNameInput = '';
+                this.warehouseNameError = '';
+                this.warehouseNameModalOpen = true;
+            },
+
+            openRenameWarehouseModal() {
+                const currentWH = this.warehouses.find(w => w.id == this.selectedWarehouseId);
+                this.warehouseNameModalMode = 'rename';
+                this.warehouseNameInput = currentWH ? currentWH.name : '';
+                this.warehouseNameError = '';
+                this.warehouseNameModalOpen = true;
+            },
+
+            async confirmWarehouseName() {
+                if (this.warehouseNameSubmitting) return;
+                const name = (this.warehouseNameInput || '').trim();
+                if (!name) {
+                    this.warehouseNameError = 'Warehouse name cannot be empty.';
+                    return;
+                }
+                this.warehouseNameSubmitting = true;
                 try {
-                    const res = await fetch('/api/warehouse/create', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({ name: name.trim() })
-                    });
-                    const data = await res.json();
-                    if (res.ok && data.success) {
-                        this.selectedWarehouseId = data.warehouse_id;
-                        await this.loadWarehouses();
-                        await this.loadData();
+                    if (this.warehouseNameModalMode === 'create') {
+                        const res = await fetch('/api/warehouse/create', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({ name: name })
+                        });
+                        const data = await res.json();
+                        if (res.ok && data.success) {
+                            this.selectedWarehouseId = data.warehouse_id;
+                            await this.loadWarehouses();
+                            await this.loadData();
+                            this.warehouseNameModalOpen = false;
+                            showToast('Warehouse created successfully.', 'success');
+                        } else {
+                            this.warehouseNameError = data.error || 'Failed to create warehouse';
+                        }
                     } else {
-                        alert(data.error || 'Failed to create warehouse');
+                        const res = await fetch('/api/warehouse/rename', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({ warehouse_id: this.selectedWarehouseId, name: name })
+                        });
+                        const data = await res.json();
+                        if (res.ok && data.success) {
+                            await this.loadWarehouses();
+                            this.warehouseNameModalOpen = false;
+                            showToast('Warehouse renamed successfully.', 'success');
+                        } else {
+                            this.warehouseNameError = data.error || 'Failed to rename warehouse';
+                        }
                     }
                 } catch (e) {
-                    alert('Error creating warehouse: ' + e);
+                    this.warehouseNameError = (this.warehouseNameModalMode === 'create'
+                        ? 'Error creating warehouse: ' : 'Error renaming warehouse: ') + e;
+                } finally {
+                    this.warehouseNameSubmitting = false;
                 }
             },
 
-            async promptRenameWarehouse() {
-                const currentWH = this.warehouses.find(w => w.id == this.selectedWarehouseId);
-                const currentName = currentWH ? currentWH.name : '';
-                const name = prompt("Enter new name for the warehouse:", currentName);
-                if (!name || !name.trim() || name.trim() === currentName) return;
-                try {
-                    const res = await fetch('/api/warehouse/rename', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({ warehouse_id: this.selectedWarehouseId, name: name.trim() })
-                    });
-                    const data = await res.json();
-                    if (res.ok && data.success) {
-                        await this.loadWarehouses();
-                    } else {
-                        alert(data.error || 'Failed to rename warehouse');
-                    }
-                } catch (e) {
-                    alert('Error renaming warehouse: ' + e);
-                }
+            openDeleteWarehouseModal() {
+                this.deleteWarehouseModalOpen = true;
             },
 
-            async promptDeleteWarehouse() {
-                const currentWH = this.warehouses.find(w => w.id == this.selectedWarehouseId);
-                const currentName = currentWH ? currentWH.name : '';
-                if (!confirm(`Are you sure you want to delete the warehouse "${currentName}"? This will delete all its sections and placements. This action cannot be undone.`)) return;
+            async confirmDeleteWarehouse() {
                 try {
                     const res = await fetch(`/api/warehouse/delete/${this.selectedWarehouseId}`, {
                         method: 'DELETE'
@@ -769,11 +871,15 @@
                         this.selectedWarehouseId = data.next_warehouse_id;
                         await this.loadWarehouses();
                         await this.loadData();
+                        this.deleteWarehouseModalOpen = false;
+                        showToast('Warehouse deleted.', 'success');
                     } else {
-                        alert(data.error || 'Failed to delete warehouse');
+                        showToast(data.error || 'Failed to delete warehouse', 'error');
+                        this.deleteWarehouseModalOpen = false;
                     }
                 } catch (e) {
-                    alert('Error deleting warehouse: ' + e);
+                    showToast('Error deleting warehouse: ' + e, 'error');
+                    this.deleteWarehouseModalOpen = false;
                 }
             },
 
@@ -794,10 +900,10 @@
                         this.initModalOpen = false;
                         await this.loadData();
                     } else {
-                        alert(data.error || 'Failed to initialize sections');
+                        showToast(data.error || 'Failed to initialize sections', 'error');
                     }
                 } catch (e) {
-                    alert('Error: ' + e);
+                    showToast('Error: ' + e, 'error');
                 }
             },
 
@@ -1033,11 +1139,11 @@
                 const compatStatus = this.evalCompatibility(this.draggedItem, sec);
                 const isAdmin = ['company_admin', 'super_admin'].includes(this.userRole);
                 if (compatStatus === 'INCOMPATIBLE') {
-                    alert('Safety Block: This chemical is incompatible with chemicals in this section. Placement is strictly prohibited.');
+                    showToast('Safety Block: This chemical is incompatible with chemicals in this section. Placement is strictly prohibited.', 'error');
                     return;
                 }
                 if (!isAdmin && (compatStatus === 'CAUTION' || compatStatus === 'NO_DATA')) {
-                    alert('Permission Denied: Placing chemicals with CAUTION or unknown reactivity (NO DATA) requires a Company Admin or Super Admin. Contact your administrator.');
+                    showToast('Permission Denied: Placing chemicals with CAUTION or unknown reactivity (NO DATA) requires a Company Admin or Super Admin. Contact your administrator.', 'warning');
                     return;
                 }
                 
@@ -1067,10 +1173,10 @@
                         // Success - reload layout
                         await this.loadData();
                     } else {
-                        alert(data.error || 'Failed to move chemical');
+                        showToast(data.error || 'Failed to move chemical', 'error');
                     }
                 } catch (e) {
-                    alert('Error: ' + e);
+                    showToast('Error: ' + e, 'error');
                 }
             },
 
@@ -1114,8 +1220,14 @@
                 }
             },
 
-            async deletePlacement(placementId) {
-                if (!confirm('Are you sure you want to remove this chemical placement completely from the warehouse?')) return;
+            openDeletePlacementModal(placementId) {
+                this.deletePlacementTargetId = placementId;
+                this.deletePlacementModalOpen = true;
+            },
+
+            async confirmDeletePlacement() {
+                const placementId = this.deletePlacementTargetId;
+                if (!placementId) return;
                 try {
                     const res = await fetch(`/api/warehouse/placements/remove/${placementId}`, {
                         method: 'DELETE'
@@ -1125,9 +1237,12 @@
                             this.selectedSection.chemicals = this.selectedSection.chemicals.filter(c => c.id !== placementId);
                         }
                         await this.loadData();
+                        this.deletePlacementModalOpen = false;
+                        showToast('Chemical removed from warehouse.', 'success');
                     }
                 } catch (e) {
-                    console.error(e);
+                    showToast('Error removing placement: ' + e, 'error');
+                    this.deletePlacementModalOpen = false;
                 }
             },
 
@@ -1149,10 +1264,10 @@
                         this.requiresAdminOverride = data.requires_admin_override || false;
                         this.cautionSections = data.caution_sections || 0;
                     } else {
-                        alert(data.error || 'Failed to calculate Auto-Arrange');
+                        showToast(data.error || 'Failed to calculate Auto-Arrange', 'error');
                     }
                 } catch (e) {
-                    alert('Error: ' + e);
+                    showToast('Error: ' + e, 'error');
                 } finally {
                     this.isProcessing = false;
                 }
@@ -1263,12 +1378,12 @@
                         // accurately reflects the rejected/unsaved state.
                         this.suggestedLayout = null;
                         this.suggestedLayoutRecommendation = null;
-                        alert(data.error || 'Failed to save layout. The proposed arrangement has been cleared. Please run Auto-Arrange again.');
+                        showToast(data.error || 'Failed to save layout. The proposed arrangement has been cleared. Please run Auto-Arrange again.', 'error');
                     }
                 } catch (e) {
                     this.suggestedLayout = null;
                     this.suggestedLayoutRecommendation = null;
-                    alert('Network error saving layout. The proposed arrangement has been cleared.');
+                    showToast('Network error saving layout. The proposed arrangement has been cleared.', 'error');
                 } finally {
                     this.isProcessing = false;
                 }

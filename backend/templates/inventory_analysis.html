@@ -865,7 +865,7 @@
                     if (cd) { const match = cd.match(/filename="?([^"]+)"?/); if (match) filename = match[1]; }
                     const a = document.createElement('a'); a.href = url; a.download = filename; a.click(); window.URL.revokeObjectURL(url);
                     btn.innerHTML = origText;
-                } catch (e) { alert("Error downloading report: " + e); }
+                } catch (e) { showToast("Error downloading report: " + e, 'error'); }
             },
 
             openMatrixOverlay() {
@@ -915,13 +915,13 @@
                     });
                     const data = await res.json();
                     if (res.ok && data.success) {
-                        alert(data.message);
-                        window.location.href = '/warehouse?warehouse_id=' + data.warehouse_id;
+                        showToast(data.message, 'success');
+                        setTimeout(() => { window.location.href = '/warehouse?warehouse_id=' + data.warehouse_id; }, 1200);
                     } else {
-                        alert(data.error || 'Failed to import to warehouse');
+                        showToast(data.error || 'Failed to import to warehouse', 'error');
                     }
                 } catch(e) {
-                    alert('Error importing: ' + e);
+                    showToast('Error importing: ' + e, 'error');
                 } finally {
                     this.importing = false;
                     this.showAddToWareModal = false;

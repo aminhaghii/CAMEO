@@ -30,6 +30,7 @@ html, body {
     --steel-300: #98A2AE;
     --steel-200: #E2E5E9;   /* hairline border on light */
     --steel-100: #ECEEF1;
+    --steel-50:  #F4F5F7;   /* subtle tinted surface (lighter than 100) */
 
     --workspace: #F5F6F7;   /* main content background */
     --surface:   #FFFFFF;   /* cards / panels */

@@ -326,7 +326,7 @@ function importApp() {
             try {
                 if (this.editMode === 'add') {
                     if (!this.editForm.chemical_id) {
-                        alert('Please select a chemical from search results.');
+                        showToast('Please select a chemical from search results.', 'warning');
                         return;
                     }
 
@@ -344,13 +344,13 @@ function importApp() {
                     });
                     const data = await res.json();
                     if (!res.ok || data.error) {
-                        alert(data.error || 'Add failed');
+                        showToast(data.error || 'Add failed', 'error');
                         return;
                     }
 
                     this.inventoryRows.push(data.row);
                     this.inventoryRows.sort((a, b) => a.row_index - b.row_index);
-                    if (data.warning) alert(data.warning);
+                    if (data.warning) showToast(data.warning, 'warning');
                 } else {
                     const res = await fetch('/api/inventory/edit', {
                         method: 'POST',
@@ -368,7 +368,7 @@ function importApp() {
                     });
                     const data = await res.json();
                     if (!res.ok || data.error) {
-                        alert(data.error || 'Edit failed');
+                        showToast(data.error || 'Edit failed', 'error');
                         return;
                     }
 
@@ -380,7 +380,7 @@ function importApp() {
                 this.syncSummaryFromRows();
                 this.closeEditModal();
             } catch (e) {
-                alert(`Save failed: ${e.message}`);
+                showToast(`Save failed: ${e.message}`, 'error');
             }
         },
 
@@ -392,7 +392,7 @@ function importApp() {
                 });
                 const data = await res.json();
                 if (!res.ok || data.error) {
-                    alert(data.error || 'Delete failed');
+                    showToast(data.error || 'Delete failed', 'error');
                     return;
                 }
 
@@ -400,7 +400,7 @@ function importApp() {
                 this.syncSummaryFromRows();
                 this.closeDeleteModal();
             } catch (e) {
-                alert(`Delete failed: ${e.message}`);
+                showToast(`Delete failed: ${e.message}`, 'error');
             }
         },
 
@@ -415,12 +415,12 @@ function importApp() {
                 });
                 const data = await res.json();
                 if (!res.ok || data.error) {
-                    alert(data.error || 'Analysis failed');
+                    showToast(data.error || 'Analysis failed', 'error');
                     return;
                 }
                 window.location.href = `/inventory/analysis/${encodeURIComponent(this.batchId)}`;
             } catch (e) {
-                alert(`Analysis failed: ${e.message}`);
+                showToast(`Analysis failed: ${e.message}`, 'error');
             } finally {
                 this.analyzeLoading = false;
             }

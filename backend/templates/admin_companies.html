@@ -167,12 +167,12 @@
               MODIFY
             </button>
             <template x-if="company.license_status === 'active'">
-              <button @click="toggleStatus(company, 'suspended')" class="btn-godmode btn-godmode-danger px-2.5 py-1.5 rounded text-[10px] font-mono tracking-widest">
+              <button @click="openToggleStatusModal(company, 'suspended')" class="btn-godmode btn-godmode-danger px-2.5 py-1.5 rounded text-[10px] font-mono tracking-widest">
                 HALT
               </button>
             </template>
             <template x-if="company.license_status !== 'active'">
-              <button @click="toggleStatus(company, 'active')" class="btn-godmode px-2.5 py-1.5 rounded text-[10px] font-mono tracking-widest !border-safe/40 !text-safe hover:!bg-safe/10">
+              <button @click="openToggleStatusModal(company, 'active')" class="btn-godmode px-2.5 py-1.5 rounded text-[10px] font-mono tracking-widest !border-safe/40 !text-safe hover:!bg-safe/10">
                 RESTORE
               </button>
             </template>
@@ -305,6 +305,40 @@
     <span class="font-bold" x-text="toast"></span>
   </div>
 
+  <!-- Toggle Status Confirmation Modal -->
+  <div x-show="toggleStatusModalOpen" x-transition style="display: none;"
+       class="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-steel-900/50" @click="toggleStatusModalOpen = false"></div>
+    <div class="relative w-full max-w-md bg-white rounded shadow-elevated p-6 border border-steel-200" @click.stop>
+      <div class="flex items-start gap-3 mb-4">
+        <div class="w-10 h-10 rounded flex items-center justify-center flex-shrink-0"
+             :class="toggleStatusNewStatus === 'suspended' ? 'bg-signal/10 text-signal' : 'bg-safe/10 text-safe'">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        </div>
+        <div>
+          <h3 class="text-base font-bold text-steel-900">Confirm Directive</h3>
+          <p class="text-sm text-steel-600 mt-1 mono-font">
+            <span class="font-bold" x-text="toggleStatusNewStatus === 'suspended' ? 'HALT' : 'RESTORE'"></span>
+            [ORG_ID: 0x<span x-text="(toggleStatusCompany?.id || 0).toString(16).padStart(4, '0').toUpperCase()"></span>] ?
+          </p>
+          <p class="text-xs text-steel-400 mt-2">
+            <span x-text="toggleStatusNewStatus === 'suspended' ? 'This will suspend the organization and block all user access.' : 'This will restore the organization to active status.'"></span>
+          </p>
+        </div>
+      </div>
+      <div class="flex justify-end gap-2">
+        <button @click="toggleStatusModalOpen = false" class="btn btn-ghost">Cancel</button>
+        <button @click="confirmToggleStatus()"
+                class="btn text-white px-4 py-2 rounded font-semibold transition"
+                :class="toggleStatusNewStatus === 'suspended' ? 'bg-signal hover:opacity-90' : 'bg-safe hover:opacity-90'"
+                x-text="toggleStatusNewStatus === 'suspended' ? 'Halt' : 'Restore'"></button>
+      </div>
+    </div>
+  </div>
+
 </div>
 {% endblock %}
 
@@ -318,6 +352,9 @@ function godModeApp() {
     editCompanyData: null,
     toast: null,
     toastType: 'success',
+    toggleStatusModalOpen: false,
+    toggleStatusCompany: null,
+    toggleStatusNewStatus: '',
 
     async init() {
       await this.fetchCompanies();
@@ -387,9 +424,17 @@ function godModeApp() {
       }
     },
 
-    async toggleStatus(company, newStatus) {
+    openToggleStatusModal(company, newStatus) {
+      this.toggleStatusCompany = company;
+      this.toggleStatusNewStatus = newStatus;
+      this.toggleStatusModalOpen = true;
+    },
+
+    async confirmToggleStatus() {
+      const company = this.toggleStatusCompany;
+      const newStatus = this.toggleStatusNewStatus;
+      if (!company || !newStatus) return;
       const prompt = newStatus === 'suspended' ? 'HALT' : 'RESTORE';
-      if (!confirm(`CONFIRM DIRECTIVE: ${prompt} [ORG_ID: 0x${company.id.toString(16).padStart(4, '0').toUpperCase()}] ?`)) return;
       
       try {
         const res = await fetch(`/api/admin/companies/${company.id}`, {
@@ -401,11 +446,14 @@ function godModeApp() {
         if (data.success) {
           this.showToast(`DIRECTIVE_${prompt}_EXECUTED`);
           await this.fetchCompanies();
+          this.toggleStatusModalOpen = false;
         } else {
           this.showToast(data.error || 'DIRECTIVE_REJECTED', 'error');
+          this.toggleStatusModalOpen = false;
         }
       } catch (e) {
         this.showToast('NETWORK_ERROR', 'error');
+        this.toggleStatusModalOpen = false;
       }
     },
 

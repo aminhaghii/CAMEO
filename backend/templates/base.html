@@ -21,7 +21,7 @@
                     colors: {
                         steel: {
                             900: '#1B1F24', 800: '#23282F', 700: '#2A3038', 600: '#313842',
-                            500: '#3B5566', 400: '#5A6470', 300: '#98A2AE', 200: '#E2E5E9', 100: '#ECEEF1',
+                            500: '#3B5566', 400: '#5A6470', 300: '#98A2AE', 200: '#E2E5E9', 100: '#ECEEF1', 50: '#F4F5F7',
                         },
                         workspace: '#F5F6F7',
                         hazard: '#E8A33D',
@@ -359,6 +359,50 @@
             } catch (e) { }
         })();
         {% endif %}
+    </script>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed bottom-4 right-4 z-[200] space-y-2 pointer-events-none"></div>
+    <script>
+        window.showToast = function (message, type) {
+            type = type || 'info';
+            var container = document.getElementById('toast-container');
+            if (!container) return;
+
+            var typeClasses = {
+                success: 'bg-safe/10 border-safe/30 text-safe',
+                error: 'bg-signal/10 border-signal/30 text-signal',
+                warning: 'bg-hazard/10 border-hazard/40 text-steel-900',
+                info: 'bg-white border-steel-200 text-steel-700'
+            };
+            var iconMap = {
+                success: 'i-circle-check',
+                error: 'i-octagon-x',
+                warning: 'i-triangle-alert',
+                info: 'i-activity'
+            };
+
+            var toast = document.createElement('div');
+            toast.className = 'pointer-events-auto flex items-start gap-3 px-4 py-3 rounded shadow-elevated border max-w-sm transition-all duration-200 opacity-0 translate-y-2 '
+                + (typeClasses[type] || typeClasses.info);
+
+            toast.innerHTML =
+                '<svg class="w-5 h-5 flex-shrink-0 mt-0.5" aria-hidden="true" focusable="false"><use href="#' + (iconMap[type] || iconMap.info) + '"/></svg>' +
+                '<span class="text-sm font-medium flex-1"></span>' +
+                '<button class="text-current opacity-50 hover:opacity-100 transition flex-shrink-0" onclick="this.parentElement.remove()" aria-label="Dismiss">' +
+                '<svg class="w-4 h-4" aria-hidden="true" focusable="false"><use href="#i-x"/></svg></button>';
+            toast.querySelector('span').textContent = message;
+
+            container.appendChild(toast);
+            requestAnimationFrame(function () {
+                toast.classList.remove('opacity-0', 'translate-y-2');
+            });
+
+            setTimeout(function () {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(function () { toast.remove(); }, 200);
+            }, 4000);
+        };
     </script>
 
     {% block scripts %}{% endblock %}

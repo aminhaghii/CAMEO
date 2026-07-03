@@ -53,7 +53,7 @@
                     </select>
                 </div>
                 <template x-if="selectedBatch">
-                    <button @click="deleteBatch()" class="btn btn-ghost text-signal" title="Delete selected inventory list">
+                    <button @click="openDeleteBatchModal()" class="btn btn-ghost text-signal" title="Delete selected inventory list">
                         {{ icon('trash-2', 'w-4 h-4') }} Delete List
                     </button>
                 </template>
@@ -287,7 +287,7 @@
                                             </button>
                                         </template>
                                         <hr class="my-1 border-steel-100">
-                                        <button @click.stop="deleteRow(row); open=false"
+                                        <button @click.stop="openDeleteRowModal(row); open=false"
                                             class="flex items-center gap-2 w-full px-4 py-2 text-sm text-signal hover:bg-signal/10 transition">
                                             {{ icon('trash-2', 'w-4 h-4') }} Delete
                                         </button>
@@ -394,6 +394,53 @@
         </div>
     </div>
 
+    <!-- Delete Batch Confirmation Modal -->
+    <div x-show="deleteBatchModalOpen" x-transition class="fixed inset-0 z-50 flex items-center justify-center p-4" style="display:none;">
+        <div class="absolute inset-0 bg-steel-900/50" @click="deleteBatchModalOpen = false"></div>
+        <div class="relative w-full max-w-md bg-white rounded shadow-elevated p-6 border border-steel-200" @click.stop>
+            <div class="flex items-start gap-3 mb-4">
+                <div class="w-10 h-10 rounded bg-signal/10 text-signal flex items-center justify-center flex-shrink-0">
+                    {{ icon('trash-2', 'w-5 h-5') }}
+                </div>
+                <div>
+                    <h3 class="text-base font-bold text-steel-900">Delete Inventory List</h3>
+                    <p class="text-sm text-steel-600 mt-1">
+                        Are you sure you want to delete
+                        "<span class="font-semibold" x-text="(batches.find(b => b.id === selectedBatch) || {}).filename || 'this list'"></span>"
+                        and all its chemicals? This action cannot be undone.
+                    </p>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button @click="deleteBatchModalOpen = false" class="btn btn-ghost">Cancel</button>
+                <button @click="confirmDeleteBatch()" class="btn btn-danger">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Row Confirmation Modal -->
+    <div x-show="deleteRowModalOpen" x-transition class="fixed inset-0 z-50 flex items-center justify-center p-4" style="display:none;">
+        <div class="absolute inset-0 bg-steel-900/50" @click="deleteRowModalOpen = false"></div>
+        <div class="relative w-full max-w-md bg-white rounded shadow-elevated p-6 border border-steel-200" @click.stop>
+            <div class="flex items-start gap-3 mb-4">
+                <div class="w-10 h-10 rounded bg-signal/10 text-signal flex items-center justify-center flex-shrink-0">
+                    {{ icon('trash-2', 'w-5 h-5') }}
+                </div>
+                <div>
+                    <h3 class="text-base font-bold text-steel-900">Delete Chemical</h3>
+                    <p class="text-sm text-steel-600 mt-1">
+                        Are you sure you want to delete
+                        "<span class="font-semibold" x-text="deleteRowTarget?.name || 'this chemical'"></span>"?
+                    </p>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button @click="deleteRowModalOpen = false" class="btn btn-ghost">Cancel</button>
+                <button @click="confirmDeleteRow()" class="btn btn-danger">Delete</button>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 <script>
@@ -420,6 +467,11 @@
             showReviewQueue: false,
             reviewQueue: { queue: [], total: 0, by_priority: {} },
             reviewQueueCount: 0,
+
+            // Delete confirmation modals
+            deleteBatchModalOpen: false,
+            deleteRowModalOpen: false,
+            deleteRowTarget: null,
 
             get filteredRows() {
                 let rows = this.allRows;
@@ -511,7 +563,7 @@
                     }
                 } catch (e) {
                     console.error(e);
-                    alert('Failed to load review queue.');
+                    showToast('Failed to load review queue.', 'error');
                 }
             },
 
@@ -531,11 +583,11 @@
                         await this.loadReviewQueue();
                     } else {
                         const data = await res.json();
-                        alert(data.error || 'Failed to resolve review item.');
+                        showToast(data.error || 'Failed to resolve review item.', 'error');
                     }
                 } catch (e) {
                     console.error(e);
-                    alert('Error resolving review item.');
+                    showToast('Error resolving review item.', 'error');
                 }
             },
 
@@ -561,7 +613,7 @@
             async createBatch() {
                 const name = (this.newBatchName || '').trim();
                 if (!name) {
-                    alert('Please enter a name for the inventory list.');
+                    showToast('Please enter a name for the inventory list.', 'warning');
                     return;
                 }
                 try {
@@ -578,31 +630,37 @@
                             localStorage.setItem('safeware_last_batch', data.batch.id);
                             await this.loadBatches();
                         } else {
-                            alert(data.error || 'Failed to create list.');
+                            showToast(data.error || 'Failed to create list.', 'error');
                         }
                     }
                 } catch (e) {
                     console.error(e);
-                    alert('An error occurred.');
+                    showToast('An error occurred.', 'error');
                 }
             },
 
-            async deleteBatch() {
+            openDeleteBatchModal() {
+                this.deleteBatchModalOpen = true;
+            },
+
+            async confirmDeleteBatch() {
                 if (!this.selectedBatch) return;
-                const batchName = (this.batches.find(b => b.id === this.selectedBatch) || {}).filename || 'this list';
-                if (!confirm(`Are you sure you want to delete "${batchName}" and all its chemicals? This action cannot be undone.`)) return;
                 try {
                     const res = await fetch(`/api/inventory/batches/delete/${this.selectedBatch}`, {
                         method: 'DELETE'
                     });
                     if (res.ok) {
                         localStorage.removeItem('safeware_last_batch');
+                        this.deleteBatchModalOpen = false;
                         await this.loadBatches();
+                        showToast('Inventory list deleted.', 'success');
                     } else {
-                        alert('Failed to delete inventory list.');
+                        showToast('Failed to delete inventory list.', 'error');
+                        this.deleteBatchModalOpen = false;
                     }
                 } catch (e) {
                     console.error(e);
+                    this.deleteBatchModalOpen = false;
                 }
             },
 
@@ -670,7 +728,7 @@
             async saveEdit() {
                 if (this.editMode === 'add') {
                     if (!this.editForm.chemical_id) {
-                        alert('Please search and select a chemical.');
+                        showToast('Please search and select a chemical.', 'warning');
                         return;
                     }
                     try {
@@ -689,16 +747,16 @@
                         const data = await res.json();
                         if (res.ok && !data.error) {
                             if (data.warning) {
-                                alert(data.warning);
+                                showToast(data.warning, 'warning');
                             }
                             await this.loadRows();
                             this.showEditModal = false;
                         } else {
-                            alert(data.error || 'Failed to add chemical.');
+                            showToast(data.error || 'Failed to add chemical.', 'error');
                         }
                     } catch (e) {
                         console.error(e);
-                        alert('Error adding chemical.');
+                        showToast('Error adding chemical.', 'error');
                     }
                 } else {
                     try {
@@ -721,28 +779,39 @@
                             await this.loadRows();
                             this.showEditModal = false;
                         } else {
-                            alert(data.error || 'Failed to update chemical.');
+                            showToast(data.error || 'Failed to update chemical.', 'error');
                         }
                     } catch (e) {
                         console.error(e);
-                        alert('Error updating chemical.');
+                        showToast('Error updating chemical.', 'error');
                     }
                 }
             },
 
-            async deleteRow(row) {
-                if (!confirm(`Delete "${row.name}"?`)) return;
+            openDeleteRowModal(row) {
+                this.deleteRowTarget = row;
+                this.deleteRowModalOpen = true;
+            },
+
+            async confirmDeleteRow() {
+                const row = this.deleteRowTarget;
+                if (!row) return;
                 try {
                     const res = await fetch(`/api/inventory/delete/${row.staging_id}?batch_id=${encodeURIComponent(this.selectedBatch)}`, {
                         method: 'DELETE'
                     });
                     if (res.ok) {
                         await this.loadRows();
+                        this.deleteRowModalOpen = false;
+                        this.deleteRowTarget = null;
+                        showToast('Chemical row deleted.', 'success');
                     } else {
-                        alert('Failed to delete chemical row.');
+                        showToast('Failed to delete chemical row.', 'error');
+                        this.deleteRowModalOpen = false;
                     }
                 } catch (e) {
                     console.error(e);
+                    this.deleteRowModalOpen = false;
                 }
             },
 

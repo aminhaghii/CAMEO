@@ -4,42 +4,42 @@
 {% block title %}Compliance Reports — SAFEWARE{% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-steel-900 text-steel-100 p-6">
+<div class="space-y-6 animate-fade-in">
 
   <!-- Page Header -->
-  <div class="mb-8">
+  <div class="mb-2">
     <div class="flex items-center gap-3 mb-2">
-      <div class="w-10 h-10 rounded-sm bg-safe/15 border border-safe/30 flex items-center justify-center">
+      <div class="w-10 h-10 rounded bg-safe/15 border border-safe/30 flex items-center justify-center">
         <svg class="w-5 h-5 text-safe" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round"
             d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
         </svg>
       </div>
       <div>
-        <h1 class="text-2xl font-semibold text-white">Compliance Reports</h1>
-        <p class="text-sm text-steel-300">EU REACH / CLP regulatory compliance export</p>
+        <h1 class="text-2xl font-bold text-steel-900">Compliance Reports</h1>
+        <p class="text-sm text-steel-400">EU REACH / CLP regulatory compliance export</p>
       </div>
     </div>
   </div>
 
   <!-- Main Grid -->
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
     <!-- Export Panel -->
-    <div class="lg:col-span-2 bg-steel-800 border border-steel-700 rounded-sm p-6">
-      <h2 class="text-lg font-medium text-white mb-1">Generate Report</h2>
-      <p class="text-sm text-steel-300 mb-6">Export an EU REACH/CLP compliance workbook for your inventory batch or
+    <div class="lg:col-span-2 content-card">
+      <h2 class="text-base font-semibold text-steel-900 mb-1">Generate Report</h2>
+      <p class="text-sm text-steel-400 mb-6">Export an EU REACH/CLP compliance workbook for your inventory batch or
         specific CAS numbers.</p>
 
       <!-- Batch Export -->
       <div class="mb-8">
-        <h3 class="text-sm font-semibold text-steel-200 uppercase tracking-widest mb-4">Mode 1 — Batch Report (3-Sheet
+        <h3 class="text-xs font-bold text-steel-400 uppercase tracking-widest mb-4">Mode 1 — Batch Report (3-Sheet
           Workbook)</h3>
         <div id="batch-list" class="space-y-2 mb-4 max-h-48 overflow-y-auto"></div>
         <div id="batch-empty" class="hidden text-sm text-steel-400 italic py-4 text-center">No completed batches found.
           Upload and process inventory first.</div>
         <button id="btn-export-batch" disabled onclick="exportBatch()"
-          class="w-full mt-4 flex items-center justify-center gap-2 rounded-sm bg-safe hover:bg-safe disabled:opacity-40 disabled:cursor-not-allowed px-4 py-3 text-sm font-semibold text-white transition-all">
+          class="btn btn-primary w-full mt-4 !py-3">
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round"
               d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
@@ -48,16 +48,16 @@
         </button>
       </div>
 
-      <div class="border-t border-steel-700 my-6"></div>
+      <div class="border-t border-steel-200 my-6"></div>
 
       <!-- CAS Export -->
       <div>
-        <h3 class="text-sm font-semibold text-steel-200 uppercase tracking-widest mb-4">Mode 2 — CAS Number Report</h3>
+        <h3 class="text-xs font-bold text-steel-400 uppercase tracking-widest mb-4">Mode 2 — CAS Number Report</h3>
         <textarea id="cas-input" rows="4"
           placeholder="Enter CAS numbers, one per line&#10;Example:&#10;67-64-1&#10;7664-93-9&#10;1310-73-2"
-          class="w-full bg-steel-800 border border-steel-700 rounded-sm px-4 py-3 text-sm text-steel-100 placeholder-steel-400 focus:outline-none focus:ring-2 focus:ring-steel-500/50 resize-none font-mono"></textarea>
+          class="field resize-none font-mono"></textarea>
         <button onclick="exportCAS()"
-          class="w-full mt-3 flex items-center justify-center gap-2 rounded-sm bg-steel-500 hover:bg-steel-600 px-4 py-3 text-sm font-semibold text-white transition-all">
+          class="btn btn-primary w-full mt-3 !py-3">
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round"
               d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
@@ -70,9 +70,9 @@
     <!-- Info Panel -->
     <div class="space-y-4">
       <!-- Info Card -->
-      <div class="bg-steel-800 border border-steel-700 rounded-sm p-5">
-        <h3 class="text-sm font-semibold text-white mb-3">About This Report</h3>
-        <ul class="space-y-2 text-sm text-steel-300">
+      <div class="content-card">
+        <h3 class="text-sm font-semibold text-steel-900 mb-3">About This Report</h3>
+        <ul class="space-y-2 text-sm text-steel-600">
           <li class="flex gap-2"><span class="text-safe mt-0.5">{{ icon('check', 'w-4 h-4') }}</span> EU REACH substance registration status
           </li>
           <li class="flex gap-2"><span class="text-safe mt-0.5">{{ icon('check', 'w-4 h-4') }}</span> CLP H-codes and hazard classifications
@@ -105,7 +105,7 @@
     el.className = 'rounded-sm p-4 text-sm font-medium ' + (
       type === 'error' ? 'bg-signal/15 border border-signal/30 text-signal' :
         type === 'success' ? 'bg-safe/15 border border-safe/30 text-safe' :
-          'bg-steel-800 border border-steel-700 text-steel-200'
+          'bg-steel-100 border border-steel-200 text-steel-600'
     );
     el.textContent = msg;
     el.classList.remove('hidden');
@@ -126,10 +126,10 @@
       }
 
       list.innerHTML = batches.map(b => `
-        <label class="flex items-center gap-3 p-3 rounded-sm border border-steel-700 hover:border-safe/50 cursor-pointer transition-all group">
-          <input type="radio" name="batch" value="${b.id}" class="accent-[#2E7D5B]" onchange="selectBatch('${b.id}')">
+        <label class="flex items-center gap-3 p-3 rounded border border-steel-200 hover:border-safe/50 cursor-pointer transition-all group">
+          <input type="radio" name="batch" value="${b.id}" class="accent-safe" onchange="selectBatch('${b.id}')">
           <div class="min-w-0">
-            <p class="text-sm font-medium text-steel-100 truncate">${b.filename}</p>
+            <p class="text-sm font-medium text-steel-800 truncate">${b.filename}</p>
             <p class="text-xs text-steel-400">${b.total_rows || 0} rows · ${b.created_at ? new Date(b.created_at).toLocaleDateString() : 'N/A'}</p>
           </div>
         </label>
